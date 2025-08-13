@@ -115,16 +115,16 @@ This MVP focuses on getting a basic observability system up and running quickly 
 
 **Detailed Tasks**:
 
-**H3.1: User Prompt Capture Hook**
-- [ ] Create `hooks/user_prompt_submit.py` with:
+**H3.1: User Prompt Capture Hook** ✅ **COMPLETED**
+- [x] Create `hooks/user_prompt_submit.py` with:
   - Parse Claude Code input JSON to extract prompt text and metadata
   - Capture prompt length, timestamp, and session context
   - Store as event_type='prompt' with data containing: {prompt_text, prompt_length, context}
   - Handle both direct prompts and follow-up messages
   - Output original JSON unchanged (pass-through behavior)
 
-**H3.2: Tool Usage Tracking Hook**
-- [ ] Create `hooks/post_tool_use.py` with:
+**H3.2: Tool Usage Tracking Hook** ✅ **COMPLETED**
+- [x] Create `hooks/post_tool_use.py` with:
   - Parse Claude Code tool execution results
   - Extract tool name, execution duration, success/failure status
   - Capture result size and any error messages
@@ -132,22 +132,22 @@ This MVP focuses on getting a basic observability system up and running quickly 
   - Identify and log MCP tools vs built-in tools
   - Handle timeout scenarios and partial results
 
-**H3.3: Session Lifecycle Tracking**
-- [ ] Create `hooks/session_start.py` with:
+**H3.3: Session Lifecycle Tracking** ✅ **COMPLETED**
+- [x] Create `hooks/session_start.py` with:
   - Extract project context (working directory, git branch if available)
   - Generate or retrieve session ID from Claude Code environment
   - Create session record in database with start_time
   - Store as event_type='session_start' with data containing: {project_path, git_branch, git_commit}
 
-**H3.4: Session End Tracking**  
-- [ ] Create `hooks/stop.py` with:
+**H3.4: Session End Tracking** ✅ **COMPLETED**
+- [x] Create `hooks/stop.py` with:
   - Update existing session record with end_time
   - Calculate total session duration
   - Store as event_type='session_end' with data containing: {duration_ms, events_count}
   - Handle cases where session_start wasn't captured
 
-**H3.5: Hook Integration Files**
-- [ ] Create installation script `hooks/install.py` to:
+**H3.5: Hook Integration Files** ✅ **COMPLETED**
+- [x] Create installation script `hooks/install.py` to:
   - Copy hook files to appropriate Claude Code hooks directory
   - Update Claude Code settings.json to register all hooks
   - Validate hook registration and permissions
@@ -220,33 +220,33 @@ This MVP focuses on getting a basic observability system up and running quickly 
 
 **Detailed Tasks**:
 
-**D2.1: Supabase Client Setup**
-- [ ] Create `lib/supabase.ts` with:
+**D2.1: Supabase Client Setup** ✅ **COMPLETED**
+- [x] Create `lib/supabase.ts` with:
   - Supabase client initialization using environment variables
   - TypeScript types for database schema (generated or manual)
   - Connection configuration for real-time subscriptions
-- [ ] Create database types in `lib/types.ts`:
+- [x] Create database types in `lib/types.ts`:
   - `Session` interface matching database schema
   - `Event` interface with proper JSONB data typing
   - `EventType` enum for 'prompt', 'tool_use', 'session_start', 'session_end'
 
-**D2.2: Data Fetching Hooks**
-- [ ] Create `hooks/useEvents.ts` custom hook with:
+**D2.2: Data Fetching Hooks** ✅ **COMPLETED**
+- [x] Create `hooks/useEvents.ts` custom hook with:
   - `useState` for events array and loading states
   - `useEffect` for initial data fetch and real-time subscription setup
   - Event sorting by timestamp (newest first)
   - Basic error handling with retry mechanism
-- [ ] Create `hooks/useSessions.ts` custom hook for:
+- [x] Create `hooks/useSessions.ts` custom hook for:
   - Active sessions list with status indicators
   - Session summary data (event counts, duration)
 
-**D2.3: Real-time Event Processing**
-- [ ] Implement real-time subscription in `useEvents` hook:
+**D2.3: Real-time Event Processing** ✅ **COMPLETED**
+- [x] Implement real-time subscription in `useEvents` hook:
   - Subscribe to `events` table INSERT operations
   - Handle new events with proper state updates
   - Implement event deduplication (prevent duplicate events)
   - Add automatic scrolling to new events
-- [ ] Create `lib/eventProcessor.ts` for:
+- [x] Create `lib/eventProcessor.ts` for:
   - Event data transformation and validation
   - Sanitization of sensitive data before display
   - Event grouping by session
@@ -270,29 +270,29 @@ This MVP focuses on getting a basic observability system up and running quickly 
 
 **Detailed Tasks**:
 
-**D3.1: Event Feed Component**
-- [ ] Create `components/EventFeed.tsx` with:
+**D3.1: Event Feed Component** ✅ **COMPLETED**
+- [x] Create `components/EventFeed.tsx` with:
   - Scrollable container with proper height management
   - Event cards displaying: timestamp, event type, session info, basic data preview
   - Loading states and empty state messaging
   - Auto-scroll to top when new events arrive (with user override)
 
-**D3.2: Event Card Component**
-- [ ] Create `components/EventCard.tsx` with:
+**D3.2: Event Card Component** ✅ **COMPLETED**
+- [x] Create `components/EventCard.tsx` with:
   - Color-coded badges for different event types (prompt=blue, tool_use=green, session=purple)
   - Timestamp formatting using `date-fns` (relative time + absolute on hover)
   - Session ID display with truncation for long IDs
   - Click handler to open event detail modal
   - Subtle hover effects and animations
 
-**D3.3: Event Filtering**
-- [ ] Create `components/EventFilter.tsx` with:
+**D3.3: Event Filtering** ✅ **COMPLETED**
+- [x] Create `components/EventFilter.tsx` with:
   - Simple dropdown/checkbox group for event type filtering
   - "Show All" option that's selected by default
   - Filter state management using React useState
   - Apply filters to event list in real-time
-- [ ] Update `useEvents` hook to accept filter parameters
-- [ ] Implement client-side filtering (server-side filtering in future roadmap)
+- [x] Update filtering utilities with filter parameters
+- [x] Implement client-side filtering (server-side filtering in future roadmap)
 
 **D3.4: Event Detail Modal**
 - [ ] Create `components/EventDetailModal.tsx` with:
