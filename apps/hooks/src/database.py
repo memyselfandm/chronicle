@@ -14,7 +14,10 @@ except ImportError:
     SUPABASE_AVAILABLE = False
     Client = None
 
-from .utils import validate_json, format_error_message
+try:
+    from .utils import validate_json, format_error_message
+except ImportError:
+    from utils import validate_json, format_error_message
 
 # Configure logger
 logger = logging.getLogger(__name__)

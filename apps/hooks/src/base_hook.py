@@ -9,8 +9,13 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Generator
 import uuid
 
-from .database import DatabaseManager
-from .utils import extract_session_context, get_git_info, sanitize_data, format_error_message
+try:
+    from .database import DatabaseManager
+    from .utils import extract_session_context, get_git_info, sanitize_data, format_error_message
+except ImportError:
+    # Fallback for when running as standalone script
+    from database import DatabaseManager
+    from utils import extract_session_context, get_git_info, sanitize_data, format_error_message
 
 # Configure logger
 logger = logging.getLogger(__name__)
