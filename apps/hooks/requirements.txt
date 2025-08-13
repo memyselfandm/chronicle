@@ -1,0 +1,19 @@
+# Chronicle Hooks Database Requirements
+
+# Core database dependencies
+aiosqlite>=0.19.0
+asyncpg>=0.28.0
+
+# Supabase client (optional, for cloud storage)
+supabase>=2.0.0
+
+# Additional utilities
+python-dotenv>=1.0.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Type hints and validation
+typing-extensions>=4.7.0
+
+# JSON handling
+ujson>=5.8.0
