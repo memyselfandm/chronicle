@@ -53,6 +53,24 @@ The Claude Code hooks system provides comprehensive observability into agent beh
 - Configurable security rules with regex pattern matching
 - Clear permission decision reasons for transparency
 
+### New Features (Sprint 3)
+
+**Comprehensive Security Validation**:
+- **Path traversal protection**: Blocks `../../../etc/passwd` type attacks
+- **Input size validation**: Configurable limits (default 10MB) prevent memory exhaustion
+- **Sensitive data detection**: 20+ patterns for API keys, tokens, PII, credentials
+- **Command injection prevention**: Shell escaping and dangerous pattern detection
+- **JSON schema validation**: Ensures proper hook input structure
+- **Performance optimized**: All validation completes in <5ms
+
+**Enhanced Error Handling**:
+- **Never crash Claude Code**: All exceptions caught with graceful fallback
+- **Standardized exit codes**: 0=success, 2=graceful failure per Claude Code docs
+- **Detailed error messages**: Actionable feedback for developers
+- **Configurable logging**: ERROR/WARN/INFO/DEBUG levels via environment variables
+- **Automatic recovery**: Retry logic, fallback mechanisms, circuit breakers
+- **Context-aware debugging**: Rich error context and recovery suggestions
+
 ## Prerequisites
 
 ### System Requirements
