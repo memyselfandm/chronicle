@@ -35,7 +35,7 @@ class SubagentStopHook(BaseHook):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """Initialize the subagent stop hook."""
         super().__init__(config or {})
-        self.hook_event_name = "subagent_stop"
+        self.hook_event_name = "SubagentStop"
     
     def process_hook_input(self, hook_input: Dict[str, Any]) -> Dict[str, Any]:
         """

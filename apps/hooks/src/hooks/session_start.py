@@ -47,7 +47,7 @@ class SessionStartHook(BaseHook):
     def __init__(self, config=None):
         """Initialize session start hook."""
         super().__init__(config)
-        self.hook_name = "session_start"
+        self.hook_name = "SessionStart"
     
     def process_session_start(self, input_data):
         """
@@ -82,7 +82,7 @@ class SessionStartHook(BaseHook):
             # Prepare event data (session_id will be set by BaseHook.save_event using session_uuid)
             event_data = {
                 "event_type": "session_start",
-                "hook_event_name": "session_start",
+                "hook_event_name": processed_data.get("hook_event_name", "SessionStart"),
                 "data": {
                     "project_path": project_context.get("cwd"),
                     "git_branch": project_context.get("git_info", {}).get("branch"),
@@ -100,7 +100,7 @@ class SessionStartHook(BaseHook):
             if session_success and self.session_uuid:
                 event_success = self.save_event(event_data)
             else:
-                logger.error("Cannot save event: session save failed or no session UUID available")
+                self.log_error(Exception("Cannot save event: session save failed or no session UUID available"), "process_session_start")
             
             return (session_success and event_success, session_data, event_data)
             

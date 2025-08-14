@@ -265,6 +265,50 @@ class BaseHook:
         """
         return sanitize_data(input_data)
     
+    def _normalize_hook_event_name(self, hook_event_name: str) -> str:
+        """
+        Normalize hook event name to PascalCase format.
+        
+        Converts snake_case event names to PascalCase to match Claude Code documentation.
+        
+        Args:
+            hook_event_name: Raw hook event name (may be snake_case or PascalCase)
+            
+        Returns:
+            Normalized PascalCase event name
+        """
+        if not hook_event_name:
+            return "Unknown"
+        
+        # Define the mapping from snake_case to PascalCase
+        event_name_mapping = {
+            "session_start": "SessionStart",
+            "pre_tool_use": "PreToolUse",
+            "post_tool_use": "PostToolUse", 
+            "user_prompt_submit": "UserPromptSubmit",
+            "pre_compact": "PreCompact",
+            "notification": "Notification",
+            "stop": "Stop",
+            "subagent_stop": "SubagentStop"
+        }
+        
+        # If it's already in the mapping (snake_case), convert to PascalCase
+        if hook_event_name.lower() in event_name_mapping:
+            return event_name_mapping[hook_event_name.lower()]
+        
+        # If it's already PascalCase, return as-is
+        if hook_event_name in event_name_mapping.values():
+            return hook_event_name
+        
+        # For unknown event names, attempt a generic conversion
+        if "_" in hook_event_name:
+            # Convert snake_case to PascalCase
+            words = hook_event_name.split("_")
+            return "".join(word.capitalize() for word in words)
+        
+        # Return as-is if no conversion needed
+        return hook_event_name
+    
     @contextmanager
     def _measure_execution_time(self) -> Generator[ExecutionTimer, None, None]:
         """
@@ -294,8 +338,11 @@ class BaseHook:
         sanitized_input = self._sanitize_input(input_data)
         
         # Extract common fields
+        raw_hook_event_name = sanitized_input.get("hookEventName", "unknown")
+        normalized_hook_event_name = self._normalize_hook_event_name(raw_hook_event_name)
+        
         processed_data = {
-            "hook_event_name": sanitized_input.get("hookEventName", "unknown"),
+            "hook_event_name": normalized_hook_event_name,
             "claude_session_id": self.claude_session_id,
             "transcript_path": sanitized_input.get("transcriptPath"),
             "cwd": sanitized_input.get("cwd", os.getcwd()),

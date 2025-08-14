@@ -35,7 +35,7 @@ class PreCompactHook(BaseHook):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """Initialize the pre-compact hook."""
         super().__init__(config or {})
-        self.hook_event_name = "pre_compact"
+        self.hook_event_name = "PreCompact"
     
     def process_hook_input(self, hook_input: Dict[str, Any]) -> Dict[str, Any]:
         """

@@ -35,7 +35,7 @@ class PreToolUseHook(BaseHook):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """Initialize the pre-tool use hook."""
         super().__init__(config or {})
-        self.hook_event_name = "pre_tool_use"
+        self.hook_event_name = "PreToolUse"
     
     def process_hook_input(self, hook_input: Dict[str, Any]) -> Dict[str, Any]:
         """

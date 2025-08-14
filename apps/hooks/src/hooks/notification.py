@@ -35,7 +35,7 @@ class NotificationHook(BaseHook):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """Initialize the notification hook."""
         super().__init__(config or {})
-        self.hook_event_name = "notification"
+        self.hook_event_name = "Notification"
     
     def process_hook_input(self, hook_input: Dict[str, Any]) -> Dict[str, Any]:
         """
