@@ -202,6 +202,13 @@ class HookInstaller:
         # Merge with existing settings
         merged_settings = merge_hook_settings(settings, hook_settings)
         
+        # Validate the merged settings before writing
+        try:
+            validate_settings_json(merged_settings)
+            logger.info("Generated settings passed validation")
+        except SettingsValidationError as e:
+            raise InstallationError(f"Generated settings failed validation: {e}")
+        
         # Write updated settings
         try:
             with open(settings_path, 'w') as f:
@@ -307,6 +314,38 @@ class HookInstaller:
                             "type": "command",
                             "command": f"{hooks_dir}/pre_compact.py",
                             "timeout": 10
+                        }
+                    ]
+                }
+            ],
+            "SessionStart": [
+                {
+                    "matcher": "startup",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"{hooks_dir}/session_start.py",
+                            "timeout": 5
+                        }
+                    ]
+                },
+                {
+                    "matcher": "resume",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"{hooks_dir}/session_start.py",
+                            "timeout": 5
+                        }
+                    ]
+                },
+                {
+                    "matcher": "clear",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"{hooks_dir}/session_start.py",
+                            "timeout": 5
                         }
                     ]
                 }
@@ -499,6 +538,183 @@ def backup_existing_settings(settings_path: str) -> str:
     return backup_path
 
 
+class SettingsValidationError(Exception):
+    """Custom exception for settings validation errors."""
+    pass
+
+
+def validate_settings_json(settings_data: Dict[str, Any]) -> bool:
+    """
+    Validate settings.json data according to Claude Code hook schema.
+    
+    Args:
+        settings_data: Dictionary containing settings.json data
+        
+    Returns:
+        True if valid
+        
+    Raises:
+        SettingsValidationError: If validation fails with detailed error message
+    """
+    if not isinstance(settings_data, dict):
+        raise SettingsValidationError("Settings must be a JSON object")
+    
+    # If no hooks configuration, that's valid (empty case)
+    if "hooks" not in settings_data:
+        return True
+    
+    hooks_config = settings_data["hooks"]
+    
+    # Handle None or empty hooks
+    if hooks_config is None or hooks_config == {}:
+        return True
+    
+    if not isinstance(hooks_config, dict):
+        raise SettingsValidationError("'hooks' must be an object")
+    
+    # Valid Claude Code hook event names
+    valid_events = {
+        "PreToolUse", "PostToolUse", "UserPromptSubmit", 
+        "Notification", "Stop", "SubagentStop", "PreCompact", "SessionStart"
+    }
+    
+    # Events that don't typically use matchers
+    events_without_matchers = {"UserPromptSubmit", "Notification", "Stop", "SubagentStop"}
+    
+    # Valid matchers for specific events
+    precompact_matchers = {"manual", "auto"}
+    sessionstart_matchers = {"startup", "resume", "clear"}
+    
+    for event_name, event_configs in hooks_config.items():
+        # Validate event name
+        if event_name not in valid_events:
+            valid_events_list = ", ".join(sorted(valid_events))
+            raise SettingsValidationError(
+                f"Invalid hook event name: {event_name}. "
+                f"Valid events are: {valid_events_list}"
+            )
+        
+        # Validate event configuration structure
+        if not isinstance(event_configs, list):
+            raise SettingsValidationError(
+                f"Event '{event_name}' must have an array of configurations"
+            )
+        
+        for i, config in enumerate(event_configs):
+            if not isinstance(config, dict):
+                raise SettingsValidationError(
+                    f"Event '{event_name}' configuration {i} must be an object"
+                )
+            
+            # Validate matcher (if present)
+            if "matcher" in config:
+                matcher = config["matcher"]
+                
+                # Check for common mistake: using arrays instead of strings
+                if isinstance(matcher, list):
+                    matcher_suggestion = "|".join(matcher)
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' matcher must be a string, not an array. "
+                        f"Use '{matcher_suggestion}' instead of {matcher}"
+                    )
+                
+                if not isinstance(matcher, str):
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' matcher must be a string"
+                    )
+                
+                # Validate specific event matchers
+                if event_name == "PreCompact":
+                    if matcher and matcher not in precompact_matchers:
+                        valid_matchers = ", ".join(sorted(precompact_matchers))
+                        logger.warning(
+                            f"PreCompact matcher '{matcher}' may not be recognized. "
+                            f"Common values are: {valid_matchers}"
+                        )
+                
+                elif event_name == "SessionStart":
+                    if matcher and matcher not in sessionstart_matchers:
+                        valid_matchers = ", ".join(sorted(sessionstart_matchers))
+                        logger.warning(
+                            f"SessionStart matcher '{matcher}' may not be recognized. "
+                            f"Common values are: {valid_matchers}"
+                        )
+            
+            # Validate hooks array (required)
+            if "hooks" not in config:
+                raise SettingsValidationError(
+                    f"Event '{event_name}' configuration {i} missing required 'hooks' array"
+                )
+            
+            hooks_array = config["hooks"]
+            if not isinstance(hooks_array, list):
+                raise SettingsValidationError(
+                    f"Event '{event_name}' configuration {i} 'hooks' must be an array"
+                )
+            
+            if len(hooks_array) == 0:
+                raise SettingsValidationError(
+                    f"Event '{event_name}' configuration {i} 'hooks' array cannot be empty"
+                )
+            
+            # Validate individual hook configurations
+            for j, hook in enumerate(hooks_array):
+                if not isinstance(hook, dict):
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' configuration {i}, hook {j} must be an object"
+                    )
+                
+                # Validate hook type (required)
+                if "type" not in hook:
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' configuration {i}, hook {j} missing required 'type'"
+                    )
+                
+                hook_type = hook["type"]
+                if hook_type != "command":
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' configuration {i}, hook {j} type must be 'command', got '{hook_type}'"
+                    )
+                
+                # Validate command (required)
+                if "command" not in hook:
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' configuration {i}, hook {j} missing required 'command'"
+                    )
+                
+                command = hook["command"]
+                if command is None or not isinstance(command, str):
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' configuration {i}, hook {j} 'command' must be a string"
+                    )
+                
+                if not command or command.strip() == "":
+                    raise SettingsValidationError(
+                        f"Event '{event_name}' configuration {i}, hook {j} command cannot be empty"
+                    )
+                
+                # Validate timeout (optional)
+                if "timeout" in hook:
+                    timeout = hook["timeout"]
+                    if not isinstance(timeout, int):
+                        raise SettingsValidationError(
+                            f"Event '{event_name}' configuration {i}, hook {j} 'timeout' must be an integer"
+                        )
+                    
+                    if timeout <= 0:
+                        raise SettingsValidationError(
+                            f"Event '{event_name}' configuration {i}, hook {j} 'timeout' must be positive"
+                        )
+                    
+                    if timeout > 3600:  # 1 hour max
+                        raise SettingsValidationError(
+                            f"Event '{event_name}' configuration {i}, hook {j} 'timeout' cannot exceed 3600 seconds"
+                        )
+    
+    logger.info("Settings validation passed successfully")
+    return True
+
+
 def merge_hook_settings(existing_settings: Dict[str, Any], 
                        hook_settings: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -586,6 +802,54 @@ def verify_installation(claude_dir: str) -> Dict[str, Any]:
     return installer.validate_installation()
 
 
+def validate_existing_settings(claude_dir: str) -> Dict[str, Any]:
+    """
+    Validate an existing settings.json file.
+    
+    Args:
+        claude_dir: Claude Code directory path
+        
+    Returns:
+        Dictionary containing validation results
+    """
+    settings_path = Path(claude_dir) / "settings.json"
+    
+    validation_result = {
+        "success": False,
+        "settings_found": False,
+        "validation_passed": False,
+        "errors": []
+    }
+    
+    # Check if settings file exists
+    if not settings_path.exists():
+        validation_result["errors"].append(f"Settings file not found: {settings_path}")
+        return validation_result
+    
+    validation_result["settings_found"] = True
+    
+    # Load and validate settings
+    try:
+        with open(settings_path, 'r') as f:
+            settings = json.load(f)
+        
+        # Validate the settings
+        validate_settings_json(settings)
+        
+        validation_result["validation_passed"] = True
+        validation_result["success"] = True
+        logger.info(f"Settings validation successful: {settings_path}")
+        
+    except json.JSONDecodeError as e:
+        validation_result["errors"].append(f"Invalid JSON in settings file: {e}")
+    except SettingsValidationError as e:
+        validation_result["errors"].append(f"Settings validation failed: {e}")
+    except Exception as e:
+        validation_result["errors"].append(f"Unexpected error during validation: {e}")
+    
+    return validation_result
+
+
 def main():
     """Main entry point for the installation script."""
     parser = argparse.ArgumentParser(
@@ -629,6 +893,12 @@ def main():
     )
     
     parser.add_argument(
+        "--validate-settings",
+        action="store_true",
+        help="Only validate existing settings.json file"
+    )
+    
+    parser.add_argument(
         "--no-test-db",
         action="store_true",
         help="Skip database connection test"
@@ -663,6 +933,23 @@ def main():
                 print(f"   Settings updated: {result['settings_updated']}")
             else:
                 print("❌ Installation validation failed!")
+                for error in result["errors"]:
+                    print(f"   Error: {error}")
+                sys.exit(1)
+            
+            return
+        
+        # Settings validation-only mode
+        if args.validate_settings:
+            logger.info("Validating existing settings.json...")
+            result = validate_existing_settings(claude_dir)
+            
+            if result["success"]:
+                print("✅ Settings validation successful!")
+                print(f"   Settings found: {result['settings_found']}")
+                print(f"   Validation passed: {result['validation_passed']}")
+            else:
+                print("❌ Settings validation failed!")
                 for error in result["errors"]:
                     print(f"   Error: {error}")
                 sys.exit(1)
