@@ -111,15 +111,28 @@ SQLITE_FALLBACK_PATH=~/.chronicle/fallback.db
 
 ### Step 3: Database Schema Setup
 
-**Option A: Automated Schema Setup**
+**Option A: Automated Schema Setup (Recommended)**
+
+Option A automatically detects your configuration and sets up the appropriate database:
+
 ```bash
 cd apps/hooks
 python -c "from src.database import DatabaseManager; DatabaseManager().setup_schema()"
 ```
 
+**How Option A Works**:
+- **With Supabase**: If you have `SUPABASE_URL` and `SUPABASE_ANON_KEY` in your `.env` file, it will create the schema in your Supabase database
+- **Without Supabase**: If no Supabase credentials are found, it automatically falls back to SQLite at `~/.claude/hooks_data.db`
+- **Dependencies**: Ensure you've installed requirements: `pip install -r requirements.txt` (or `uv pip install -r requirements.txt`)
+
+**Success Indicators**:
+- No Python errors or exceptions thrown
+- For Supabase: Tables created in your Supabase project
+- For SQLite: Database file created at `~/.claude/hooks_data.db`
+
 **Option B: Manual Schema Setup**
 1. Open your Supabase dashboard
-2. Go to SQL Editor
+2. Go to SQL Editor  
 3. Copy and execute the schema from `apps/hooks/config/schema.sql`
 
 ### Step 4: Claude Code Integration
@@ -274,14 +287,32 @@ echo '{"test":"data"}' | python ~/.claude/hooks/pre_tool_use.py
 # Test Supabase connection
 curl -H "apikey: $SUPABASE_ANON_KEY" "$SUPABASE_URL/rest/v1/"
 
-# Check environment variables
+# Check environment variables are loaded
 env | grep SUPABASE
 
 # Test SQLite fallback
 ls -la ~/.chronicle/
 ```
 
-#### 4. Permission Denied Errors
+#### 4. Option A Schema Setup Issues
+**Symptoms**: "Supabase credentials not provided" during installation
+**Solutions**:
+```bash
+# Check .env file exists and has correct format
+cat apps/hooks/.env | grep SUPABASE
+
+# Verify python-dotenv is installed
+pip list | grep python-dotenv
+
+# Test credential loading
+cd apps/hooks
+python -c "from dotenv import load_dotenv; load_dotenv(); import os; print('URL:', bool(os.getenv('SUPABASE_URL'))); print('KEY:', bool(os.getenv('SUPABASE_ANON_KEY')))"
+
+# Alternative: Use setup_schema_and_verify for better feedback
+python -c "from src.database import setup_schema_and_verify; setup_schema_and_verify()"
+```
+
+#### 5. Permission Denied Errors
 **Solutions**:
 ```bash
 # Fix Claude directory permissions
