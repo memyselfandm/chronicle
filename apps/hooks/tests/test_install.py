@@ -343,7 +343,7 @@ class TestUtilityFunctions:
         }
         
         new_hook_settings = {
-            "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "test.py"}]}]
+            "PreToolUse": [{"hooks": [{"type": "command", "command": "test.py"}]}]
         }
         
         merged = merge_hook_settings(existing_settings, new_hook_settings)

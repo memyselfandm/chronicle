@@ -228,7 +228,6 @@ claude-code-observability/
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -240,7 +239,6 @@ claude-code-observability/
     ],
     "PostToolUse": [
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -272,18 +270,6 @@ claude-code-observability/
         ]
       }
     ],
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.py",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
@@ -308,7 +294,7 @@ claude-code-observability/
     ],
     "PreCompact": [
       {
-        "matcher": "*",
+        "matcher": "manual",
         "hooks": [
           {
             "type": "command",

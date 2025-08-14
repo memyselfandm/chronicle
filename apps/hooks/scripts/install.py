@@ -225,7 +225,6 @@ class HookInstaller:
         hook_configs = {
             "PreToolUse": [
                 {
-                    "matcher": "*",
                     "hooks": [
                         {
                             "type": "command",
@@ -237,7 +236,6 @@ class HookInstaller:
             ],
             "PostToolUse": [
                 {
-                    "matcher": "*",
                     "hooks": [
                         {
                             "type": "command", 
@@ -269,18 +267,6 @@ class HookInstaller:
                     ]
                 }
             ],
-            "SessionStart": [
-                {
-                    "matcher": "*",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f"{hooks_dir}/session_start.py",
-                            "timeout": 10
-                        }
-                    ]
-                }
-            ],
             "Stop": [
                 {
                     "hooks": [
@@ -305,7 +291,17 @@ class HookInstaller:
             ],
             "PreCompact": [
                 {
-                    "matcher": "*",
+                    "matcher": "manual",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"{hooks_dir}/pre_compact.py",
+                            "timeout": 10
+                        }
+                    ]
+                },
+                {
+                    "matcher": "auto",
                     "hooks": [
                         {
                             "type": "command",

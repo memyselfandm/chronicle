@@ -150,7 +150,6 @@ Add hook configurations to your Claude Code `settings.json`:
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -162,7 +161,6 @@ Add hook configurations to your Claude Code `settings.json`:
     ],
     "PostToolUse": [
       {
-        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -179,18 +177,6 @@ Add hook configurations to your Claude Code `settings.json`:
             "type": "command",
             "command": "$HOME/.claude/hooks/user_prompt_submit.py",
             "timeout": 5
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/session_start.py",
-            "timeout": 10
           }
         ]
       }
@@ -230,7 +216,17 @@ Add hook configurations to your Claude Code `settings.json`:
     ],
     "PreCompact": [
       {
-        "matcher": "*",
+        "matcher": "manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/pre_compact.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "auto",
         "hooks": [
           {
             "type": "command",
