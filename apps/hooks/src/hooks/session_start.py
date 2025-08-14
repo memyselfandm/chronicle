@@ -69,9 +69,9 @@ class SessionStartHook(BaseHook):
             # Extract session start specific data
             trigger_source = input_data.get("source", "unknown")
             
-            # Prepare session data
+            # Prepare session data with claude_session_id
             session_data = {
-                "session_id": self.session_id,
+                "claude_session_id": self.claude_session_id,
                 "start_time": datetime.now().isoformat(),
                 "source": trigger_source,
                 "project_path": project_context.get("cwd"),
@@ -79,11 +79,10 @@ class SessionStartHook(BaseHook):
                 "git_commit": project_context.get("git_info", {}).get("commit_hash"),
             }
             
-            # Prepare event data
+            # Prepare event data (session_id will be set by BaseHook.save_event using session_uuid)
             event_data = {
                 "event_type": "session_start",
                 "hook_event_name": "session_start",
-                "session_id": self.session_id,
                 "data": {
                     "project_path": project_context.get("cwd"),
                     "git_branch": project_context.get("git_info", {}).get("branch"),
@@ -93,9 +92,15 @@ class SessionStartHook(BaseHook):
                 }
             }
             
-            # Save to database
+            # Save session first to get the UUID for events
             session_success = self.save_session(session_data)
-            event_success = self.save_event(event_data)
+            event_success = False
+            
+            # Only save event if session was saved successfully
+            if session_success and self.session_uuid:
+                event_success = self.save_event(event_data)
+            else:
+                logger.error("Cannot save event: session save failed or no session UUID available")
             
             return (session_success and event_success, session_data, event_data)
             
@@ -117,7 +122,8 @@ class SessionStartHook(BaseHook):
         """
         hook_specific_data = {
             "session_initialized": success,
-            "session_id": session_data.get("session_id"),
+            "claude_session_id": session_data.get("claude_session_id"),
+            "session_uuid": getattr(self, "session_uuid", None),
             "project_path": session_data.get("project_path"),
             "git_branch": session_data.get("git_branch"),
             "trigger_source": session_data.get("source"),

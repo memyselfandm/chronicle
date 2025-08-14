@@ -6,7 +6,7 @@ import os
 import time
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, Optional, Generator
+from typing import Any, Dict, Optional, Generator, Tuple
 import uuid
 
 try:
@@ -60,7 +60,8 @@ class BaseHook:
         """
         self.config = config or {}
         self.db_manager = DatabaseManager(self.config.get("database"))
-        self.session_id: Optional[str] = None
+        self.claude_session_id: Optional[str] = None  # Claude's session ID (text)
+        self.session_uuid: Optional[str] = None  # Database session UUID
         self.log_file = os.path.expanduser("~/.claude/hooks_debug.log")
         
         # Ensure log directory exists
@@ -68,7 +69,7 @@ class BaseHook:
         
         logger.info("BaseHook initialized")
     
-    def get_session_id(self, input_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    def get_claude_session_id(self, input_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
         Extract Claude session ID from input data or environment.
         
@@ -76,21 +77,21 @@ class BaseHook:
             input_data: Hook input data (optional)
             
         Returns:
-            Session ID string or None if not found
+            Claude session ID string or None if not found
         """
         # Priority: input_data > environment variable
         if input_data and "sessionId" in input_data:
             session_id = input_data["sessionId"]
-            logger.debug(f"Session ID from input: {session_id}")
+            logger.debug(f"Claude session ID from input: {session_id}")
             return session_id
         
         # Try environment variable
         session_id = os.getenv("CLAUDE_SESSION_ID")
         if session_id:
-            logger.debug(f"Session ID from environment: {session_id}")
+            logger.debug(f"Claude session ID from environment: {session_id}")
             return session_id
         
-        logger.warning("No session ID found in input or environment")
+        logger.warning("No Claude session ID found in input or environment")
         return None
     
     def load_project_context(self, cwd: Optional[str] = None) -> Dict[str, Any]:
@@ -119,6 +120,7 @@ class BaseHook:
     def save_event(self, event_data: Dict[str, Any]) -> bool:
         """
         Save event data to database with error handling.
+        Automatically ensures session exists before saving event.
         
         Args:
             event_data: Event data to save
@@ -126,14 +128,31 @@ class BaseHook:
         Returns:
             True if successful, False otherwise
         """
-        if not self.session_id:
-            logger.error("Cannot save event: no session ID available")
-            return False
-        
         try:
-            # Add session ID and timestamp if not present
+            # Ensure we have session UUID - create session if needed
+            if not self.session_uuid and self.claude_session_id:
+                logger.debug("No session UUID available, attempting to create/find session")
+                # Create a minimal session record
+                session_data = {
+                    "claude_session_id": self.claude_session_id,
+                    "start_time": datetime.now().isoformat(),
+                    "project_path": os.getcwd(),
+                }
+                success, session_uuid = self.db_manager.save_session(session_data)
+                if success and session_uuid:
+                    self.session_uuid = session_uuid
+                    logger.debug(f"Created/found session with UUID: {session_uuid}")
+                else:
+                    logger.error("Failed to create/find session for event")
+                    return False
+            
+            if not self.session_uuid:
+                logger.error("Cannot save event: no session UUID available and no claude_session_id")
+                return False
+            
+            # Use the database session UUID for the foreign key
             if "session_id" not in event_data:
-                event_data["session_id"] = self.session_id
+                event_data["session_id"] = self.session_uuid
             
             if "timestamp" not in event_data:
                 event_data["timestamp"] = datetime.now().isoformat()
@@ -164,35 +183,46 @@ class BaseHook:
     def save_session(self, session_data: Dict[str, Any]) -> bool:
         """
         Save session data to database with error handling.
+        Creates or retrieves a session record and sets the session UUID.
         
         Args:
-            session_data: Session data to save
+            session_data: Session data to save (should contain claude_session_id)
             
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Add session ID if not present
-            if "session_id" not in session_data and self.session_id:
-                session_data["session_id"] = self.session_id
+            # Ensure we have the claude_session_id
+            if "claude_session_id" not in session_data and self.claude_session_id:
+                session_data["claude_session_id"] = self.claude_session_id
+            
+            if "claude_session_id" not in session_data:
+                logger.error("Cannot save session: no claude_session_id available")
+                return False
             
             # Add timestamp if not present
             if "start_time" not in session_data:
                 session_data["start_time"] = datetime.now().isoformat()
             
+            # Generate a UUID for this session if not present
+            if "id" not in session_data:
+                session_data["id"] = str(uuid.uuid4())
+            
             # Sanitize the data before saving
             sanitized_data = sanitize_data(session_data)
             
             # Save to database
-            success = self.db_manager.save_session(sanitized_data)
+            success, session_uuid = self.db_manager.save_session(sanitized_data)
             
-            if success:
-                logger.debug("Session saved successfully")
+            if success and session_uuid:
+                logger.debug(f"Session saved successfully with UUID: {session_uuid}")
+                # Store the session UUID for use in events
+                self.session_uuid = session_uuid
+                return True
             else:
                 logger.error("Failed to save session")
                 self.log_error(Exception("Session save failed"), "save_session")
-            
-            return success
+                return False
             
         except Exception as e:
             logger.error(f"Exception saving session: {format_error_message(e, 'save_session')}")
@@ -257,8 +287,8 @@ class BaseHook:
         Returns:
             Processed and sanitized hook data
         """
-        # Extract session ID
-        self.session_id = self.get_session_id(input_data)
+        # Extract Claude session ID
+        self.claude_session_id = self.get_claude_session_id(input_data)
         
         # Sanitize input
         sanitized_input = self._sanitize_input(input_data)
@@ -266,7 +296,7 @@ class BaseHook:
         # Extract common fields
         processed_data = {
             "hook_event_name": sanitized_input.get("hookEventName", "unknown"),
-            "session_id": self.session_id,
+            "claude_session_id": self.claude_session_id,
             "transcript_path": sanitized_input.get("transcriptPath"),
             "cwd": sanitized_input.get("cwd", os.getcwd()),
             "raw_input": sanitized_input,

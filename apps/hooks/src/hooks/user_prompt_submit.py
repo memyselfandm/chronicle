@@ -92,7 +92,6 @@ class UserPromptSubmitHook(BaseHook):
             # Create event data for database storage
             event_data = {
                 "event_type": "prompt",
-                "session_id": self.session_id,
                 "hook_event_name": hook_data["hook_event_name"],
                 "timestamp": prompt_data["timestamp"],
                 "data": {
