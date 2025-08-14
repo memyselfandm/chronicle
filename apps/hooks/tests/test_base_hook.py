@@ -33,9 +33,9 @@ def sample_hook_input():
 
 def test_base_hook_init():
     """Test BaseHook initialization."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
-    with patch('src.base_hook.DatabaseManager') as mock_db:
+    with patch('src.core.base_hook.DatabaseManager') as mock_db:
         mock_db.return_value = Mock()
         
         hook = BaseHook()
@@ -47,40 +47,40 @@ def test_base_hook_init():
 
 def test_get_session_id_from_env():
     """Test extracting session ID from environment."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
     with patch.dict(os.environ, {"CLAUDE_SESSION_ID": "env-session-456"}):
-        with patch('src.base_hook.DatabaseManager'):
+        with patch('src.core.base_hook.DatabaseManager'):
             hook = BaseHook()
             
-            session_id = hook.get_session_id()
+            session_id = hook.get_claude_session_id()
             
             assert session_id == "env-session-456"
 
 
 def test_get_session_id_from_input():
     """Test extracting session ID from input data."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
-    with patch('src.base_hook.DatabaseManager'):
+    with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
         
         input_data = {"sessionId": "input-session-789"}
-        session_id = hook.get_session_id(input_data)
+        session_id = hook.get_claude_session_id(input_data)
         
         assert session_id == "input-session-789"
 
 
 def test_get_session_id_priority():
     """Test session ID extraction priority (input > env)."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
     with patch.dict(os.environ, {"CLAUDE_SESSION_ID": "env-session"}):
-        with patch('src.base_hook.DatabaseManager'):
+        with patch('src.core.base_hook.DatabaseManager'):
             hook = BaseHook()
             
             input_data = {"sessionId": "input-session"}
-            session_id = hook.get_session_id(input_data)
+            session_id = hook.get_claude_session_id(input_data)
             
             # Input should take priority over environment
             assert session_id == "input-session"
@@ -89,7 +89,7 @@ def test_get_session_id_priority():
 @patch('src.base_hook.get_git_info')
 def test_load_project_context(mock_git_info):
     """Test loading project context."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
     mock_git_info.return_value = {
         "branch": "main",
@@ -98,7 +98,7 @@ def test_load_project_context(mock_git_info):
         "has_changes": False
     }
     
-    with patch('src.base_hook.DatabaseManager'):
+    with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
         
         context = hook.load_project_context()
@@ -110,7 +110,7 @@ def test_load_project_context(mock_git_info):
 
 def test_save_event_success(mock_database_manager):
     """Test successful event saving."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
     with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
         hook = BaseHook()
@@ -134,7 +134,7 @@ def test_save_event_success(mock_database_manager):
 
 def test_save_event_failure(mock_database_manager):
     """Test event saving failure."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
     mock_database_manager.save_event.return_value = False
     
@@ -151,9 +151,9 @@ def test_save_event_failure(mock_database_manager):
 
 def test_save_event_without_session_id():
     """Test event saving without session ID."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
-    with patch('src.base_hook.DatabaseManager'):
+    with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
         # Don't set session_id
         
@@ -166,9 +166,9 @@ def test_save_event_without_session_id():
 
 def test_log_error_creates_file():
     """Test error logging creates log file."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
-    with patch('src.base_hook.DatabaseManager'):
+    with patch('src.core.base_hook.DatabaseManager'):
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = os.path.join(temp_dir, "test.log")
             
@@ -188,9 +188,9 @@ def test_log_error_creates_file():
 
 def test_log_error_appends_to_existing():
     """Test error logging appends to existing log file."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
-    with patch('src.base_hook.DatabaseManager'):
+    with patch('src.core.base_hook.DatabaseManager'):
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
             temp_file.write("Existing log content\n")
             temp_file.flush()
@@ -213,11 +213,11 @@ def test_log_error_appends_to_existing():
 @patch('src.base_hook.sanitize_data')
 def test_process_hook_input_sanitization(mock_sanitize):
     """Test that hook input is sanitized."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
     mock_sanitize.return_value = {"clean": "data"}
     
-    with patch('src.base_hook.DatabaseManager'):
+    with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
         
         input_data = {"sensitive": "api_key_12345"}
@@ -229,9 +229,9 @@ def test_process_hook_input_sanitization(mock_sanitize):
 
 def test_hook_timing_measurement():
     """Test that hook execution time is measured."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
-    with patch('src.base_hook.DatabaseManager'):
+    with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
         
         with hook._measure_execution_time() as timer:
@@ -246,12 +246,12 @@ def test_hook_timing_measurement():
 
 def test_error_handling_in_save_event():
     """Test error handling when saving events."""
-    from src.base_hook import BaseHook
+    from src.core.base_hook import BaseHook
     
     mock_db = Mock()
     mock_db.save_event.side_effect = Exception("Database error")
     
-    with patch('apps.hooks.src.base_hook.DatabaseManager', return_value=mock_db):
+    with patch('apps.hooks.src.core.base_hook.DatabaseManager', return_value=mock_db):
         hook = BaseHook()
         hook.session_id = "test-session"
         

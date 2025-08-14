@@ -216,7 +216,8 @@ if __name__ == "__main__":
         
         # Verify hook configuration structure
         pre_tool_use = settings["hooks"]["PreToolUse"][0]
-        assert pre_tool_use["matcher"] == "*"
+        # No matcher field should be present for PreToolUse (matches all by default)
+        assert "matcher" not in pre_tool_use or pre_tool_use.get("matcher") is None
         assert len(pre_tool_use["hooks"]) == 1
         assert pre_tool_use["hooks"][0]["type"] == "command"
         assert "pre_tool_use.py" in pre_tool_use["hooks"][0]["command"]

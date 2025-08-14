@@ -13,9 +13,9 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, AsyncMock
 from pathlib import Path
 
-from src.database import SupabaseClient, DatabaseManager
-from src.base_hook import BaseHook
-from src.utils import validate_hook_input, sanitize_input_data
+from src.core.database import SupabaseClient, DatabaseManager
+from src.core.base_hook import BaseHook
+from src.core.utils import sanitize_data
 
 
 class MockSQLiteClient:
@@ -81,8 +81,7 @@ class TestHookE2EIntegration:
             "tool_name": "Read",
             "tool_input": {
                 "file_path": "/test/project/src/config.json"
-            },
-            "matcher": "Read"
+            }
         }
 
     def test_complete_hook_execution_flow(self, sample_hook_input, mock_supabase_client):
@@ -152,8 +151,7 @@ class TestHookE2EIntegration:
                 "cwd": f"/test/project-{i}",
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Read",
-                "tool_input": {"file_path": f"/test/file-{i}.txt"},
-                "matcher": "Read"
+                "tool_input": {"file_path": f"/test/file-{i}.txt"}
             })
 
         # Process hooks concurrently
@@ -198,8 +196,7 @@ class TestHookE2EIntegration:
                 "cwd": "/test/project",
                 "hook_event_name": "PreToolUse",
                 "tool_name": "Read",
-                "tool_input": {"file_path": "/test/package.json"},
-                "matcher": "Read"
+                "tool_input": {"file_path": "/test/package.json"}
             },
             {
                 "session_id": session_id,
@@ -207,8 +204,7 @@ class TestHookE2EIntegration:
                 "cwd": "/test/project",
                 "hook_event_name": "PostToolUse",
                 "tool_name": "Read",
-                "tool_response": {"content": '{"name": "test-project"}'},
-                "matcher": "Read"
+                "tool_response": {"content": '{"name": "test-project"}'}
             },
             {
                 "session_id": session_id,
@@ -219,8 +215,7 @@ class TestHookE2EIntegration:
                 "tool_input": {
                     "file_path": "/test/src/App.tsx",
                     "content": "import React from 'react';"
-                },
-                "matcher": "Write"
+                }
             }
         ]
 
@@ -274,8 +269,7 @@ class TestHookE2EIntegration:
                 "title": "Bug report",
                 "body": "Found an issue",
                 "labels": ["bug"]
-            },
-            "matcher": "mcp__github__create_issue"
+            }
         }
 
         hook = BaseHook()

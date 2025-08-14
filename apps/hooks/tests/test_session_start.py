@@ -20,7 +20,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 # Import from src module
-from src.base_hook import BaseHook
+from src.core.base_hook import BaseHook
 
 
 class MockSessionStartHook(BaseHook):
@@ -38,17 +38,17 @@ class MockSessionStartHook(BaseHook):
         """
         try:
             # Extract session ID and basic data
-            processed_data = self.process_hook_data(input_data)
+            self.claude_session_id = self.get_claude_session_id(input_data)
             
             # Get project context
-            project_context = self.load_project_context(processed_data.get("cwd"))
+            project_context = self.load_project_context(input_data.get("cwd"))
             
             # Extract session start specific data
             trigger_source = input_data.get("source", "unknown")
             
             # Prepare session data
             session_data = {
-                "session_id": self.session_id,
+                "session_id": self.claude_session_id,
                 "start_time": datetime.now().isoformat(),
                 "source": trigger_source,
                 "project_path": project_context.get("cwd"),
@@ -59,8 +59,8 @@ class MockSessionStartHook(BaseHook):
             # Prepare event data
             event_data = {
                 "event_type": "session_start",
-                "hook_event_name": "session_start",
-                "session_id": self.session_id,
+                "hook_event_name": "SessionStart",
+                "session_id": self.claude_session_id,
                 "data": {
                     "project_path": project_context.get("cwd"),
                     "git_branch": project_context.get("git_info", {}).get("branch"),
@@ -96,7 +96,7 @@ def mock_hook():
 def sample_input_data():
     """Sample input data that would come from Claude Code."""
     return {
-        "hookEventName": "session_start",
+        "hookEventName": "SessionStart",
         "sessionId": "test-session-123",
         "source": "startup",
         "transcriptPath": "/path/to/transcript.json",
@@ -129,28 +129,28 @@ class TestSessionStartHook:
     
     def test_session_id_extraction_from_input(self, mock_hook, sample_input_data):
         """Test extracting session ID from input data."""
-        session_id = mock_hook.get_session_id(sample_input_data)
+        session_id = mock_hook.get_claude_session_id(sample_input_data)
         
         assert session_id == "test-session-123"
-        assert mock_hook.session_id is None  # Should not be set yet
+        assert mock_hook.claude_session_id is None  # Should not be set yet
     
     def test_session_id_extraction_from_environment(self, mock_hook):
         """Test extracting session ID from environment variable."""
         with patch.dict(os.environ, {"CLAUDE_SESSION_ID": "env-session-456"}):
-            session_id = mock_hook.get_session_id({})
+            session_id = mock_hook.get_claude_session_id({})
             
             assert session_id == "env-session-456"
     
     def test_session_id_priority_input_over_env(self, mock_hook, sample_input_data):
         """Test that input data session ID takes priority over environment."""
         with patch.dict(os.environ, {"CLAUDE_SESSION_ID": "env-session-456"}):
-            session_id = mock_hook.get_session_id(sample_input_data)
+            session_id = mock_hook.get_claude_session_id(sample_input_data)
             
             assert session_id == "test-session-123"  # Input should win
     
     def test_no_session_id_available(self, mock_hook):
         """Test handling when no session ID is available."""
-        session_id = mock_hook.get_session_id({})
+        session_id = mock_hook.get_claude_session_id({})
         
         assert session_id is None
     
@@ -240,7 +240,7 @@ class TestSessionStartHook:
         
         for source in test_sources:
             input_data = {
-                "hookEventName": "session_start",
+                "hookEventName": "SessionStart",
                 "sessionId": f"test-session-{source}",
                 "source": source,
                 "cwd": "/test/project"
@@ -299,7 +299,7 @@ class TestSessionStartHook:
     def test_session_start_missing_session_id(self, mock_hook):
         """Test handling when session ID is missing."""
         input_data = {
-            "hookEventName": "session_start",
+            "hookEventName": "SessionStart",
             "source": "startup",
             "cwd": "/test/project"
         }
@@ -325,7 +325,7 @@ class TestSessionStartHook:
     def test_session_start_default_source(self, mock_hook):
         """Test default source value when not provided."""
         input_data = {
-            "hookEventName": "session_start",
+            "hookEventName": "SessionStart",
             "sessionId": "test-session-123",
             "cwd": "/test/project"
         }
@@ -407,7 +407,7 @@ class TestSessionStartIntegration:
     def test_real_git_repository_integration(self, temp_git_repo, mock_hook):
         """Test integration with a real git repository."""
         input_data = {
-            "hookEventName": "session_start",
+            "hookEventName": "SessionStart",
             "sessionId": "integration-test-session",
             "source": "startup",
             "cwd": temp_git_repo
@@ -426,7 +426,7 @@ class TestSessionStartIntegration:
         """Test integration with a non-git directory."""
         with tempfile.TemporaryDirectory() as temp_dir:
             input_data = {
-                "hookEventName": "session_start",
+                "hookEventName": "SessionStart",
                 "sessionId": "non-git-session",
                 "source": "startup", 
                 "cwd": temp_dir
