@@ -457,5 +457,282 @@ class TestHookIntegration(unittest.TestCase):
         pass
 
 
+class TestPostToolUseDecisionBlocking(unittest.TestCase):
+    """Test new JSON output format with decision blocking support for PostToolUse hook."""
+    
+    def setUp(self):
+        """Set up decision blocking test environment."""
+        self.mock_db = Mock()
+        self.mock_db.save_event.return_value = True
+        self.mock_db.save_session.return_value = (True, "session-uuid-123")
+        self.mock_db.get_status.return_value = {"supabase": {"has_client": True}}
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_create_permission_response_allow(self, mock_db_class):
+        """Test creating permission response that allows tool execution."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        response = hook.create_permission_response(
+            decision="allow",
+            reason="Safe read operation detected",
+            tool_name="Read",
+            hook_event_name="PostToolUse"
+        )
+        
+        self.assertTrue(response["continue"])
+        self.assertFalse(response["suppressOutput"])
+        self.assertEqual(response["hookSpecificOutput"]["hookEventName"], "PostToolUse")
+        self.assertEqual(response["hookSpecificOutput"]["permissionDecision"], "allow")
+        self.assertEqual(response["hookSpecificOutput"]["permissionDecisionReason"], "Safe read operation detected")
+        self.assertEqual(response["hookSpecificOutput"]["toolName"], "Read")
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_create_permission_response_deny(self, mock_db_class):
+        """Test creating permission response that denies tool execution."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        response = hook.create_permission_response(
+            decision="deny",
+            reason="Dangerous command detected: rm -rf /",
+            tool_name="Bash",
+            hook_event_name="PostToolUse"
+        )
+        
+        self.assertFalse(response["continue"])
+        self.assertFalse(response["suppressOutput"])
+        self.assertIn("stopReason", response)
+        self.assertEqual(response["stopReason"], "Dangerous command detected: rm -rf /")
+        self.assertEqual(response["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertEqual(response["hookSpecificOutput"]["toolName"], "Bash")
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_create_permission_response_ask(self, mock_db_class):
+        """Test creating permission response that asks for user confirmation."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        response = hook.create_permission_response(
+            decision="ask",
+            reason="This command will delete files. Do you want to continue?",
+            tool_name="Bash",
+            hook_event_name="PostToolUse"
+        )
+        
+        self.assertFalse(response["continue"])
+        self.assertFalse(response["suppressOutput"])
+        self.assertIn("stopReason", response)
+        self.assertEqual(response["stopReason"], "This command will delete files. Do you want to continue?")
+        self.assertEqual(response["hookSpecificOutput"]["permissionDecision"], "ask")
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_analyze_tool_security_safe_operations(self, mock_db_class):
+        """Test security analysis for safe tool operations."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        safe_operations = [
+            {
+                "toolName": "Read",
+                "toolInput": {"file_path": "/home/user/document.txt"}
+            },
+            {
+                "toolName": "Glob", 
+                "toolInput": {"pattern": "*.py"}
+            },
+            {
+                "toolName": "Grep",
+                "toolInput": {"pattern": "TODO", "path": "/src"}
+            }
+        ]
+        
+        for operation in safe_operations:
+            with self.subTest(tool=operation["toolName"]):
+                decision, reason = hook.analyze_tool_security(
+                    operation["toolName"],
+                    operation["toolInput"], 
+                    {"success": True}
+                )
+                
+                self.assertEqual(decision, "allow")
+                self.assertIn("safe", reason.lower())
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_analyze_tool_security_dangerous_operations(self, mock_db_class):
+        """Test security analysis for dangerous tool operations."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        dangerous_operations = [
+            {
+                "toolName": "Bash",
+                "toolInput": {"command": "rm -rf /"},
+                "expected_decision": "deny"
+            },
+            {
+                "toolName": "Bash",
+                "toolInput": {"command": "sudo rm -rf /usr/local"},
+                "expected_decision": "deny"
+            },
+            {
+                "toolName": "Write",
+                "toolInput": {"file_path": "/etc/passwd", "content": "malicious"},
+                "expected_decision": "ask"  # System file modification should ask
+            }
+        ]
+        
+        for operation in dangerous_operations:
+            with self.subTest(tool=operation["toolName"]):
+                decision, reason = hook.analyze_tool_security(
+                    operation["toolName"],
+                    operation["toolInput"],
+                    {"success": True}
+                )
+                
+                self.assertIn(decision, ["deny", "ask"])
+                self.assertTrue(len(reason) > 0)
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_process_hook_with_security_blocking(self, mock_db_class):
+        """Test process_hook with security-based decision blocking."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        dangerous_input = {
+            "hookEventName": "PostToolUse",
+            "sessionId": "security-test-session",
+            "toolName": "Bash",
+            "toolInput": {"command": "rm -rf /important/data"},
+            "toolResponse": {"success": True, "result": "Command executed"},
+            "executionTime": 100
+        }
+        
+        # Mock the security analysis to return deny
+        with patch.object(hook, 'analyze_tool_security', return_value=("deny", "Dangerous file deletion detected")):
+            response = hook.process_hook(dangerous_input)
+            
+            self.assertFalse(response["continue"])
+            self.assertIn("stopReason", response)
+            self.assertEqual(response["hookSpecificOutput"]["permissionDecision"], "deny")
+            self.assertEqual(response["hookSpecificOutput"]["toolName"], "Bash")
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_mcp_tool_security_analysis(self, mock_db_class):
+        """Test security analysis for MCP tools."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        mcp_operations = [
+            {
+                "toolName": "mcp__ide__getDiagnostics",
+                "toolInput": {"uri": "file:///project/src/main.py"},
+                "expected": "allow"  # IDE diagnostics should be safe
+            },
+            {
+                "toolName": "mcp__filesystem__write",
+                "toolInput": {"path": "/etc/sensitive", "content": "data"},
+                "expected": "ask"  # File system writes should ask for confirmation
+            },
+            {
+                "toolName": "mcp__network__request",
+                "toolInput": {"url": "https://malicious.com", "data": "sensitive"},
+                "expected": "ask"  # Network requests with data should ask
+            }
+        ]
+        
+        for operation in mcp_operations:
+            with self.subTest(tool=operation["toolName"]):
+                decision, reason = hook.analyze_tool_security(
+                    operation["toolName"],
+                    operation["toolInput"],
+                    {"success": True}
+                )
+                
+                # Test that MCP tools get appropriate security analysis
+                self.assertIn(decision, ["allow", "ask", "deny"])
+                self.assertTrue(len(reason) > 0)
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_tool_failure_response_format(self, mock_db_class):
+        """Test response format when tool execution fails."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        failed_input = {
+            "hookEventName": "PostToolUse",
+            "sessionId": "failure-test-session",
+            "toolName": "Read",
+            "toolInput": {"file_path": "/nonexistent/file.txt"},
+            "toolResponse": {
+                "success": False,
+                "error": "File not found: /nonexistent/file.txt",
+                "error_type": "file_not_found"
+            },
+            "executionTime": 50
+        }
+        
+        response = hook.process_hook(failed_input)
+        
+        # Should continue execution even on tool failure
+        self.assertTrue(response["continue"])
+        self.assertEqual(response["hookSpecificOutput"]["hookEventName"], "PostToolUse")
+        self.assertEqual(response["hookSpecificOutput"]["toolName"], "Read")
+        self.assertFalse(response["hookSpecificOutput"]["toolSuccess"])
+        self.assertIn("error", response["hookSpecificOutput"])
+    
+    @patch('src.hooks.post_tool_use.DatabaseManager')
+    def test_response_with_additional_metadata(self, mock_db_class):
+        """Test response includes additional metadata about tool execution."""
+        mock_db_class.return_value = self.mock_db
+        
+        from src.hooks.post_tool_use import PostToolUseHook
+        hook = PostToolUseHook()
+        
+        input_data = {
+            "hookEventName": "PostToolUse",
+            "sessionId": "metadata-test-session",
+            "toolName": "MultiEdit",
+            "toolInput": {
+                "file_path": "/project/src/main.py",
+                "edits": [{"old_string": "old", "new_string": "new"}]
+            },
+            "toolResponse": {
+                "success": True,
+                "result": "1 edit applied successfully",
+                "files_modified": ["/project/src/main.py"]
+            },
+            "executionTime": 150
+        }
+        
+        response = hook.process_hook(input_data)
+        
+        hook_output = response["hookSpecificOutput"]
+        self.assertEqual(hook_output["hookEventName"], "PostToolUse")
+        self.assertEqual(hook_output["toolName"], "MultiEdit")
+        self.assertTrue(hook_output["toolSuccess"])
+        self.assertEqual(hook_output["executionTime"], 150)
+        
+        # Should include metadata about the operation
+        if "metadata" in hook_output:
+            self.assertIsInstance(hook_output["metadata"], dict)
+
+
 if __name__ == '__main__':
     unittest.main()

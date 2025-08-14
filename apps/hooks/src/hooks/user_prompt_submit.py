@@ -70,13 +70,13 @@ class UserPromptSubmitHook(BaseHook):
     
     def process_prompt_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process user prompt input and capture analytics data.
+        Process user prompt input and return new JSON response format.
         
         Args:
             input_data: Raw hook input data from Claude Code
             
         Returns:
-            Original input data unchanged (pass-through behavior)
+            JSON response with hookSpecificOutput containing analysis and optional additionalContext
         """
         try:
             # Process hook data to extract common fields and session ID
@@ -84,7 +84,10 @@ class UserPromptSubmitHook(BaseHook):
             
             # Check if this is a valid prompt event
             if not self._is_valid_prompt_input(input_data):
-                return input_data
+                return self.create_user_prompt_response(
+                    prompt_blocked=False,
+                    success=False
+                )
             
             # Extract prompt data and analytics
             prompt_data = self.extract_prompt_data(input_data)
@@ -107,13 +110,138 @@ class UserPromptSubmitHook(BaseHook):
             if not success:
                 # Log error but don't break the hook
                 self.log_error(Exception("Failed to save prompt event"), "process_prompt_input")
+            
+            # Analyze prompt for potential context injection
+            additional_context = self._generate_context_injection(prompt_data, input_data)
+            
+            # Check if prompt should be blocked
+            block_prompt, block_reason = self._analyze_prompt_security(prompt_data)
+            
+            return self.create_user_prompt_response(
+                additional_context=additional_context,
+                prompt_blocked=block_prompt,
+                block_reason=block_reason,
+                success=success,
+                prompt_length=prompt_data["prompt_length"],
+                intent=prompt_data["context"]["intent"]
+            )
         
         except Exception as e:
-            # Log error but ensure we return the original input
+            # Log error and return safe response
             self.log_error(e, "process_prompt_input")
+            return self.create_user_prompt_response(
+                prompt_blocked=False,
+                success=False
+            )
+    
+    def create_user_prompt_response(self, additional_context: Optional[str] = None,
+                                   prompt_blocked: bool = False,
+                                   block_reason: Optional[str] = None,
+                                   success: bool = True,
+                                   **kwargs) -> Dict[str, Any]:
+        """
+        Create UserPromptSubmit hook response with new JSON format.
         
-        # Always return original input unchanged (pass-through behavior)
-        return input_data
+        Args:
+            additional_context: Optional context to inject into the prompt
+            prompt_blocked: Whether the prompt should be blocked
+            block_reason: Reason for blocking (if blocked)
+            success: Whether hook processing succeeded
+            **kwargs: Additional fields for hookSpecificOutput
+            
+        Returns:
+            Formatted hook response
+        """
+        hook_data = self.create_hook_specific_output(
+            hook_event_name="UserPromptSubmit",
+            prompt_blocked=prompt_blocked,
+            processing_success=success,
+            **kwargs
+        )
+        
+        # Add additionalContext if provided
+        if additional_context:
+            hook_data["additionalContext"] = additional_context
+        
+        # Add blockReason if prompt is blocked
+        if prompt_blocked and block_reason:
+            hook_data["blockReason"] = block_reason
+        
+        return self.create_response(
+            continue_execution=not prompt_blocked,
+            suppress_output=False,  # User prompt responses should be visible
+            hook_specific_data=hook_data,
+            stop_reason=block_reason if prompt_blocked else None
+        )
+    
+    def _generate_context_injection(self, prompt_data: Dict[str, Any], 
+                                   input_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Generate additional context based on prompt analysis and configuration.
+        
+        Args:
+            prompt_data: Analyzed prompt data
+            input_data: Original input data
+            
+        Returns:
+            Additional context string or None if no context should be injected
+        """
+        context_config = self.config.get("user_prompt_submit", {})
+        if not context_config.get("enable_context_injection", False):
+            return None
+        
+        context_rules = context_config.get("context_injection_rules", {})
+        prompt_text = prompt_data.get("prompt_text", "").lower()
+        intent = prompt_data.get("context", {}).get("intent", "general")
+        
+        # Check for keyword-based context injection
+        for rule_name, rule in context_rules.items():
+            keywords = rule.get("keywords", [])
+            context_text = rule.get("context", "")
+            
+            if any(keyword in prompt_text for keyword in keywords):
+                return context_text
+        
+        # Intent-based context injection
+        if intent == "debugging":
+            return "Consider using systematic debugging approaches: check error messages, add logging, and isolate the problem step by step."
+        elif intent == "code_generation":
+            return "Remember to follow best practices: write clear, readable code with proper error handling and documentation."
+        elif intent == "explanation" and "security" in prompt_text:
+            return "When implementing security features, always follow the principle of least privilege and validate all inputs."
+        
+        return None
+    
+    def _analyze_prompt_security(self, prompt_data: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """
+        Analyze prompt for security concerns that might require blocking.
+        
+        Args:
+            prompt_data: Analyzed prompt data
+            
+        Returns:
+            Tuple of (should_block, reason)
+        """
+        prompt_text = prompt_data.get("prompt_text", "").lower()
+        
+        # Check for potentially dangerous requests
+        dangerous_patterns = [
+            (r"delete\s+all\s+files", "Dangerous file deletion request detected"),
+            (r"rm\s+-rf\s+/", "Dangerous system deletion command detected"),
+            (r"format\s+(c:|hard\s+drive)", "System formatting request detected"),
+            (r"access\s+(password|credential)", "Attempt to access sensitive credentials")
+        ]
+        
+        import re
+        for pattern, reason in dangerous_patterns:
+            if re.search(pattern, prompt_text):
+                return True, reason
+        
+        # Check for overly long prompts that might be injection attempts
+        if len(prompt_text) > 50000:  # 50k character limit
+            return True, "Prompt exceeds maximum length for security reasons"
+        
+        return False, None
     
     def extract_prompt_data(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """

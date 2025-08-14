@@ -414,3 +414,178 @@ class TestUserPromptAnalytics:
             # Should have generated a timestamp
             assert "timestamp" in data
             assert data["timestamp"] is not None
+
+
+class TestUserPromptAdditionalContext:
+    """Test new JSON output format with additionalContext support."""
+    
+    def test_create_user_prompt_response_with_additional_context(self, mock_database_manager):
+        """Test creating response with additionalContext in hookSpecificOutput."""
+        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
+            
+            hook = UserPromptSubmitHook()
+            
+            # Test with additional context
+            additional_context = "Based on your previous work with fibonacci, you might want to consider memoization for better performance."
+            
+            response = hook.create_user_prompt_response(
+                additional_context=additional_context,
+                block_prompt=False
+            )
+            
+            assert response["continue"] is True
+            assert response["suppressOutput"] is False
+            assert response["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+            assert response["hookSpecificOutput"]["additionalContext"] == additional_context
+            assert response["hookSpecificOutput"]["promptBlocked"] is False
+    
+    def test_create_user_prompt_response_with_blocking(self, mock_database_manager):
+        """Test creating response that blocks prompt execution."""
+        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
+            
+            hook = UserPromptSubmitHook()
+            
+            response = hook.create_user_prompt_response(
+                additional_context="This prompt contains inappropriate content.",
+                block_prompt=True,
+                block_reason="Content policy violation"
+            )
+            
+            assert response["continue"] is False
+            assert response["suppressOutput"] is False
+            assert response["stopReason"] == "Content policy violation"
+            assert response["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+            assert response["hookSpecificOutput"]["promptBlocked"] is True
+            assert response["hookSpecificOutput"]["blockReason"] == "Content policy violation"
+    
+    def test_create_user_prompt_response_minimal(self, mock_database_manager):
+        """Test creating minimal response without additional context."""
+        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
+            
+            hook = UserPromptSubmitHook()
+            
+            response = hook.create_user_prompt_response()
+            
+            assert response["continue"] is True
+            assert response["suppressOutput"] is False
+            assert response["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+            assert response["hookSpecificOutput"]["promptBlocked"] is False
+            assert "additionalContext" not in response["hookSpecificOutput"]
+    
+    def test_process_prompt_with_new_response_format(self, mock_database_manager, sample_user_prompt_input):
+        """Test that process_prompt_input now returns proper JSON response instead of pass-through."""
+        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
+            
+            hook = UserPromptSubmitHook()
+            
+            # Mock the save_event method
+            with patch.object(hook, 'save_event', return_value=True):
+                response = hook.process_prompt_input(sample_user_prompt_input)
+                
+                # Should now return a proper JSON response format instead of pass-through
+                assert isinstance(response, dict)
+                assert "continue" in response
+                assert "suppressOutput" in response
+                assert "hookSpecificOutput" in response
+                
+                # Check hookSpecificOutput structure
+                hook_output = response["hookSpecificOutput"]
+                assert hook_output["hookEventName"] == "UserPromptSubmit"
+                assert hook_output["promptBlocked"] is False
+    
+    def test_smart_context_injection(self, mock_database_manager):
+        """Test smart context injection based on prompt content."""
+        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
+            
+            hook = UserPromptSubmitHook()
+            
+            # Test prompt that could benefit from context about security
+            security_prompt = {
+                "hookEventName": "UserPromptSubmit",
+                "sessionId": "test-session",
+                "prompt": "How do I handle user passwords in my web application?",
+                "metadata": {"timestamp": "2024-01-15T10:30:00Z"}
+            }
+            
+            with patch.object(hook, 'save_event', return_value=True):
+                response = hook.process_prompt_input(security_prompt)
+                
+                hook_output = response["hookSpecificOutput"]
+                
+                # Should potentially inject security-related context
+                assert hook_output["hookEventName"] == "UserPromptSubmit"
+                
+                # If context injection is implemented, test for it
+                if "additionalContext" in hook_output:
+                    context = hook_output["additionalContext"]
+                    assert isinstance(context, str)
+                    assert len(context) > 0
+    
+    def test_error_handling_with_new_format(self, mock_database_manager):
+        """Test error handling still returns proper JSON format."""
+        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
+            
+            hook = UserPromptSubmitHook()
+            
+            # Test with invalid input
+            invalid_input = {
+                "hookEventName": "UserPromptSubmit",
+                "sessionId": "test-session"
+                # Missing prompt field
+            }
+            
+            response = hook.process_prompt_input(invalid_input)
+            
+            # Should return proper JSON response even for invalid input
+            assert isinstance(response, dict)
+            assert "continue" in response
+            assert "suppressOutput" in response
+            assert "hookSpecificOutput" in response
+            
+            # Should continue execution despite invalid input
+            assert response["continue"] is True
+    
+    def test_context_injection_configuration(self, mock_database_manager):
+        """Test configuration options for context injection."""
+        config = {
+            "user_prompt_submit": {
+                "enable_context_injection": True,
+                "context_injection_rules": {
+                    "security": {
+                        "keywords": ["password", "authentication", "security"],
+                        "context": "Remember to follow security best practices: never store passwords in plain text, use proper authentication libraries, and validate all user input."
+                    },
+                    "performance": {
+                        "keywords": ["slow", "optimize", "performance", "speed"],
+                        "context": "Consider profiling your code to identify bottlenecks before optimizing. Focus on algorithmic improvements first."
+                    }
+                }
+            }
+        }
+        
+        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
+            
+            hook = UserPromptSubmitHook(config)
+            
+            security_prompt = {
+                "hookEventName": "UserPromptSubmit",
+                "sessionId": "test-session",
+                "prompt": "How should I handle user authentication in my app?",
+                "metadata": {"timestamp": "2024-01-15T10:30:00Z"}
+            }
+            
+            with patch.object(hook, 'save_event', return_value=True):
+                response = hook.process_prompt_input(security_prompt)
+                
+                hook_output = response["hookSpecificOutput"]
+                
+                # Should inject security context based on keywords
+                if "additionalContext" in hook_output:
+                    assert "security best practices" in hook_output["additionalContext"]

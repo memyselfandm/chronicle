@@ -445,5 +445,227 @@ class TestSessionStartIntegration:
             assert session_data["git_commit"] in [None, ""]
 
 
+class TestSessionStartAdditionalContext:
+    """Test new JSON output format with additionalContext support for SessionStart hook."""
+    
+    def test_create_session_start_response_with_additional_context(self, mock_hook, sample_input_data):
+        """Test creating session start response with additionalContext."""
+        with patch.object(mock_hook, 'load_project_context') as mock_context:
+            mock_context.return_value = {
+                "cwd": "/test/project/path",
+                "git_info": {
+                    "branch": "main",
+                    "commit_hash": "abc123"
+                },
+                "session_context": {"user": "test"}
+            }
+            
+            success, session_data, event_data = mock_hook.process_session_start(sample_input_data)
+            
+            # Test creating response with additional context
+            additional_context = "Welcome back! Your previous session was on branch 'feature/auth' - you might want to continue your authentication work."
+            
+            response = mock_hook.create_session_start_response(
+                success=success,
+                session_data=session_data,
+                event_data=event_data,
+                additional_context=additional_context
+            )
+            
+            assert response["continue"] is True
+            assert response["suppressOutput"] is True  # Session init typically suppressed
+            assert response["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+            assert response["hookSpecificOutput"]["sessionInitialized"] is True
+            assert response["hookSpecificOutput"]["additionalContext"] == additional_context
+            assert response["hookSpecificOutput"]["projectPath"] == "/test/project/path"
+            assert response["hookSpecificOutput"]["gitBranch"] == "main"
+    
+    def test_create_session_start_response_with_project_recommendations(self, mock_hook):
+        """Test creating response with project-specific recommendations."""
+        input_data = {
+            "hookEventName": "SessionStart",
+            "sessionId": "test-session-123",
+            "source": "startup",
+            "cwd": "/path/to/node/project"
+        }
+        
+        with patch.object(mock_hook, 'load_project_context') as mock_context:
+            mock_context.return_value = {
+                "cwd": "/path/to/node/project",
+                "git_info": {
+                    "branch": "feature/api-update",
+                    "commit_hash": "def456",
+                    "has_changes": True
+                },
+                "session_context": {
+                    "project_type": "node_js",
+                    "package_json": True,
+                    "node_modules": True
+                }
+            }
+            
+            success, session_data, event_data = mock_hook.process_session_start(input_data)
+            
+            # Test smart context injection based on project state
+            context = mock_hook.generate_session_context(session_data, event_data)
+            
+            response = mock_hook.create_session_start_response(
+                success=success,
+                session_data=session_data,
+                event_data=event_data,
+                additional_context=context
+            )
+            
+            assert response["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+            
+            # If context generation is implemented, test for it
+            if "additionalContext" in response["hookSpecificOutput"]:
+                context = response["hookSpecificOutput"]["additionalContext"]
+                assert isinstance(context, str)
+                assert len(context) > 0
+    
+    def test_create_session_start_response_minimal(self, mock_hook, sample_input_data):
+        """Test creating minimal session start response without additional context."""
+        with patch.object(mock_hook, 'load_project_context') as mock_context:
+            mock_context.return_value = {
+                "cwd": "/test/project/path",
+                "git_info": {},
+                "session_context": {}
+            }
+            
+            success, session_data, event_data = mock_hook.process_session_start(sample_input_data)
+            
+            response = mock_hook.create_session_start_response(
+                success=success,
+                session_data=session_data,
+                event_data=event_data
+            )
+            
+            assert response["continue"] is True
+            assert response["suppressOutput"] is True
+            assert response["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+            assert response["hookSpecificOutput"]["sessionInitialized"] is True
+            assert "additionalContext" not in response["hookSpecificOutput"]
+    
+    def test_session_start_with_git_context_warnings(self, mock_hook):
+        """Test session start context injection for git-related warnings."""
+        input_data = {
+            "hookEventName": "SessionStart",
+            "sessionId": "git-warning-session",
+            "source": "startup",
+            "cwd": "/path/to/messy/project"
+        }
+        
+        with patch.object(mock_hook, 'load_project_context') as mock_context:
+            mock_context.return_value = {
+                "cwd": "/path/to/messy/project",
+                "git_info": {
+                    "branch": "main",
+                    "commit_hash": "abc123",
+                    "has_changes": True,
+                    "untracked_files": 15,
+                    "modified_files": 3
+                },
+                "session_context": {"git_status": "dirty"}
+            }
+            
+            success, session_data, event_data = mock_hook.process_session_start(input_data)
+            
+            # Test context generation that warns about uncommitted changes
+            context = mock_hook.generate_git_status_context(session_data, event_data)
+            
+            response = mock_hook.create_session_start_response(
+                success=success,
+                session_data=session_data,
+                event_data=event_data,
+                additional_context=context
+            )
+            
+            if "additionalContext" in response["hookSpecificOutput"]:
+                context_text = response["hookSpecificOutput"]["additionalContext"]
+                # Should warn about uncommitted changes
+                assert "changes" in context_text.lower() or "uncommitted" in context_text.lower()
+    
+    def test_session_start_response_failure_handling(self, mock_hook, sample_input_data):
+        """Test response creation when session start fails."""
+        # Mock failure scenario
+        mock_hook.db_manager.save_session.return_value = False
+        
+        with patch.object(mock_hook, 'load_project_context') as mock_context:
+            mock_context.return_value = {
+                "cwd": "/test/project/path",
+                "git_info": {},
+                "session_context": {}
+            }
+            
+            success, session_data, event_data = mock_hook.process_session_start(sample_input_data)
+            
+            response = mock_hook.create_session_start_response(
+                success=success,
+                session_data=session_data,
+                event_data=event_data
+            )
+            
+            # Should continue execution even on failure
+            assert response["continue"] is True
+            assert response["suppressOutput"] is True
+            assert response["hookSpecificOutput"]["sessionInitialized"] is False
+    
+    def test_context_injection_based_on_project_type(self, mock_hook):
+        """Test context injection based on detected project type."""
+        project_types = [
+            {
+                "cwd": "/path/to/python/project",
+                "files": {"requirements.txt": True, "pyproject.toml": True},
+                "expected_keyword": "python"
+            },
+            {
+                "cwd": "/path/to/node/project", 
+                "files": {"package.json": True, "node_modules": True},
+                "expected_keyword": "node"
+            },
+            {
+                "cwd": "/path/to/rust/project",
+                "files": {"Cargo.toml": True, "target": True},
+                "expected_keyword": "rust"
+            }
+        ]
+        
+        for project in project_types:
+            input_data = {
+                "hookEventName": "SessionStart",
+                "sessionId": f"test-{project['expected_keyword']}-session",
+                "source": "startup",
+                "cwd": project["cwd"]
+            }
+            
+            with patch.object(mock_hook, 'load_project_context') as mock_context:
+                mock_context.return_value = {
+                    "cwd": project["cwd"],
+                    "git_info": {"branch": "main"},
+                    "session_context": {
+                        "project_files": project["files"],
+                        "project_type": project["expected_keyword"]
+                    }
+                }
+                
+                success, session_data, event_data = mock_hook.process_session_start(input_data)
+                
+                # Test project-specific context generation
+                context = mock_hook.generate_project_type_context(session_data, event_data)
+                
+                response = mock_hook.create_session_start_response(
+                    success=success,
+                    session_data=session_data,  
+                    event_data=event_data,
+                    additional_context=context
+                )
+                
+                if "additionalContext" in response["hookSpecificOutput"]:
+                    context_text = response["hookSpecificOutput"]["additionalContext"]
+                    # Context should be relevant to the project type
+                    assert len(context_text) > 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

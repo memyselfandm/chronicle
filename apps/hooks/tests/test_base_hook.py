@@ -259,3 +259,194 @@ def test_error_handling_in_save_event():
         result = hook.save_event({"hook_event_name": "test"})
         
         assert result is False
+
+
+def test_create_response_basic():
+    """Test basic create_response functionality."""
+    from src.core.base_hook import BaseHook
+    
+    with patch('src.core.base_hook.DatabaseManager'):
+        hook = BaseHook()
+        
+        response = hook.create_response()
+        
+        assert response["continue"] is True
+        assert response["suppressOutput"] is False
+        assert "hookSpecificOutput" not in response
+
+
+def test_create_response_with_parameters():
+    """Test create_response with custom parameters."""
+    from src.core.base_hook import BaseHook
+    
+    with patch('src.core.base_hook.DatabaseManager'):
+        hook = BaseHook()
+        
+        response = hook.create_response(
+            continue_execution=False,
+            suppress_output=True
+        )
+        
+        assert response["continue"] is False
+        assert response["suppressOutput"] is True
+        assert "hookSpecificOutput" not in response
+
+
+def test_create_response_with_hook_specific_output():
+    """Test create_response with hookSpecificOutput."""
+    from src.core.base_hook import BaseHook
+    
+    with patch('src.core.base_hook.DatabaseManager'):
+        hook = BaseHook()
+        
+        hook_specific_data = {
+            "hookEventName": "SessionStart",
+            "sessionInitialized": True,
+            "projectPath": "/test/project"
+        }
+        
+        response = hook.create_response(
+            continue_execution=True,
+            suppress_output=True,
+            hook_specific_data=hook_specific_data
+        )
+        
+        assert response["continue"] is True
+        assert response["suppressOutput"] is True
+        assert response["hookSpecificOutput"] == hook_specific_data
+
+
+def test_create_response_with_stop_reason():
+    """Test create_response with stopReason for blocking scenarios."""
+    from src.core.base_hook import BaseHook
+    
+    with patch('src.core.base_hook.DatabaseManager'):
+        hook = BaseHook()
+        
+        hook_specific_data = {
+            "hookEventName": "PostToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": "Dangerous command detected"
+        }
+        
+        response = hook.create_response(
+            continue_execution=False,
+            suppress_output=False,
+            hook_specific_data=hook_specific_data,
+            stop_reason="Tool execution blocked by security policy"
+        )
+        
+        assert response["continue"] is False
+        assert response["suppressOutput"] is False
+        assert response["stopReason"] == "Tool execution blocked by security policy"
+        assert response["hookSpecificOutput"] == hook_specific_data
+
+
+def test_create_response_permission_formats():
+    """Test create_response with various permission decision formats."""
+    from src.core.base_hook import BaseHook
+    
+    with patch('src.core.base_hook.DatabaseManager'):
+        hook = BaseHook()
+        
+        # Test allow decision
+        allow_data = {
+            "hookEventName": "PostToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": "Safe operation approved"
+        }
+        
+        response = hook.create_response(
+            continue_execution=True,
+            hook_specific_data=allow_data
+        )
+        
+        assert response["continue"] is True
+        assert response["hookSpecificOutput"]["permissionDecision"] == "allow"
+        
+        # Test deny decision
+        deny_data = {
+            "hookEventName": "PostToolUse", 
+            "permissionDecision": "deny",
+            "permissionDecisionReason": "Operation not permitted"
+        }
+        
+        response = hook.create_response(
+            continue_execution=False,
+            hook_specific_data=deny_data,
+            stop_reason="Permission denied"
+        )
+        
+        assert response["continue"] is False
+        assert response["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert response["stopReason"] == "Permission denied"
+        
+        # Test ask decision 
+        ask_data = {
+            "hookEventName": "PostToolUse",
+            "permissionDecision": "ask", 
+            "permissionDecisionReason": "User confirmation required"
+        }
+        
+        response = hook.create_response(
+            continue_execution=False,
+            hook_specific_data=ask_data,
+            stop_reason="Waiting for user confirmation"
+        )
+        
+        assert response["continue"] is False
+        assert response["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
+def test_create_hook_specific_output_helper():
+    """Test helper method for building hookSpecificOutput."""
+    from src.core.base_hook import BaseHook
+    
+    with patch('src.core.base_hook.DatabaseManager'):
+        hook = BaseHook()
+        
+        output = hook.create_hook_specific_output(
+            hook_event_name="SessionStart",
+            session_initialized=True,
+            project_path="/test/project",
+            git_branch="main"
+        )
+        
+        expected = {
+            "hookEventName": "SessionStart",
+            "sessionInitialized": True,
+            "projectPath": "/test/project", 
+            "gitBranch": "main"
+        }
+        
+        assert output == expected
+
+
+def test_create_permission_response_helper():
+    """Test helper method for permission-based responses."""
+    from src.core.base_hook import BaseHook
+    
+    with patch('src.core.base_hook.DatabaseManager'):
+        hook = BaseHook()
+        
+        # Test allow response
+        response = hook.create_permission_response(
+            decision="allow",
+            reason="Operation is safe",
+            hook_event_name="PostToolUse"
+        )
+        
+        assert response["continue"] is True
+        assert response["hookSpecificOutput"]["permissionDecision"] == "allow"
+        assert response["hookSpecificOutput"]["permissionDecisionReason"] == "Operation is safe"
+        
+        # Test deny response
+        response = hook.create_permission_response(
+            decision="deny",
+            reason="Dangerous operation detected",
+            hook_event_name="PostToolUse"
+        )
+        
+        assert response["continue"] is False
+        assert "stopReason" in response
+        assert response["hookSpecificOutput"]["permissionDecision"] == "deny"

@@ -354,27 +354,120 @@ class BaseHook:
     
     def create_response(self, continue_execution: bool = True, 
                        suppress_output: bool = False,
-                       hook_specific_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                       hook_specific_data: Optional[Dict[str, Any]] = None,
+                       stop_reason: Optional[str] = None) -> Dict[str, Any]:
         """
-        Create standardized hook response.
+        Create standardized hook response with new JSON format support.
         
         Args:
             continue_execution: Whether Claude should continue execution
             suppress_output: Whether to hide output from transcript
-            hook_specific_data: Hook-specific response data
+            hook_specific_data: Hook-specific response data for hookSpecificOutput
+            stop_reason: Reason for stopping execution (when continue_execution=False)
             
         Returns:
-            Formatted hook response
+            Formatted hook response with proper continue, suppressOutput, stopReason, and hookSpecificOutput fields
         """
         response = {
             "continue": continue_execution,
             "suppressOutput": suppress_output,
         }
         
+        # Add stopReason when execution is blocked
+        if not continue_execution and stop_reason:
+            response["stopReason"] = stop_reason
+        
+        # Add hookSpecificOutput if provided
         if hook_specific_data:
             response["hookSpecificOutput"] = hook_specific_data
         
         return response
+    
+    def create_hook_specific_output(self, hook_event_name: str, **kwargs) -> Dict[str, Any]:
+        """
+        Create hookSpecificOutput dictionary with consistent field naming.
+        
+        Converts snake_case parameter names to camelCase for hookSpecificOutput.
+        
+        Args:
+            hook_event_name: Name of the hook event (e.g., "SessionStart", "PostToolUse")
+            **kwargs: Additional fields to include in hookSpecificOutput
+            
+        Returns:
+            Dictionary formatted for hookSpecificOutput with camelCase field names
+        """
+        output = {"hookEventName": hook_event_name}
+        
+        # Convert snake_case keys to camelCase for hookSpecificOutput
+        for key, value in kwargs.items():
+            if value is not None:  # Only include non-None values
+                camel_key = self._snake_to_camel(key)
+                output[camel_key] = value
+        
+        return output
+    
+    def create_permission_response(self, decision: str, reason: str, 
+                                 hook_event_name: str = "PostToolUse",
+                                 **kwargs) -> Dict[str, Any]:
+        """
+        Create permission-based response for tool execution decisions.
+        
+        Args:
+            decision: Permission decision ("allow", "deny", "ask")
+            reason: Reason for the decision
+            hook_event_name: Name of the hook event
+            **kwargs: Additional fields for hookSpecificOutput
+            
+        Returns:
+            Formatted response with permission decision
+        """
+        # Determine continue/stop behavior based on decision
+        if decision == "allow":
+            continue_execution = True
+            stop_reason = None
+        elif decision == "deny":
+            continue_execution = False
+            stop_reason = reason
+        elif decision == "ask":
+            continue_execution = False
+            stop_reason = reason
+        else:
+            # Unknown decision - default to allow but log warning
+            logger.warning(f"Unknown permission decision: {decision}, defaulting to allow")
+            continue_execution = True
+            stop_reason = None
+        
+        # Create hookSpecificOutput with permission fields
+        hook_data = self.create_hook_specific_output(
+            hook_event_name=hook_event_name,
+            permission_decision=decision,
+            permission_decision_reason=reason,
+            **kwargs
+        )
+        
+        return self.create_response(
+            continue_execution=continue_execution,
+            suppress_output=False,  # Permission decisions should be visible
+            hook_specific_data=hook_data,
+            stop_reason=stop_reason
+        )
+    
+    def _snake_to_camel(self, snake_str: str) -> str:
+        """
+        Convert snake_case string to camelCase.
+        
+        Args:
+            snake_str: String in snake_case format
+            
+        Returns:
+            String in camelCase format
+        """
+        if not snake_str:
+            return snake_str
+        
+        components = snake_str.split('_')
+        # Keep first component lowercase, capitalize the rest
+        return components[0] + ''.join(word.capitalize() for word in components[1:])
     
     def get_database_status(self) -> Dict[str, Any]:
         """

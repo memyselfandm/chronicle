@@ -260,17 +260,38 @@ class PostToolUseHook(BaseHook):
             else:
                 logger.error(f"Failed to save tool usage event for: {tool_name}")
             
-            # Always return continue response (don't block Claude execution)
-            return self.create_response(
-                continue_execution=True,
-                suppress_output=False,
-                hook_specific_data={
-                    "hookEventName": "PostToolUse",
-                    "toolProcessed": tool_name,
-                    "mcpTool": is_mcp,
-                    "eventSaved": save_success
-                }
+            # Analyze tool execution for security concerns
+            security_decision, security_reason = self.analyze_tool_security(
+                tool_name, tool_input, response_parsed
             )
+            
+            # Create response based on security analysis
+            if security_decision == "allow":
+                return self.create_response(
+                    continue_execution=True,
+                    suppress_output=False,
+                    hook_specific_data=self.create_hook_specific_output(
+                        hook_event_name="PostToolUse",
+                        tool_name=tool_name,
+                        tool_success=response_parsed["success"],
+                        mcp_tool=is_mcp,
+                        mcp_server=mcp_server,
+                        execution_time=duration_ms,
+                        event_saved=save_success,
+                        permission_decision=security_decision,
+                        permission_decision_reason=security_reason
+                    )
+                )
+            else:
+                # Block or ask for permission
+                return self.create_permission_response(
+                    decision=security_decision,
+                    reason=security_reason,
+                    tool_name=tool_name,
+                    mcp_tool=is_mcp,
+                    execution_time=duration_ms,
+                    event_saved=save_success
+                )
             
         except Exception as e:
             logger.error(f"Error processing post tool use hook: {e}")
@@ -280,11 +301,12 @@ class PostToolUseHook(BaseHook):
             return self.create_response(
                 continue_execution=True,
                 suppress_output=False,
-                hook_specific_data={
-                    "hookEventName": "PostToolUse",
-                    "error": str(e),
-                    "eventSaved": False
-                }
+                hook_specific_data=self.create_hook_specific_output(
+                    hook_event_name="PostToolUse",
+                    error=str(e),
+                    event_saved=False,
+                    tool_success=False
+                )
             )
     
     def _summarize_tool_input(self, tool_input: Any) -> Dict[str, Any]:
@@ -324,6 +346,138 @@ class PostToolUseHook(BaseHook):
                 summary["involves_command_execution"] = True
         
         return summary
+    
+    def analyze_tool_security(self, tool_name: str, tool_input: Any, 
+                             tool_response: Dict[str, Any]) -> tuple[str, str]:
+        """
+        Analyze tool execution for security concerns.
+        
+        Args:
+            tool_name: Name of the tool that was executed
+            tool_input: Input parameters passed to the tool
+            tool_response: Parsed response from tool execution
+            
+        Returns:
+            Tuple of (decision, reason) where decision is "allow", "deny", or "ask"
+        """
+        # Safe tools that are generally allowed
+        safe_tools = {
+            "Read", "Glob", "Grep", "LS", "WebFetch", "WebSearch", 
+            "mcp__ide__getDiagnostics", "mcp__ide__executeCode"
+        }
+        
+        if tool_name in safe_tools:
+            return "allow", f"Safe operation: {tool_name} is considered secure"
+        
+        # Analyze based on tool type and input
+        if tool_name == "Bash":
+            return self._analyze_bash_security(tool_input, tool_response)
+        
+        elif tool_name in ["Write", "Edit", "MultiEdit"]:
+            return self._analyze_file_write_security(tool_name, tool_input, tool_response)
+        
+        elif tool_name.startswith("mcp__"):
+            return self._analyze_mcp_tool_security(tool_name, tool_input, tool_response)
+        
+        # Default to allow for unknown tools, but log for review
+        logger.info(f"Unknown tool security analysis: {tool_name}")
+        return "allow", f"Unknown tool {tool_name} - allowing by default"
+    
+    def _analyze_bash_security(self, tool_input: Any, tool_response: Dict[str, Any]) -> tuple[str, str]:
+        """Analyze Bash command security."""
+        if not isinstance(tool_input, dict) or "command" not in tool_input:
+            return "allow", "No command to analyze"
+        
+        command = tool_input["command"].lower() if isinstance(tool_input["command"], str) else ""
+        
+        # Highly dangerous commands - deny immediately
+        dangerous_patterns = [
+            (r"rm\s+-rf\s+/", "Dangerous system deletion command"),
+            (r"sudo\s+rm\s+-rf", "Dangerous sudo deletion command"),
+            (r"mkfs\.", "File system formatting command"),
+            (r"dd\s+if=/dev/zero", "Disk wiping command"),
+            (r":(){ :|:& };:", "Fork bomb attempt"),
+        ]
+        
+        import re
+        for pattern, reason in dangerous_patterns:
+            if re.search(pattern, command):
+                return "deny", reason
+        
+        # Moderately risky commands - ask for confirmation
+        risky_patterns = [
+            (r"sudo", "Command requires elevated privileges"),
+            (r"rm\s+.*-r", "Recursive file deletion"),
+            (r"chmod\s+.*777", "Overly permissive file permissions"),
+            (r"curl.*\|\s*(bash|sh)", "Downloading and executing scripts"),
+            (r"wget.*\|\s*(bash|sh)", "Downloading and executing scripts"),
+        ]
+        
+        for pattern, reason in risky_patterns:
+            if re.search(pattern, command):
+                return "ask", f"{reason}: {command[:100]}"
+        
+        return "allow", "Command appears safe"
+    
+    def _analyze_file_write_security(self, tool_name: str, tool_input: Any, 
+                                    tool_response: Dict[str, Any]) -> tuple[str, str]:
+        """Analyze file writing operations security."""
+        if not isinstance(tool_input, dict):
+            return "allow", "No file path to analyze"
+        
+        file_path = tool_input.get("file_path", "")
+        if not isinstance(file_path, str):
+            return "allow", "No valid file path"
+        
+        file_path = file_path.lower()
+        
+        # System critical files - deny
+        critical_paths = [
+            "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/hosts",
+            "/boot/", "/sys/", "/proc/", "c:\\windows\\system32"
+        ]
+        
+        for critical_path in critical_paths:
+            if critical_path in file_path:
+                return "deny", f"Attempt to modify critical system file: {file_path}"
+        
+        # Sensitive directories - ask for confirmation
+        sensitive_paths = [
+            "/etc/", "/usr/local/", "/opt/", "c:\\program files",
+            "c:\\windows", "/var/log/", "/home/.*/.ssh"
+        ]
+        
+        import re
+        for sensitive_path in sensitive_paths:
+            if re.search(sensitive_path, file_path):
+                return "ask", f"Writing to sensitive location: {file_path}"
+        
+        return "allow", f"{tool_name} operation appears safe"
+    
+    def _analyze_mcp_tool_security(self, tool_name: str, tool_input: Any, 
+                                  tool_response: Dict[str, Any]) -> tuple[str, str]:
+        """Analyze MCP tool security."""
+        server_name = extract_mcp_server_name(tool_name)
+        
+        # Known safe MCP servers/operations
+        safe_servers = {"ide", "editor", "diagnostics"}
+        if server_name in safe_servers:
+            return "allow", f"Safe MCP operation: {tool_name}"
+        
+        # Network operations - ask for confirmation
+        if "network" in server_name or "api" in server_name or "http" in server_name:
+            return "ask", f"MCP network operation requires confirmation: {tool_name}"
+        
+        # File system operations - analyze like regular file operations
+        if "filesystem" in server_name or "file" in server_name:
+            return self._analyze_file_write_security(tool_name, tool_input, tool_response)
+        
+        # Database operations - ask for confirmation
+        if "database" in server_name or "db" in server_name:
+            return "ask", f"MCP database operation requires confirmation: {tool_name}"
+        
+        # Unknown MCP tool - be cautious
+        return "ask", f"Unknown MCP tool requires confirmation: {tool_name}"
 
 
 def main():
