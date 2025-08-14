@@ -8,12 +8,16 @@ import logging
 import os
 import sqlite3
 import time
-from contextlib import contextmanager
+import asyncio
+import aiosqlite
+from contextlib import contextmanager, asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple
 import uuid
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 # Load environment variables from .env file
 try:
@@ -137,6 +141,9 @@ class SupabaseClient:
         self.retry_attempts = int(os.getenv("CLAUDE_HOOKS_DB_RETRY_ATTEMPTS", "3"))
         self.retry_delay = float(os.getenv("CLAUDE_HOOKS_DB_RETRY_DELAY", "1.0"))
         self.timeout = int(os.getenv("CLAUDE_HOOKS_DB_TIMEOUT", "10"))
+        
+        # Async executor for non-blocking operations
+        self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="supabase-async")
         
         # Validate configuration
         is_valid, errors = EnvironmentValidator.validate_supabase_config()
@@ -336,6 +343,104 @@ class SupabaseClient:
         logger.error(f"Operation {context} failed after {self.retry_attempts} attempts: {format_error_message(last_error)}")
         return False
     
+    async def upsert_session_async(self, session_data: Dict[str, Any]) -> bool:
+        """
+        Async version of session upsert for non-blocking database operations.
+        
+        Args:
+            session_data: Session data to upsert
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self._supabase_client:
+            logger.debug("No Supabase client available for async session upsert")
+            return False
+        
+        try:
+            # Run the sync operation in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                self.executor, 
+                self.upsert_session, 
+                session_data
+            )
+        except Exception as e:
+            logger.error(f"Async session upsert error: {format_error_message(e, 'upsert_session_async')}")
+            return False
+    
+    async def insert_event_async(self, event_data: Dict[str, Any]) -> bool:
+        """
+        Async version of event insert for non-blocking database operations.
+        
+        Args:
+            event_data: Event data to insert
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self._supabase_client:
+            logger.debug("No Supabase client available for async event insert")
+            return False
+        
+        try:
+            # Run the sync operation in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                self.executor, 
+                self.insert_event, 
+                event_data
+            )
+        except Exception as e:
+            logger.error(f"Async event insert error: {format_error_message(e, 'insert_event_async')}")
+            return False
+    
+    async def batch_insert_events_async(self, events: List[Dict[str, Any]]) -> int:
+        """
+        Async batch insert for multiple events to improve performance.
+        
+        Args:
+            events: List of event data dictionaries
+            
+        Returns:
+            Number of successfully inserted events
+        """
+        if not self._supabase_client or not events:
+            return 0
+        
+        try:
+            # Process events in smaller batches to avoid timeout
+            batch_size = 10
+            successful_inserts = 0
+            
+            for i in range(0, len(events), batch_size):
+                batch = events[i:i + batch_size]
+                
+                # Transform all events in the batch
+                transformed_batch = [self._transform_event_data(event) for event in batch]
+                
+                # Run batch insert in executor
+                loop = asyncio.get_event_loop()
+                success = await loop.run_in_executor(
+                    self.executor,
+                    lambda: self._execute_with_retry(
+                        lambda: self._supabase_client.table('chronicle_events').insert(transformed_batch).execute(),
+                        f"batch_insert_events_{i // batch_size + 1}"
+                    )
+                )
+                
+                if success:
+                    successful_inserts += len(batch)
+                    logger.debug(f"Batch {i // batch_size + 1} inserted {len(batch)} events successfully")
+                else:
+                    logger.warning(f"Batch {i // batch_size + 1} failed to insert {len(batch)} events")
+            
+            return successful_inserts
+            
+        except Exception as e:
+            logger.error(f"Batch async event insert error: {format_error_message(e, 'batch_insert_events_async')}")
+            return 0
+    
     def get_connection_info(self) -> Dict[str, Any]:
         """Get information about the current connection."""
         return {
@@ -366,6 +471,10 @@ class SQLiteClient:
             os.getenv("CLAUDE_HOOKS_DB_PATH", "~/.claude/hooks_data.db")
         )
         self.timeout = float(os.getenv("CLAUDE_HOOKS_DB_TIMEOUT", "30.0"))
+        
+        # Connection pool for better async performance
+        self._connection_pool_size = 5
+        self._connection_semaphore = None
         
         # Ensure database directory exists
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -557,6 +666,177 @@ class SQLiteClient:
             logger.error(f"Failed to insert event: {e}")
             return False
     
+    async def _get_async_connection_semaphore(self):
+        """Get or create connection semaphore for async operations."""
+        if self._connection_semaphore is None:
+            self._connection_semaphore = asyncio.Semaphore(self._connection_pool_size)
+        return self._connection_semaphore
+    
+    @asynccontextmanager
+    async def _get_async_connection(self):
+        """Async context manager for database connections with connection pooling."""
+        semaphore = await self._get_async_connection_semaphore()
+        
+        async with semaphore:  # Limit concurrent connections
+            async with aiosqlite.connect(
+                self.db_path,
+                timeout=self.timeout
+            ) as conn:
+                await conn.execute("PRAGMA foreign_keys = ON")
+                await conn.execute("PRAGMA journal_mode = WAL")
+                
+                try:
+                    yield conn
+                    await conn.commit()
+                except Exception as e:
+                    await conn.rollback()
+                    logger.error(f"Async SQLite error: {e}")
+                    raise
+    
+    async def upsert_session_async(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """Async version of session upsert."""
+        try:
+            async with self._get_async_connection() as conn:
+                # Prepare data
+                data = session_data.copy()
+                
+                # For SQLite, we use claude_session_id as the key
+                claude_session_id = data.get('claude_session_id') or data.get('session_id')
+                if not claude_session_id:
+                    logger.error("Missing claude_session_id for async session upsert")
+                    return (False, None)
+                
+                # Check if session exists
+                async with conn.execute(
+                    "SELECT id FROM sessions WHERE claude_session_id = ?", 
+                    (claude_session_id,)
+                ) as cursor:
+                    existing = await cursor.fetchone()
+                
+                if existing:
+                    # Update existing session
+                    session_uuid = existing[0]
+                    await conn.execute("""
+                        UPDATE sessions SET 
+                            project_path = ?, git_branch = ?, start_time = ?, end_time = ?
+                        WHERE id = ?
+                    """, (
+                        data.get('project_path'),
+                        data.get('git_branch'),
+                        data.get('start_time', datetime.utcnow().isoformat()),
+                        data.get('end_time'),
+                        session_uuid
+                    ))
+                    logger.debug(f"Async session updated: {claude_session_id} -> {session_uuid}")
+                else:
+                    # Create new session
+                    session_uuid = data.get('id') or str(uuid.uuid4())
+                    await conn.execute("""
+                        INSERT INTO sessions 
+                        (id, claude_session_id, project_path, git_branch, start_time, end_time, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        session_uuid,
+                        claude_session_id,
+                        data.get('project_path'),
+                        data.get('git_branch'),
+                        data.get('start_time', datetime.utcnow().isoformat()),
+                        data.get('end_time'),
+                        data.get('created_at', datetime.utcnow().isoformat())
+                    ))
+                    logger.debug(f"Async session created: {claude_session_id} -> {session_uuid}")
+                
+                return (True, session_uuid)
+        except Exception as e:
+            logger.error(f"Failed to async upsert session: {e}")
+            return (False, None)
+    
+    async def insert_event_async(self, event_data: Dict[str, Any]) -> bool:
+        """Async version of event insert."""
+        try:
+            async with self._get_async_connection() as conn:
+                # Prepare data
+                data = event_data.copy()
+                if 'id' not in data:
+                    data['id'] = str(uuid.uuid4())
+                
+                # Convert data dict to JSON string
+                json_data = json.dumps(data.get('data', {})) if isinstance(data.get('data'), dict) else data.get('data', '{}')
+                
+                await conn.execute("""
+                    INSERT INTO events 
+                    (id, session_id, event_type, timestamp, data, tool_name, duration_ms, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    data['id'],
+                    data['session_id'],
+                    data.get('event_type'),
+                    data.get('timestamp', datetime.utcnow().isoformat()),
+                    json_data,
+                    data.get('tool_name'),
+                    data.get('duration_ms'),
+                    data.get('created_at', datetime.utcnow().isoformat())
+                ))
+            
+            logger.debug(f"Async event inserted: {data.get('hook_event_name')} for session {data['session_id']}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to async insert event: {e}")
+            return False
+    
+    async def batch_insert_events_async(self, events: List[Dict[str, Any]]) -> int:
+        """
+        Async batch insert for multiple events with better performance.
+        
+        Args:
+            events: List of event data dictionaries
+            
+        Returns:
+            Number of successfully inserted events
+        """
+        if not events:
+            return 0
+        
+        try:
+            async with self._get_async_connection() as conn:
+                successful_inserts = 0
+                
+                # Prepare all events for batch insert
+                event_rows = []
+                for event_data in events:
+                    data = event_data.copy()
+                    if 'id' not in data:
+                        data['id'] = str(uuid.uuid4())
+                    
+                    # Convert data dict to JSON string
+                    json_data = json.dumps(data.get('data', {})) if isinstance(data.get('data'), dict) else data.get('data', '{}')
+                    
+                    event_rows.append((
+                        data['id'],
+                        data['session_id'],
+                        data.get('event_type'),
+                        data.get('timestamp', datetime.utcnow().isoformat()),
+                        json_data,
+                        data.get('tool_name'),
+                        data.get('duration_ms'),
+                        data.get('created_at', datetime.utcnow().isoformat())
+                    ))
+                
+                # Use executemany for batch insert
+                await conn.executemany("""
+                    INSERT INTO events 
+                    (id, session_id, event_type, timestamp, data, tool_name, duration_ms, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, event_rows)
+                
+                successful_inserts = len(event_rows)
+                logger.debug(f"Async batch inserted {successful_inserts} events")
+                return successful_inserts
+                
+        except Exception as e:
+            logger.error(f"Failed to async batch insert events: {e}")
+            return 0
+    
     def get_connection_info(self) -> Dict[str, Any]:
         """Get connection information."""
         return {
@@ -650,6 +930,88 @@ class DatabaseManager:
         
         logger.error("No database available for event storage")
         return False
+    
+    async def save_session_async(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """
+        Async version of save session for non-blocking database operations.
+        
+        Args:
+            session_data: Session data to save (must contain claude_session_id)
+            
+        Returns:
+            Tuple of (success: bool, session_uuid: Optional[str])
+        """
+        # Try Supabase first if available
+        if self.use_supabase:
+            success = await self.supabase_client.upsert_session_async(session_data)
+            if success:
+                # For async operations, we'll need to get the session UUID separately
+                # This is a limitation of the current async implementation
+                return (True, session_data.get('id') or str(uuid.uuid4()))
+            else:
+                logger.warning("Supabase async session save failed, trying fallback")
+        
+        # Fallback to SQLite if enabled
+        if self.fallback_enabled:
+            return await self.sqlite_client.upsert_session_async(session_data)
+        
+        logger.error("No database available for async session storage")
+        return (False, None)
+    
+    async def save_event_async(self, event_data: Dict[str, Any]) -> bool:
+        """
+        Async version of save event for non-blocking database operations.
+        
+        Args:
+            event_data: Event data to save
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        # Try Supabase first if available
+        if self.use_supabase:
+            if await self.supabase_client.insert_event_async(event_data):
+                return True
+            else:
+                logger.warning("Supabase async event save failed, trying fallback")
+        
+        # Fallback to SQLite if enabled
+        if self.fallback_enabled:
+            return await self.sqlite_client.insert_event_async(event_data)
+        
+        logger.error("No database available for async event storage")
+        return False
+    
+    async def batch_save_events_async(self, events: List[Dict[str, Any]]) -> int:
+        """
+        Async batch save for multiple events with optimized performance.
+        
+        Args:
+            events: List of event data dictionaries
+            
+        Returns:
+            Number of successfully saved events
+        """
+        if not events:
+            return 0
+        
+        # Try Supabase first if available
+        if self.use_supabase:
+            successful = await self.supabase_client.batch_insert_events_async(events)
+            if successful == len(events):
+                return successful
+            elif successful > 0:
+                logger.warning(f"Supabase batch save partially successful: {successful}/{len(events)}")
+                return successful
+            else:
+                logger.warning("Supabase async batch save failed, trying fallback")
+        
+        # Fallback to SQLite if enabled
+        if self.fallback_enabled:
+            return await self.sqlite_client.batch_insert_events_async(events)
+        
+        logger.error("No database available for async batch event storage")
+        return 0
     
     def test_connection(self) -> bool:
         """Test database connection functionality."""

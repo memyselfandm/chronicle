@@ -6,25 +6,39 @@ import os
 import time
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, Optional, Generator, Tuple, List
+from typing import Any, Dict, Optional, Generator, Tuple, List, Callable
 import uuid
 
 try:
     from .database import DatabaseManager
-    from .utils import extract_session_context, get_git_info, sanitize_data, format_error_message
+    from .utils import (
+        extract_session_context, get_git_info, sanitize_data, format_error_message,
+        resolve_project_path, get_project_context_with_env_support, validate_environment_setup
+    )
     from .security import SecurityValidator, SecurityError, PathTraversalError, InputSizeError
     from .errors import (
         ChronicleLogger, ErrorHandler, error_context, with_error_handling,
         get_log_level_from_env, DatabaseError, ValidationError, HookExecutionError
     )
+    from .performance import (
+        measure_performance, performance_monitor, get_performance_collector,
+        get_hook_cache, EarlyReturnValidator, PerformanceMetrics
+    )
 except ImportError:
     # Fallback for when running as standalone script
     from database import DatabaseManager
-    from utils import extract_session_context, get_git_info, sanitize_data, format_error_message
+    from utils import (
+        extract_session_context, get_git_info, sanitize_data, format_error_message,
+        resolve_project_path, get_project_context_with_env_support, validate_environment_setup
+    )
     from security import SecurityValidator, SecurityError, PathTraversalError, InputSizeError
     from errors import (
         ChronicleLogger, ErrorHandler, error_context, with_error_handling,
         get_log_level_from_env, DatabaseError, ValidationError, HookExecutionError
+    )
+    from performance import (
+        measure_performance, performance_monitor, get_performance_collector,
+        get_hook_cache, EarlyReturnValidator, PerformanceMetrics
     )
 
 # Configure logger
@@ -77,6 +91,11 @@ class BaseHook:
         )
         self.error_handler = ErrorHandler(self.chronicle_logger)
         
+        # Initialize performance monitoring
+        self.performance_collector = get_performance_collector()
+        self.hook_cache = get_hook_cache()
+        self.early_validator = EarlyReturnValidator()
+        
         # Initialize database manager with error handling
         try:
             with error_context("database_manager_init"):
@@ -124,7 +143,7 @@ class BaseHook:
     
     def get_claude_session_id(self, input_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
-        Extract Claude session ID from input data or environment.
+        Extract Claude session ID from input data or environment with early validation.
         
         Args:
             input_data: Hook input data (optional)
@@ -132,15 +151,28 @@ class BaseHook:
         Returns:
             Claude session ID string or None if not found
         """
+        # Early return for empty input
+        if not input_data and not os.getenv("CLAUDE_SESSION_ID"):
+            logger.warning("No Claude session ID available - no input data or environment variable")
+            return None
+        
         # Priority: input_data > environment variable
         if input_data and "sessionId" in input_data:
             session_id = input_data["sessionId"]
+            # Early validation of session ID format
+            if not self.early_validator.is_valid_session_id(session_id):
+                logger.warning(f"Invalid session ID format: {session_id}")
+                return None
             logger.debug(f"Claude session ID from input: {session_id}")
             return session_id
         
         # Try environment variable
         session_id = os.getenv("CLAUDE_SESSION_ID")
         if session_id:
+            # Early validation of session ID format
+            if not self.early_validator.is_valid_session_id(session_id):
+                logger.warning(f"Invalid session ID format from environment: {session_id}")
+                return None
             logger.debug(f"Claude session ID from environment: {session_id}")
             return session_id
         
@@ -149,28 +181,54 @@ class BaseHook:
     
     def load_project_context(self, cwd: Optional[str] = None) -> Dict[str, Any]:
         """
-        Capture basic project information and context.
+        Capture project information and context with enhanced environment variable support.
         
         Args:
-            cwd: Working directory (defaults to current directory)
+            cwd: Working directory (defaults to resolved project directory from CLAUDE_PROJECT_DIR)
             
         Returns:
             Dictionary containing project context information
         """
-        if cwd is None:
-            cwd = os.getcwd()
+        # Use enhanced environment-aware project context function
+        context = get_project_context_with_env_support(cwd)
+        context["timestamp"] = datetime.now().isoformat()
         
-        context = {
-            "cwd": cwd,
-            "timestamp": datetime.now().isoformat(),
-            "git_info": get_git_info(cwd),
-            "session_context": extract_session_context(),
-        }
+        resolved_cwd = context.get("cwd", os.getcwd())
+        logger.debug(f"Loaded project context for: {resolved_cwd}")
         
-        logger.debug(f"Loaded project context for: {cwd}")
+        # Log environment variable usage for debugging
+        if context.get("resolved_from_env"):
+            logger.debug(f"Project context resolved from CLAUDE_PROJECT_DIR: {context.get('claude_project_dir')}")
+        
         return context
     
+    def validate_environment(self) -> Dict[str, Any]:
+        """
+        Validate the environment setup for the hooks system.
+        
+        Returns:
+            Dictionary containing validation results, warnings, and recommendations
+        """
+        return validate_environment_setup()
+    
+    def get_project_root(self, fallback_path: Optional[str] = None) -> str:
+        """
+        Get the project root path using CLAUDE_PROJECT_DIR or fallback.
+        
+        Args:
+            fallback_path: Optional fallback path if environment variable is not set
+            
+        Returns:
+            Resolved project root path
+        """
+        try:
+            return resolve_project_path(fallback_path)
+        except ValueError as e:
+            self.chronicle_logger.warning(f"Failed to resolve project path: {e}")
+            return os.getcwd()
+    
     @with_error_handling(operation="save_event")
+    @performance_monitor("database.save_event")
     def save_event(self, event_data: Dict[str, Any]) -> bool:
         """
         Save event data to database with comprehensive error handling.
@@ -235,6 +293,7 @@ class BaseHook:
         # This should not be reached due to error handling, but provides fallback
         return False
     
+    @performance_monitor("database.save_session")
     def save_session(self, session_data: Dict[str, Any]) -> bool:
         """
         Save session data to database with error handling.
@@ -376,9 +435,10 @@ class BaseHook:
         with timer:
             yield timer
     
+    @performance_monitor("hook.process_data", track_memory=True)
     def process_hook_data(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process hook input data with comprehensive security validation.
+        Process hook input data with comprehensive security validation and performance optimization.
         
         Args:
             input_data: Raw hook input data
@@ -390,12 +450,32 @@ class BaseHook:
             SecurityError: If input fails security validation
         """
         try:
+            # Fast validation check with early return
+            is_valid, error_message = self._fast_validation_check(input_data)
+            if not is_valid:
+                logger.warning(f"Fast validation failed: {error_message}")
+                # Return minimal error response instead of raising exception
+                return {
+                    "hook_event_name": input_data.get("hookEventName", "Unknown"),
+                    "claude_session_id": None,
+                    "error": error_message,
+                    "early_return": True,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            
+            # Check cache for repeated identical requests
+            cache_key = self._generate_input_cache_key(input_data)
+            cached_result = self.hook_cache.get(cache_key)
+            if cached_result:
+                logger.debug("Returning cached result for hook data processing")
+                return cached_result
+            
             # Perform comprehensive security validation and sanitization
-            with self._measure_execution_time() as timer:
+            with measure_performance("security_validation") as validation_metrics:
                 validated_input = self.security_validator.comprehensive_validation(input_data)
             
             # Log security validation time
-            validation_time = timer.duration_ms
+            validation_time = validation_metrics.duration_ms
             if validation_time > 5.0:  # Warn if validation takes more than 5ms
                 logger.warning(f"Security validation took {validation_time:.2f}ms (target <5ms)")
             else:
@@ -429,6 +509,9 @@ class BaseHook:
                 "timestamp": datetime.now().isoformat(),
                 "security_validation_time_ms": validation_time,
             }
+            
+            # Cache the processed result for potential reuse
+            self.hook_cache.set(cache_key, processed_data)
             
             return processed_data
             
@@ -569,6 +652,86 @@ class BaseHook:
         # Keep first component lowercase, capitalize the rest
         return components[0] + ''.join(word.capitalize() for word in components[1:])
     
+    def _generate_input_cache_key(self, input_data: Dict[str, Any]) -> str:
+        """
+        Generate a cache key for input data processing.
+        
+        Args:
+            input_data: Raw hook input data
+            
+        Returns:
+            String cache key based on essential input characteristics
+        """
+        # Create stable key from essential fields only
+        key_data = {
+            "hook_event": input_data.get("hookEventName", "unknown"),
+            "session_id_hash": str(hash(input_data.get("sessionId", "")))[:8],  # Hash for privacy
+            "tool_name": input_data.get("toolName", ""),
+            "cwd_hash": str(hash(input_data.get("cwd", "")))[:8] if input_data.get("cwd") else "",
+        }
+        
+        # Include tool input signature if present (but not content for security)
+        tool_input = input_data.get("toolInput", {})
+        if isinstance(tool_input, dict):
+            key_data["tool_input_keys"] = sorted(tool_input.keys())
+        
+        return f"hook_process:{json.dumps(key_data, sort_keys=True)}"
+    
+    def _fast_validation_check(self, input_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """
+        Perform fast validation checks for early return scenarios.
+        
+        Args:
+            input_data: Raw hook input data
+            
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        # Check basic structure
+        if not isinstance(input_data, dict):
+            return (False, "Input data must be a dictionary")
+        
+        # Check for required hook event name
+        hook_event = input_data.get("hookEventName")
+        if not self.early_validator.is_valid_hook_event(hook_event):
+            return (False, f"Invalid or missing hookEventName: {hook_event}")
+        
+        # Check data size early
+        if not self.early_validator.is_reasonable_data_size(input_data, max_size_mb=10.0):
+            return (False, "Input data exceeds 10MB size limit")
+        
+        # Check session ID if present
+        session_id = input_data.get("sessionId")
+        if session_id and not self.early_validator.is_valid_session_id(session_id):
+            return (False, f"Invalid session ID format: {session_id}")
+        
+        # All checks passed
+        return (True, None)
+    
+    def _create_early_return_response(self, error_message: str, hook_event_name: str = "Unknown") -> Dict[str, Any]:
+        """
+        Create standardized early return response for validation failures.
+        
+        Args:
+            error_message: Error message describing the failure
+            hook_event_name: Hook event name for context
+            
+        Returns:
+            Formatted hook response with error details
+        """
+        hook_data = self.create_hook_specific_output(
+            hook_event_name=hook_event_name,
+            validation_error=True,
+            error_message=error_message,
+            early_return=True
+        )
+        
+        return self.create_response(
+            continue_execution=True,  # Don't block Claude execution for validation errors
+            suppress_output=True,     # Don't clutter transcript with validation failures
+            hook_specific_data=hook_data
+        )
+    
     def get_database_status(self) -> Dict[str, Any]:
         """
         Get current database connection status.
@@ -670,3 +833,110 @@ class BaseHook:
         except Exception as e:
             logger.error(f"Failed to get security metrics: {e}")
             return {"error": str(e)}
+    
+    def get_performance_metrics(self) -> Dict[str, Any]:
+        """
+        Get performance metrics for this hook instance.
+        
+        Returns:
+            Dictionary containing performance statistics and cache info
+        """
+        try:
+            return {
+                "performance_stats": self.performance_collector.get_statistics(),
+                "cache_stats": self.hook_cache.stats(),
+                "thresholds": self.performance_collector.thresholds,
+                "hook_class": self.__class__.__name__
+            }
+        except Exception as e:
+            logger.error(f"Failed to get performance metrics: {e}")
+            return {"error": str(e)}
+    
+    def reset_performance_metrics(self) -> None:
+        """Reset performance metrics and cache for clean testing."""
+        try:
+            self.performance_collector.reset_stats()
+            self.hook_cache.clear()
+            logger.debug("Performance metrics and cache reset")
+        except Exception as e:
+            logger.error(f"Failed to reset performance metrics: {e}")
+    
+    @performance_monitor("hook.execute_optimized")
+    def execute_hook_optimized(self, input_data: Dict[str, Any], hook_func: Callable) -> Dict[str, Any]:
+        """
+        Execute hook with full performance optimization pipeline.
+        
+        This method provides the fastest possible hook execution path with:
+        - Early validation and return
+        - Caching for repeated operations  
+        - Performance monitoring
+        - Graceful error handling
+        
+        Args:
+            input_data: Raw hook input data
+            hook_func: Hook processing function to execute
+            
+        Returns:
+            Hook response with performance metadata
+        """
+        start_time = time.perf_counter()
+        
+        try:
+            # Step 1: Fast validation (target: <1ms)
+            is_valid, error_message = self._fast_validation_check(input_data)
+            if not is_valid:
+                execution_time = (time.perf_counter() - start_time) * 1000
+                return self._create_early_return_response(
+                    error_message, 
+                    input_data.get("hookEventName", "Unknown")
+                ).update({"execution_time_ms": execution_time}) or self._create_early_return_response(
+                    error_message, 
+                    input_data.get("hookEventName", "Unknown")
+                )
+            
+            # Step 2: Check cache (target: <1ms)
+            cache_key = self._generate_input_cache_key(input_data)
+            cached_result = self.hook_cache.get(cache_key)
+            if cached_result:
+                execution_time = (time.perf_counter() - start_time) * 1000
+                cached_result["execution_time_ms"] = execution_time
+                cached_result["cached"] = True
+                logger.debug(f"Returning cached result for {input_data.get('hookEventName')} in {execution_time:.2f}ms")
+                return cached_result
+            
+            # Step 3: Process data with security validation (target: <10ms)
+            processed_data = self.process_hook_data(input_data)
+            if processed_data.get("early_return"):
+                # Early return from processing
+                execution_time = (time.perf_counter() - start_time) * 1000
+                processed_data["execution_time_ms"] = execution_time
+                return processed_data
+            
+            # Step 4: Execute hook function (target: <80ms total)
+            result = hook_func(processed_data)
+            
+            # Step 5: Add performance metadata and cache result
+            execution_time = (time.perf_counter() - start_time) * 1000
+            result["execution_time_ms"] = execution_time
+            result["performance_optimized"] = True
+            
+            # Cache successful results
+            if result.get("continue", True) and execution_time < 100:  # Only cache fast, successful results
+                self.hook_cache.set(cache_key, result)
+            
+            # Log performance warning if over threshold
+            if execution_time > 100:
+                logger.warning(f"Hook execution exceeded 100ms threshold: {execution_time:.2f}ms for {input_data.get('hookEventName')}")
+            else:
+                logger.debug(f"Hook executed successfully in {execution_time:.2f}ms for {input_data.get('hookEventName')}")
+            
+            return result
+            
+        except Exception as e:
+            execution_time = (time.perf_counter() - start_time) * 1000
+            logger.error(f"Hook execution failed after {execution_time:.2f}ms: {e}")
+            
+            return self._create_early_return_response(
+                f"Hook execution error: {str(e)[:100]}", 
+                input_data.get("hookEventName", "Unknown")
+            )

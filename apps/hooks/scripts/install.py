@@ -199,6 +199,9 @@ class HookInstaller:
         # Generate hook configuration
         hook_settings = self._generate_hook_settings()
         
+        # Add backward compatibility information
+        hook_settings = self._add_backward_compatibility_note(hook_settings)
+        
         # Merge with existing settings
         merged_settings = merge_hook_settings(settings, hook_settings)
         
@@ -222,20 +225,31 @@ class HookInstaller:
     def _generate_hook_settings(self) -> Dict[str, Any]:
         """
         Generate hook configuration for Claude Code settings.json.
+        Uses $CLAUDE_PROJECT_DIR environment variable for improved portability.
         
         Returns:
             Dictionary containing hook configuration
         """
-        hooks_dir = self.claude_dir / "hooks"
-        
         # Use $CLAUDE_PROJECT_DIR environment variable in hook paths for portability
+        # This allows hooks to work from different working directories
+        project_dir_var = "$CLAUDE_PROJECT_DIR"
+        
+        # Determine the relative path from project root to Claude directory
+        try:
+            # Calculate relative path from project root to .claude directory
+            claude_relative = os.path.relpath(self.claude_dir, self.project_root)
+            hook_path_template = f"{project_dir_var}/{claude_relative}/hooks"
+        except ValueError:
+            # If paths are on different drives (Windows), fall back to absolute path with env var
+            hook_path_template = f"{project_dir_var}/.claude/hooks"
+        
         hook_configs = {
             "PreToolUse": [
                 {
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/pre_tool_use.py",
+                            "command": f"{hook_path_template}/pre_tool_use.py",
                             "timeout": 10
                         }
                     ]
@@ -246,7 +260,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command", 
-                            "command": f"{hooks_dir}/post_tool_use.py",
+                            "command": f"{hook_path_template}/post_tool_use.py",
                             "timeout": 10
                         }
                     ]
@@ -257,7 +271,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/user_prompt_submit.py",
+                            "command": f"{hook_path_template}/user_prompt_submit.py",
                             "timeout": 5
                         }
                     ]
@@ -268,7 +282,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/notification.py", 
+                            "command": f"{hook_path_template}/notification.py", 
                             "timeout": 5
                         }
                     ]
@@ -279,7 +293,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/stop.py",
+                            "command": f"{hook_path_template}/stop.py",
                             "timeout": 5
                         }
                     ]
@@ -290,7 +304,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/subagent_stop.py",
+                            "command": f"{hook_path_template}/subagent_stop.py",
                             "timeout": 5
                         }
                     ]
@@ -302,7 +316,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/pre_compact.py",
+                            "command": f"{hook_path_template}/pre_compact.py",
                             "timeout": 10
                         }
                     ]
@@ -312,7 +326,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/pre_compact.py",
+                            "command": f"{hook_path_template}/pre_compact.py",
                             "timeout": 10
                         }
                     ]
@@ -324,7 +338,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/session_start.py",
+                            "command": f"{hook_path_template}/session_start.py",
                             "timeout": 5
                         }
                     ]
@@ -334,7 +348,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/session_start.py",
+                            "command": f"{hook_path_template}/session_start.py",
                             "timeout": 5
                         }
                     ]
@@ -344,7 +358,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hooks_dir}/session_start.py",
+                            "command": f"{hook_path_template}/session_start.py",
                             "timeout": 5
                         }
                     ]
@@ -353,6 +367,32 @@ class HookInstaller:
         }
         
         return hook_configs
+    
+    def _add_backward_compatibility_note(self, settings: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Add backward compatibility note for existing installations.
+        
+        Args:
+            settings: Generated settings dictionary
+            
+        Returns:
+            Settings with backward compatibility information
+        """
+        if "hooks" not in settings:
+            settings["hooks"] = {}
+        
+        # Add comment about environment variable usage
+        settings["_chronicle_hooks_info"] = {
+            "version": "2.0",
+            "environment_variables": {
+                "CLAUDE_PROJECT_DIR": "Set this to your project root directory for portability",
+                "example": "export CLAUDE_PROJECT_DIR=/path/to/your/project"
+            },
+            "backward_compatibility": "Absolute paths in existing installations will continue to work",
+            "generated_at": datetime.now().isoformat()
+        }
+        
+        return settings
     
     def validate_installation(self) -> Dict[str, Any]:
         """
@@ -474,8 +514,9 @@ def find_claude_directory() -> str:
     Find the appropriate Claude Code directory.
     
     Searches in order:
-    1. Project-level .claude directory
-    2. User-level ~/.claude directory
+    1. CLAUDE_PROJECT_DIR/.claude (if CLAUDE_PROJECT_DIR is set)
+    2. Project-level .claude directory (current working directory)
+    3. User-level ~/.claude directory
     
     Returns:
         Path to Claude directory
@@ -483,18 +524,48 @@ def find_claude_directory() -> str:
     Raises:
         InstallationError: If no Claude directory found
     """
-    # Check project-level first
+    # Check CLAUDE_PROJECT_DIR first if set
+    claude_project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    if claude_project_dir:
+        project_claude = Path(claude_project_dir) / ".claude"
+        if project_claude.exists():
+            logger.info(f"Using Claude directory from CLAUDE_PROJECT_DIR: {project_claude}")
+            return str(project_claude)
+        else:
+            # Create it if CLAUDE_PROJECT_DIR is set but .claude doesn't exist
+            try:
+                project_claude.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created Claude directory at CLAUDE_PROJECT_DIR: {project_claude}")
+                return str(project_claude)
+            except (PermissionError, OSError) as e:
+                logger.warning(f"Cannot create Claude directory at CLAUDE_PROJECT_DIR {project_claude}: {e}")
+    
+    # Check project-level (current working directory)
     project_claude = Path.cwd() / ".claude"
     if project_claude.exists():
+        logger.info(f"Using project-level Claude directory: {project_claude}")
         return str(project_claude)
     
     # Check user-level
     user_claude = Path.home() / ".claude"
     if user_claude.exists():
+        logger.info(f"Using user-level Claude directory: {user_claude}")
         return str(user_claude)
     
     # Create project-level directory as default
-    project_claude.mkdir(parents=True, exist_ok=True)
+    try:
+        project_claude.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created project-level Claude directory: {project_claude}")
+        return str(project_claude)
+    except (PermissionError, OSError) as e:
+        # Fall back to user directory if project directory creation fails
+        try:
+            user_claude.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created user-level Claude directory: {user_claude}")
+            return str(user_claude)
+        except (PermissionError, OSError) as e2:
+            raise InstallationError(f"Cannot create Claude directory in project ({e}) or user home ({e2})")
+    
     return str(project_claude)
 
 

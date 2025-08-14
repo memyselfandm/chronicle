@@ -4,8 +4,22 @@ import json
 import os
 import re
 import subprocess
+from pathlib import Path
 from typing import Any, Dict, Optional, Union
 import logging
+
+try:
+    from .cross_platform import (
+        normalize_path, safe_path_join, is_absolute_path, 
+        expand_environment_variables, validate_path_security,
+        get_platform_info, PLATFORM
+    )
+except ImportError:
+    from cross_platform import (
+        normalize_path, safe_path_join, is_absolute_path,
+        expand_environment_variables, validate_path_security,
+        get_platform_info, PLATFORM
+    )
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -290,3 +304,225 @@ def safe_json_loads(json_str: str, default: Any = None) -> Any:
         return json.loads(json_str)
     except (json.JSONDecodeError, TypeError):
         return default
+
+
+def resolve_project_path(fallback_path: Optional[str] = None) -> str:
+    """
+    Resolve the project root path using CLAUDE_PROJECT_DIR environment variable
+    with cross-platform compatibility.
+    
+    Args:
+        fallback_path: Optional fallback path if environment variable is not set
+        
+    Returns:
+        Resolved project path (absolute)
+        
+    Raises:
+        ValueError: If no valid project path can be determined
+    """
+    # Check CLAUDE_PROJECT_DIR environment variable first
+    claude_project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    if claude_project_dir:
+        # Expand environment variables and normalize path
+        expanded_path = expand_environment_variables(claude_project_dir)
+        normalized_path = normalize_path(expanded_path)
+        
+        project_path = Path(normalized_path)
+        if project_path.exists():
+            logger.debug(f"Using project path from CLAUDE_PROJECT_DIR: {project_path}")
+            return str(project_path.absolute())
+        else:
+            logger.warning(f"CLAUDE_PROJECT_DIR points to non-existent path: {claude_project_dir}")
+    
+    # Use fallback path if provided
+    if fallback_path:
+        expanded_fallback = expand_environment_variables(fallback_path)
+        normalized_fallback = normalize_path(expanded_fallback)
+        fallback = Path(normalized_fallback)
+        
+        if fallback.exists():
+            logger.debug(f"Using fallback project path: {fallback}")
+            return str(fallback.absolute())
+        else:
+            logger.warning(f"Fallback path does not exist: {fallback_path}")
+    
+    # Use current working directory as final fallback
+    cwd = Path.cwd()
+    normalized_cwd = normalize_path(cwd)
+    logger.debug(f"Using current working directory as project path: {normalized_cwd}")
+    return normalized_cwd
+
+
+def resolve_project_relative_path(relative_path: str, fallback_path: Optional[str] = None) -> str:
+    """
+    Resolve a path relative to the project root with cross-platform safety.
+    
+    Args:
+        relative_path: Path relative to project root (e.g., ".claude/hooks/session_start.py")
+        fallback_path: Optional fallback project path if environment variable is not set
+        
+    Returns:
+        Absolute path to the file
+        
+    Raises:
+        ValueError: If the resolved path is invalid
+    """
+    project_root = resolve_project_path(fallback_path)
+    
+    # Use safe path joining for cross-platform compatibility
+    full_path = safe_path_join(project_root, relative_path)
+    normalized_path = normalize_path(full_path)
+    
+    # Validate path security
+    security_check = validate_path_security(normalized_path)
+    if not security_check["is_safe"]:
+        raise ValueError(f"Path security validation failed: {security_check['errors']}")
+    
+    logger.debug(f"Resolved relative path '{relative_path}' to: {normalized_path}")
+    return normalized_path
+
+
+def get_project_context_with_env_support(cwd: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Get project context with enhanced environment variable support.
+    
+    Args:
+        cwd: Optional working directory (defaults to project root from environment)
+        
+    Returns:
+        Dictionary containing enhanced project context
+    """
+    # Use provided cwd or resolve from environment
+    if cwd is None:
+        try:
+            cwd = resolve_project_path()
+        except ValueError:
+            cwd = os.getcwd()
+    
+    context = {
+        "cwd": cwd,
+        "resolved_from_env": bool(os.getenv("CLAUDE_PROJECT_DIR")),
+        "claude_project_dir": os.getenv("CLAUDE_PROJECT_DIR"),
+        "git_info": get_git_info(cwd),
+        "session_context": extract_session_context(),
+        "environment_variables": {
+            "CLAUDE_PROJECT_DIR": os.getenv("CLAUDE_PROJECT_DIR"),
+            "CLAUDE_SESSION_ID": os.getenv("CLAUDE_SESSION_ID"),
+            "PWD": os.getenv("PWD"),  # Current working directory from shell
+        }
+    }
+    
+    return context
+
+
+def validate_environment_setup() -> Dict[str, Any]:
+    """
+    Validate that the environment is properly set up for Chronicle hooks
+    with cross-platform compatibility checks.
+    
+    Returns:
+        Dictionary containing validation results and recommendations
+    """
+    validation_result = {
+        "is_valid": True,
+        "warnings": [],
+        "errors": [],
+        "recommendations": [],
+        "platform_info": get_platform_info()
+    }
+    
+    # Check CLAUDE_PROJECT_DIR
+    claude_project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    if not claude_project_dir:
+        validation_result["warnings"].append(
+            "CLAUDE_PROJECT_DIR environment variable is not set. "
+            "Hooks will use current working directory, which may not be portable."
+        )
+        validation_result["recommendations"].append(
+            "Set CLAUDE_PROJECT_DIR to your project root directory: "
+            "export CLAUDE_PROJECT_DIR=/path/to/your/project"
+        )
+    else:
+        project_path = Path(claude_project_dir)
+        if not project_path.exists():
+            validation_result["errors"].append(
+                f"CLAUDE_PROJECT_DIR points to non-existent directory: {claude_project_dir}"
+            )
+            validation_result["is_valid"] = False
+        elif not project_path.is_dir():
+            validation_result["errors"].append(
+                f"CLAUDE_PROJECT_DIR is not a directory: {claude_project_dir}"
+            )
+            validation_result["is_valid"] = False
+        else:
+            # Check if .claude directory exists
+            claude_dir = project_path / ".claude"
+            if not claude_dir.exists():
+                validation_result["warnings"].append(
+                    f"No .claude directory found in project root: {claude_project_dir}"
+                )
+                validation_result["recommendations"].append(
+                    "Run the Chronicle hooks installer to set up the .claude directory"
+                )
+    
+    # Check for common configuration files in project root
+    if claude_project_dir:
+        project_path = Path(claude_project_dir)
+        config_files = [
+            ".gitignore", "README.md", "requirements.txt", "package.json", 
+            "pyproject.toml", "Cargo.toml", "go.mod"
+        ]
+        found_config_files = [f for f in config_files if (project_path / f).exists()]
+        
+        if not found_config_files:
+            validation_result["warnings"].append(
+                "No common project configuration files found in CLAUDE_PROJECT_DIR. "
+                "Please verify this is the correct project root."
+            )
+    
+    # Check cross-platform path compatibility
+    if claude_project_dir:
+        # Validate path security and compatibility
+        security_check = validate_path_security(claude_project_dir)
+        
+        if security_check["warnings"]:
+            validation_result["warnings"].extend(security_check["warnings"])
+        
+        if security_check["errors"]:
+            validation_result["errors"].extend(security_check["errors"])
+            validation_result["is_valid"] = False
+        
+        # Platform-specific path checks
+        if PLATFORM.is_windows:
+            if "/" in claude_project_dir and "\\" not in claude_project_dir:
+                validation_result["warnings"].append(
+                    "Using Unix-style path separators on Windows. "
+                    "This may work but Windows-style separators are recommended."
+                )
+            
+            if len(claude_project_dir) > 260:
+                validation_result["warnings"].append(
+                    "Path length exceeds Windows MAX_PATH limit (260 characters). "
+                    "Consider enabling long path support or using a shorter path."
+                )
+        
+        elif PLATFORM.is_unix_like:
+            if "\\" in claude_project_dir:
+                validation_result["warnings"].append(
+                    "Using backslash separators on Unix-like system. "
+                    "Use forward slashes for better compatibility."
+                )
+    
+    # Add platform-specific recommendations
+    if PLATFORM.is_windows:
+        validation_result["recommendations"].append(
+            "On Windows: Consider using PowerShell or Command Prompt to set environment variables: "
+            "set CLAUDE_PROJECT_DIR=C:\\path\\to\\your\\project"
+        )
+    else:
+        validation_result["recommendations"].append(
+            "On Unix-like systems: Add to your shell profile (.bashrc, .zshrc, etc.): "
+            "export CLAUDE_PROJECT_DIR=/path/to/your/project"
+        )
+    
+    return validation_result

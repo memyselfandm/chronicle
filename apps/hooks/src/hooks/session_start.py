@@ -32,6 +32,7 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'core'))
 
 from base_hook import BaseHook
+from performance import measure_performance, performance_monitor
 
 
 class SessionStartHook(BaseHook):
@@ -50,9 +51,10 @@ class SessionStartHook(BaseHook):
         super().__init__(config)
         self.hook_name = "SessionStart"
     
+    @performance_monitor("session_start.process", track_memory=True)
     def process_session_start(self, input_data):
         """
-        Process session start hook data.
+        Process session start hook data with performance optimization.
         
         Args:
             input_data: Hook input data from Claude Code
@@ -61,11 +63,29 @@ class SessionStartHook(BaseHook):
             Tuple of (success: bool, session_data: dict, event_data: dict)
         """
         try:
-            # Extract session ID and basic data
-            processed_data = self.process_hook_data(input_data)
+            # Use fast path processing with early returns
+            with measure_performance("session_start.data_processing") as metrics:
+                processed_data = self.process_hook_data(input_data)
+                
+                # Early return if processing failed
+                if processed_data.get("early_return"):
+                    metrics.add_metadata(early_return=True, reason=processed_data.get("error"))
+                    return (False, {}, {"error": processed_data.get("error", "Processing failed")})
             
-            # Get project context
-            project_context = self.load_project_context(processed_data.get("cwd"))
+            # Get project context with caching
+            with measure_performance("session_start.project_context") as metrics:
+                cwd = processed_data.get("cwd")
+                cache_key = f"project_context:{cwd}" if cwd else "project_context:default"
+                
+                # Try cache first for project context
+                project_context = self.hook_cache.get(cache_key)
+                if not project_context:
+                    project_context = self.load_project_context(cwd)
+                    # Cache project context for 5 minutes
+                    self.hook_cache.set(cache_key, project_context)
+                    metrics.add_metadata(cached=False)
+                else:
+                    metrics.add_metadata(cached=True)
             
             # Extract session start specific data
             trigger_source = input_data.get("source", "unknown")
@@ -93,15 +113,19 @@ class SessionStartHook(BaseHook):
                 }
             }
             
-            # Save session first to get the UUID for events
-            session_success = self.save_session(session_data)
-            event_success = False
-            
-            # Only save event if session was saved successfully
-            if session_success and self.session_uuid:
-                event_success = self.save_event(event_data)
-            else:
-                self.log_error(Exception("Cannot save event: session save failed or no session UUID available"), "process_session_start")
+            # Save session and event with performance monitoring
+            with measure_performance("session_start.database_operations") as db_metrics:
+                # Save session first to get the UUID for events
+                session_success = self.save_session(session_data)
+                event_success = False
+                
+                # Only save event if session was saved successfully
+                if session_success and self.session_uuid:
+                    event_success = self.save_event(event_data)
+                    db_metrics.add_metadata(operations_completed=2, session_success=True, event_success=True)
+                else:
+                    self.log_error(Exception("Cannot save event: session save failed or no session UUID available"), "process_session_start")
+                    db_metrics.add_metadata(operations_completed=1, session_success=session_success, event_success=False)
             
             return (session_success and event_success, session_data, event_data)
             
@@ -355,17 +379,36 @@ def main():
                 print(json.dumps(minimal_response))
                 sys.exit(0)
             
-            # Process session start with error handling
+            # Process session start with error handling and performance optimization
             try:
-                success, session_data, event_data = hook.process_session_start(input_data)
-                additional_context = hook.generate_session_context(session_data, event_data)
-                response = hook.create_session_start_response(success, session_data, event_data, additional_context)
+                # Use optimized execution path
+                def session_start_processor(processed_input_data):
+                    """Optimized session start processor function."""
+                    # For session start, we need the original input data structure
+                    success, session_data, event_data = hook.process_session_start(input_data)
+                    additional_context = hook.generate_session_context(session_data, event_data)
+                    return hook.create_session_start_response(success, session_data, event_data, additional_context)
                 
-                logger.info("Session start hook completed successfully", {
-                    "success": success,
-                    "claude_session_id": session_data.get("claude_session_id"),
+                # Execute with full optimization pipeline
+                response = hook.execute_hook_optimized(input_data, session_start_processor)
+                
+                # Log performance metrics
+                execution_time = response.get("execution_time_ms", 0)
+                performance_optimized = response.get("performance_optimized", False)
+                cached = response.get("cached", False)
+                
+                logger.info("Session start hook completed", {
+                    "execution_time_ms": execution_time,
+                    "performance_optimized": performance_optimized,
+                    "cached": cached,
+                    "meets_100ms_requirement": execution_time < 100,
+                    "claude_session_id": getattr(hook, "claude_session_id", None),
                     "session_uuid": getattr(hook, "session_uuid", None)
                 })
+                
+                # Warn if performance threshold exceeded
+                if execution_time > 100:
+                    logger.warning(f"Session start hook exceeded 100ms Claude Code requirement: {execution_time:.2f}ms")
                 
             except Exception as e:
                 should_continue, exit_code, message = error_handler.handle_error(
