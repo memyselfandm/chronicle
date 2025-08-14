@@ -10,29 +10,62 @@ import logging
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Patterns for sensitive data detection
+# Enhanced patterns for sensitive data detection
 SENSITIVE_PATTERNS = {
     "api_keys": [
         r'"api_key"\s*:\s*"[^"]*"',
         r"'api_key'\s*:\s*'[^']*'",
         r'sk-[a-zA-Z0-9]{20,}',  # OpenAI API keys
+        r'sk-ant-api03-[a-zA-Z0-9_-]{95}',  # Anthropic API keys
         r'eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*',  # JWT tokens
+        r'AKIA[0-9A-Z]{16}',  # AWS access keys
+        r'ghp_[a-zA-Z0-9]{36}',  # GitHub personal access tokens
+        r'github_pat_[a-zA-Z0-9_]{82}',  # GitHub fine-grained tokens
+        r'glpat-[a-zA-Z0-9_-]{20}',  # GitLab tokens
+        r'xoxb-[0-9]{11,12}-[0-9]{11,12}-[a-zA-Z0-9]{24}',  # Slack bot tokens
+        r'sk_(live|test)_[a-zA-Z0-9]{24}',  # Stripe secret keys
+        r'pk_(live|test)_[a-zA-Z0-9]{24}',  # Stripe publishable keys
+        r'api[_-]?key["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{16,}',  # Generic API keys
+        r'access[_-]?token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{16,}',  # Access tokens
     ],
     "passwords": [
         r'"password"\s*:\s*"[^"]*"',
         r"'password'\s*:\s*'[^']*'",
         r'"supabase_key"\s*:\s*"[^"]*"',
         r"'supabase_key'\s*:\s*'[^']*'",
+        r'"secret"\s*:\s*"[^"]*"',
+        r"'secret'\s*:\s*'[^']*'",
+        r'password["\']?\s*[:=]\s*["\'][^"\']{6,}["\']',
+        r'pass["\']?\s*[:=]\s*["\'][^"\']{6,}["\']',
+        r'secret[_-]?key["\']?\s*[:=]\s*["\'][^"\']{8,}["\']',
+        r'database[_-]?password["\']?\s*[:=]\s*["\'][^"\']{6,}["\']',
+    ],
+    "credentials": [
+        r'-----BEGIN (RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----',  # SSH private keys
+        r'-----BEGIN PGP PRIVATE KEY BLOCK-----',  # PGP private keys
+        r'-----BEGIN CERTIFICATE-----',  # Certificates
+        r'(postgres|mysql|mongodb)://[^:]+:[^@]+@[^/]+/[^?\s]+',  # Database connection strings
+    ],
+    "pii": [
+        r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email addresses
+        r'\b(\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b',  # Phone numbers
+        r'\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b',  # SSN
+        r'\b[0-9]{4}[-\s]?[0-9]{4}[-\s]?[0-9]{4}[-\s]?[0-9]{4}\b',  # Credit card numbers
     ],
     "user_paths": [
         r'/Users/[^/\s,}]+',  # macOS user paths
         r'/home/[^/\s,}]+',   # Linux user paths
         r'C:\\Users\\[^\\s,}]+',  # Windows user paths
+        r'/root/[^/\s,}]*',   # Root paths
     ]
 }
 
-# Maximum data size for validation (10MB)
-MAX_DATA_SIZE = 10 * 1024 * 1024
+# Configuration constants for security validation
+DEFAULT_MAX_INPUT_SIZE_MB = 10.0
+MAX_DATA_SIZE = int(DEFAULT_MAX_INPUT_SIZE_MB * 1024 * 1024)  # Legacy constant for compatibility
+
+# Environment variable for configurable input size limit
+MAX_INPUT_SIZE_MB = float(os.getenv("CHRONICLE_MAX_INPUT_SIZE_MB", DEFAULT_MAX_INPUT_SIZE_MB))
 
 
 def sanitize_data(data: Any) -> Any:
@@ -95,12 +128,13 @@ def extract_session_context() -> Dict[str, Optional[str]]:
     }
 
 
-def validate_json(data: Any) -> bool:
+def validate_json(data: Any, max_size_mb: Optional[float] = None) -> bool:
     """
     Validate JSON data for safety and size constraints.
     
     Args:
         data: Data to validate
+        max_size_mb: Optional custom size limit in MB (uses configured default if None)
         
     Returns:
         True if data is valid, False otherwise
@@ -110,11 +144,20 @@ def validate_json(data: Any) -> bool:
     
     try:
         # Convert to JSON string to check size
-        json_str = json.dumps(data)
+        json_str = json.dumps(data, default=str)
+        
+        # Determine size limit
+        if max_size_mb is None:
+            size_limit_bytes = int(MAX_INPUT_SIZE_MB * 1024 * 1024)
+        else:
+            size_limit_bytes = int(max_size_mb * 1024 * 1024)
         
         # Check size limit
-        if len(json_str.encode('utf-8')) > MAX_DATA_SIZE:
-            logger.warning(f"Data size exceeds limit: {len(json_str)} bytes")
+        data_size_bytes = len(json_str.encode('utf-8'))
+        if data_size_bytes > size_limit_bytes:
+            size_mb = data_size_bytes / (1024 * 1024)
+            limit_mb = size_limit_bytes / (1024 * 1024)
+            logger.warning(f"Data size {size_mb:.2f}MB exceeds limit of {limit_mb:.2f}MB")
             return False
         
         # Verify it's valid JSON by parsing it back

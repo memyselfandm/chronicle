@@ -112,9 +112,12 @@ def test_save_event_success(mock_database_manager):
     """Test successful event saving."""
     from src.core.base_hook import BaseHook
     
+    mock_database_manager.save_session.return_value = (True, "session-uuid-123")
+    
     with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
         hook = BaseHook()
-        hook.session_id = "test-session"
+        hook.claude_session_id = "test-session"
+        hook.session_uuid = "session-uuid-123"
         
         event_data = {
             "hook_event_name": "PreToolUse",
@@ -129,7 +132,7 @@ def test_save_event_success(mock_database_manager):
         
         # Check that session_id was added
         called_args = mock_database_manager.save_event.call_args[0][0]
-        assert called_args["session_id"] == "test-session"
+        assert called_args["session_id"] == "session-uuid-123"
 
 
 def test_save_event_failure(mock_database_manager):
@@ -140,7 +143,7 @@ def test_save_event_failure(mock_database_manager):
     
     with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
         hook = BaseHook()
-        hook.session_id = "test-session"
+        hook.session_uuid = "test-session"
         
         event_data = {"hook_event_name": "PreToolUse"}
         
@@ -172,18 +175,18 @@ def test_log_error_creates_file():
         with tempfile.TemporaryDirectory() as temp_dir:
             log_file = os.path.join(temp_dir, "test.log")
             
-            with patch.object(BaseHook, 'log_file', log_file):
-                hook = BaseHook()
-                
-                test_error = Exception("Test error message")
-                hook.log_error(test_error, "test_context")
-                
-                # Check that log file was created and contains error
-                assert os.path.exists(log_file)
-                with open(log_file, 'r') as f:
-                    content = f.read()
-                    assert "Test error message" in content
-                    assert "test_context" in content
+            hook = BaseHook()
+            hook.log_file = log_file  # Set instance attribute instead of class attribute
+            
+            test_error = Exception("Test error message")
+            hook.log_error(test_error, "test_context")
+            
+            # Check that log file was created and contains error
+            assert os.path.exists(log_file)
+            with open(log_file, 'r') as f:
+                content = f.read()
+                assert "Test error message" in content
+                assert "test_context" in content
 
 
 def test_log_error_appends_to_existing():
@@ -196,16 +199,16 @@ def test_log_error_appends_to_existing():
             temp_file.flush()
             
             try:
-                with patch.object(BaseHook, 'log_file', temp_file.name):
-                    hook = BaseHook()
-                    
-                    test_error = Exception("New error")
-                    hook.log_error(test_error)
-                    
-                    with open(temp_file.name, 'r') as f:
-                        content = f.read()
-                        assert "Existing log content" in content
-                        assert "New error" in content
+                hook = BaseHook()
+                hook.log_file = temp_file.name  # Set instance attribute
+                
+                test_error = Exception("New error")
+                hook.log_error(test_error)
+                
+                with open(temp_file.name, 'r') as f:
+                    content = f.read()
+                    assert "Existing log content" in content
+                    assert "New error" in content
             finally:
                 os.unlink(temp_file.name)
 
@@ -251,9 +254,9 @@ def test_error_handling_in_save_event():
     mock_db = Mock()
     mock_db.save_event.side_effect = Exception("Database error")
     
-    with patch('apps.hooks.src.core.base_hook.DatabaseManager', return_value=mock_db):
+    with patch('src.core.base_hook.DatabaseManager', return_value=mock_db):
         hook = BaseHook()
-        hook.session_id = "test-session"
+        hook.session_uuid = "test-session"
         
         # Should not raise exception, should return False
         result = hook.save_event({"hook_event_name": "test"})
