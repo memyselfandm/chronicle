@@ -1,0 +1,25 @@
+# Environment files
+apps/hooks/.env
+.env
+
+# Claude Code project configuration (should not be committed)
+.claude/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
