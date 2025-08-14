@@ -28,6 +28,7 @@ import os
 import platform
 import shutil
 import stat
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +42,34 @@ logger = logging.getLogger(__name__)
 class InstallationError(Exception):
     """Custom exception for installation-related errors."""
     pass
+
+
+def check_uv_availability() -> Tuple[bool, str]:
+    """
+    Check if UV package manager is available in the system.
+    
+    Returns:
+        Tuple of (is_available, version_or_error_message)
+    """
+    try:
+        result = subprocess.run(
+            ["uv", "--version"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        version = result.stdout.strip()
+        logger.info(f"UV is available: {version}")
+        return True, version
+    except FileNotFoundError:
+        error_msg = "UV is not installed or not in PATH. Please install UV: https://github.com/astral-sh/uv"
+        return False, error_msg
+    except subprocess.CalledProcessError as e:
+        error_msg = f"UV check failed: {e.stderr or str(e)}"
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"Unexpected error checking UV: {str(e)}"
+        return False, error_msg
 
 
 class HookInstaller:
@@ -70,20 +99,26 @@ class HookInstaller:
         # Validate directories
         self._validate_directories()
         
-        # Define hook files to install (now in src/hooks/)
+        # Check UV availability
+        uv_available, uv_info = check_uv_availability()
+        if not uv_available:
+            raise InstallationError(f"UV is required but not available: {uv_info}")
+        logger.info(f"UV check passed: {uv_info}")
+        
+        # Define hook files to install - UV single-file scripts
         self.hook_files = [
-            "pre_tool_use.py",
-            "post_tool_use.py", 
-            "user_prompt_submit.py",
-            "notification.py",
-            "session_start.py",
-            "stop.py",
-            "subagent_stop.py",
-            "pre_compact.py"
+            "pre_tool_use_uv.py",
+            "post_tool_use_uv.py", 
+            "user_prompt_submit_uv.py",
+            "notification_uv.py",
+            "session_start_uv.py",
+            "stop_uv.py",
+            "subagent_stop_uv.py",
+            "pre_compact_uv.py"
         ]
         
-        # Update hooks source directory to point to src/hooks
-        self.hooks_source_dir = self.hooks_source_dir / "src" / "hooks"
+        # Update hooks source directory to point to UV scripts
+        self.hooks_source_dir = self.hooks_source_dir / "src" / "hooks" / "uv_scripts"
         
         logger.info(f"HookInstaller initialized:")
         logger.info(f"  Hooks source: {self.hooks_source_dir}")
@@ -119,7 +154,7 @@ class HookInstaller:
     
     def copy_hook_files(self) -> List[str]:
         """
-        Copy hook files from source directory to Claude hooks directory.
+        Copy hook files from source directory to Claude chronicle hooks directory.
         
         Returns:
             List of successfully copied hook file names
@@ -127,8 +162,49 @@ class HookInstaller:
         Raises:
             InstallationError: If copying fails
         """
-        hooks_dest_dir = self.claude_dir / "hooks"
+        # Create chronicle subfolder structure
+        chronicle_dir = self.claude_dir / "hooks" / "chronicle"
+        hooks_dest_dir = chronicle_dir / "hooks"
+        data_dir = chronicle_dir / "data"
+        logs_dir = chronicle_dir / "logs"
+        
+        # Create all necessary directories
+        chronicle_dir.mkdir(parents=True, exist_ok=True)
         hooks_dest_dir.mkdir(exist_ok=True)
+        data_dir.mkdir(exist_ok=True)
+        logs_dir.mkdir(exist_ok=True)
+        
+        # Copy README.md to chronicle directory
+        readme_source = Path(__file__).parent / "chronicle_readme.md"
+        readme_dest = chronicle_dir / "README.md"
+        if readme_source.exists():
+            try:
+                shutil.copy2(readme_source, readme_dest)
+                logger.info("Copied README.md to chronicle directory")
+            except Exception as e:
+                logger.warning(f"Failed to copy README.md: {e}")
+        
+        # Copy default config.json if it doesn't exist
+        config_source = Path(__file__).parent / "chronicle_config.json"
+        config_dest = chronicle_dir / "config.json"
+        if config_source.exists() and not config_dest.exists():
+            try:
+                shutil.copy2(config_source, config_dest)
+                logger.info("Copied default config.json to chronicle directory")
+            except Exception as e:
+                logger.warning(f"Failed to copy config.json: {e}")
+        
+        # Copy .env template if no .env exists
+        env_template_source = Path(__file__).parent / "chronicle.env.template"
+        env_dest = chronicle_dir / ".env"
+        if env_template_source.exists() and not env_dest.exists():
+            try:
+                shutil.copy2(env_template_source, env_dest)
+                # Set restrictive permissions on .env file
+                env_dest.chmod(0o600)
+                logger.info("Created .env file from template (please update with your values)")
+            except Exception as e:
+                logger.warning(f"Failed to create .env file: {e}")
         
         copied_files = []
         errors = []
@@ -161,7 +237,97 @@ class HookInstaller:
             raise InstallationError(f"Failed to copy any hook files: {'; '.join(errors)}")
         
         logger.info(f"Successfully copied {len(copied_files)} hook files")
+        
+        # Create configuration files
+        self._create_chronicle_config_files(chronicle_dir)
+        
         return copied_files
+    
+    def _create_chronicle_config_files(self, chronicle_dir: Path) -> None:
+        """
+        Create configuration files in the chronicle directory.
+        
+        Args:
+            chronicle_dir: Path to the chronicle directory
+        """
+        # Create README.md
+        readme_path = chronicle_dir / "README.md"
+        if not readme_path.exists():
+            readme_content = """# Chronicle Hooks
+
+This directory contains the Chronicle observability hooks for Claude Code.
+
+## Structure
+
+- `hooks/` - UV single-file hook scripts
+- `data/` - Local SQLite database (fallback)
+- `logs/` - Hook execution logs
+- `.env` - Environment configuration (create this file to configure database)
+- `config.json` - Chronicle-specific configuration
+
+## Configuration
+
+Create a `.env` file in this directory with your database configuration:
+
+```bash
+# For Supabase (recommended)
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_key
+
+# For SQLite (automatic fallback)
+# No configuration needed - uses data/chronicle.db
+```
+
+## Uninstallation
+
+To uninstall Chronicle hooks, simply delete this entire `chronicle` directory
+and remove the hook entries from `~/.claude/settings.json`.
+"""
+            readme_path.write_text(readme_content)
+            logger.info("Created README.md in chronicle directory")
+        
+        # Create example .env file
+        env_example_path = chronicle_dir / ".env.example"
+        if not env_example_path.exists():
+            env_content = """# Chronicle Hooks Configuration
+
+# Database Configuration
+# Uncomment and configure for Supabase
+# SUPABASE_URL=https://your-project.supabase.co
+# SUPABASE_ANON_KEY=your-anon-key
+
+# SQLite Configuration (default)
+# CHRONICLE_DB_TYPE=sqlite
+# SQLITE_DB_PATH=data/chronicle.db
+
+# Logging Configuration
+CHRONICLE_LOG_LEVEL=info
+CHRONICLE_LOG_FILE=logs/chronicle.log
+
+# Performance Settings
+CHRONICLE_TIMEOUT_MS=100
+"""
+            env_example_path.write_text(env_content)
+            logger.info("Created .env.example in chronicle directory")
+        
+        # Create config.json
+        config_path = chronicle_dir / "config.json"
+        if not config_path.exists():
+            config_data = {
+                "version": "3.0",
+                "features": {
+                    "enable_metrics": True,
+                    "enable_validation": True,
+                    "enable_cache": False
+                },
+                "performance": {
+                    "max_execution_time_ms": 100,
+                    "batch_size": 10
+                }
+            }
+            with open(config_path, 'w') as f:
+                json.dump(config_data, f, indent=2)
+            logger.info("Created config.json in chronicle directory")
     
     def _make_executable(self, file_path: Path) -> None:
         """
@@ -229,23 +395,14 @@ class HookInstaller:
     def _generate_hook_settings(self) -> Dict[str, Any]:
         """
         Generate hook configuration for Claude Code settings.json.
-        Uses $CLAUDE_PROJECT_DIR environment variable for improved portability.
+        Uses $HOME environment variable for chronicle subfolder paths.
         
         Returns:
             Dictionary containing hook configuration
         """
-        # Use $CLAUDE_PROJECT_DIR environment variable in hook paths for portability
-        # This allows hooks to work from different working directories
-        project_dir_var = "$CLAUDE_PROJECT_DIR"
-        
-        # Determine the relative path from project root to Claude directory
-        try:
-            # Calculate relative path from project root to .claude directory
-            claude_relative = os.path.relpath(self.claude_dir, self.project_root)
-            hook_path_template = f"{project_dir_var}/{claude_relative}/hooks"
-        except ValueError:
-            # If paths are on different drives (Windows), fall back to absolute path with env var
-            hook_path_template = f"{project_dir_var}/.claude/hooks"
+        # Use $HOME for chronicle subfolder location
+        # This provides a consistent installation path across all projects
+        hook_path_template = "$HOME/.claude/hooks/chronicle/hooks"
         
         hook_configs = {
             "PreToolUse": [
@@ -253,7 +410,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/pre_tool_use.py",
+                            "command": f"uv run {hook_path_template}/pre_tool_use_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -264,7 +421,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command", 
-                            "command": f"{hook_path_template}/post_tool_use.py",
+                            "command": f"uv run {hook_path_template}/post_tool_use_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -275,7 +432,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/user_prompt_submit.py",
+                            "command": f"uv run {hook_path_template}/user_prompt_submit_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -286,7 +443,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/notification.py", 
+                            "command": f"uv run {hook_path_template}/notification_uv.py", 
                             "timeout": 5
                         }
                     ]
@@ -297,7 +454,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/stop.py",
+                            "command": f"uv run {hook_path_template}/stop_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -308,7 +465,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/subagent_stop.py",
+                            "command": f"uv run {hook_path_template}/subagent_stop_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -320,7 +477,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/pre_compact.py",
+                            "command": f"uv run {hook_path_template}/pre_compact_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -330,7 +487,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/pre_compact.py",
+                            "command": f"uv run {hook_path_template}/pre_compact_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -342,7 +499,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/session_start.py",
+                            "command": f"uv run {hook_path_template}/session_start_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -352,7 +509,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/session_start.py",
+                            "command": f"uv run {hook_path_template}/session_start_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -362,7 +519,7 @@ class HookInstaller:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/session_start.py",
+                            "command": f"uv run {hook_path_template}/session_start_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -386,14 +543,20 @@ class HookInstaller:
         if "hooks" not in settings:
             settings["hooks"] = {}
         
-        # Add comment about environment variable usage at the top level of settings
+        # Add comment about chronicle hooks and environment variable usage
         settings["_chronicle_hooks_info"] = {
-            "version": "2.0",
+            "version": "3.0",
+            "installation_type": "chronicle_subfolder",
+            "installation_path": "$HOME/.claude/hooks/chronicle/",
+            "hook_execution": "UV single-file scripts",
             "environment_variables": {
-                "CLAUDE_PROJECT_DIR": "Set this to your project root directory for portability",
-                "example": "export CLAUDE_PROJECT_DIR=/path/to/your/project"
+                "CLAUDE_PROJECT_DIR": "Set this to your project root directory for project context",
+                "CLAUDE_SESSION_ID": "Automatically set by Claude Code",
+                "CHRONICLE_DB_TYPE": "Database type: 'supabase' or 'sqlite' (optional)",
+                "SUPABASE_URL": "Supabase project URL (optional)",
+                "SUPABASE_ANON_KEY": "Supabase anonymous key (optional)"
             },
-            "backward_compatibility": "Absolute paths in existing installations will continue to work",
+            "backward_compatibility": "Existing installations should be migrated to chronicle subfolder structure",
             "generated_at": datetime.now().isoformat()
         }
         
@@ -406,7 +569,9 @@ class HookInstaller:
         Returns:
             Dictionary containing validation results
         """
-        hooks_dir = self.claude_dir / "hooks"
+        # Check chronicle subfolder structure
+        chronicle_dir = self.claude_dir / "hooks" / "chronicle"
+        hooks_dir = chronicle_dir / "hooks"
         settings_path = self.claude_dir / "settings.json"
         
         validation_result = {
@@ -423,9 +588,26 @@ class HookInstaller:
             if hook_path.exists():
                 validation_result["hooks_copied"] += 1
                 
-                # Check if executable
+                # Check if executable and test UV execution
                 if validate_hook_permissions(str(hook_path)):
                     validation_result["executable_hooks"] += 1
+                    
+                    # Test UV script execution with a simple check
+                    try:
+                        test_cmd = ["uv", "run", str(hook_path), "--help"]
+                        result = subprocess.run(
+                            test_cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if result.returncode != 0 and "help" not in result.stderr.lower():
+                            validation_result["errors"].append(f"UV script test failed for {hook_file}: {result.stderr}")
+                    except subprocess.TimeoutExpired:
+                        # Timeout is okay - script might be waiting for input
+                        pass
+                    except Exception as e:
+                        validation_result["errors"].append(f"UV execution test failed for {hook_file}: {e}")
                 else:
                     validation_result["errors"].append(f"Hook not executable: {hook_file}")
             
@@ -452,6 +634,186 @@ class HookInstaller:
         
         return validation_result
     
+    def _check_for_existing_installation(self) -> bool:
+        """
+        Check if there's an existing hook installation in the old location.
+        
+        Returns:
+            True if existing installation found
+        """
+        old_hooks_dir = self.claude_dir / "hooks"
+        
+        # Check for old hook files (without _uv suffix)
+        old_hook_files = [
+            "pre_tool_use.py",
+            "post_tool_use.py",
+            "session_start.py",
+            "user_prompt_submit.py",
+            "notification.py",
+            "stop.py",
+            "subagent_stop.py",
+            "pre_compact.py"
+        ]
+        
+        for hook_file in old_hook_files:
+            if (old_hooks_dir / hook_file).exists():
+                return True
+        
+        return False
+    
+    def _handle_migration(self) -> bool:
+        """
+        Handle migration from old installation structure.
+        
+        Returns:
+            True if migration was performed
+        """
+        try:
+            old_hooks_dir = self.claude_dir / "hooks"
+            
+            # Archive old hooks to a backup directory
+            backup_dir = old_hooks_dir / "pre_chronicle_backup"
+            backup_dir.mkdir(exist_ok=True)
+            
+            # Move old hook files to backup
+            old_hook_files = [
+                "pre_tool_use.py",
+                "post_tool_use.py",
+                "session_start.py",
+                "user_prompt_submit.py",
+                "notification.py",
+                "stop.py",
+                "subagent_stop.py",
+                "pre_compact.py"
+            ]
+            
+            moved_count = 0
+            for hook_file in old_hook_files:
+                old_path = old_hooks_dir / hook_file
+                if old_path.exists():
+                    backup_path = backup_dir / hook_file
+                    shutil.move(str(old_path), str(backup_path))
+                    moved_count += 1
+                    logger.info(f"Archived old hook: {hook_file}")
+            
+            if moved_count > 0:
+                logger.info(f"Migrated {moved_count} old hooks to backup directory")
+                return True
+                
+        except Exception as e:
+            logger.warning(f"Migration failed, continuing with fresh install: {e}")
+        
+        return False
+    
+    def migrate_existing_installation(self) -> Dict[str, Any]:
+        """
+        Migrate existing Chronicle installation to new chronicle subfolder structure.
+        
+        Returns:
+            Dictionary containing migration results
+        """
+        migration_result = {
+            "migrated": False,
+            "files_moved": 0,
+            "settings_updated": False,
+            "errors": []
+        }
+        
+        # Check for existing hooks in old location
+        old_hooks_dir = self.claude_dir / "hooks"
+        new_chronicle_dir = self.claude_dir / "hooks" / "chronicle"
+        
+        if not old_hooks_dir.exists():
+            logger.info("No existing installation found to migrate")
+            return migration_result
+        
+        # Look for UV hook files in old location
+        old_hook_files = []
+        for hook_file in self.hook_files:
+            old_path = old_hooks_dir / hook_file
+            if old_path.exists():
+                old_hook_files.append(hook_file)
+        
+        if not old_hook_files:
+            logger.info("No Chronicle UV hooks found in old location")
+            return migration_result
+        
+        logger.info(f"Found {len(old_hook_files)} Chronicle hooks to migrate")
+        
+        try:
+            # Create new chronicle structure
+            new_hooks_dir = new_chronicle_dir / "hooks"
+            new_hooks_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Move hook files
+            for hook_file in old_hook_files:
+                old_path = old_hooks_dir / hook_file
+                new_path = new_hooks_dir / hook_file
+                
+                try:
+                    shutil.move(str(old_path), str(new_path))
+                    migration_result["files_moved"] += 1
+                    logger.info(f"Migrated {hook_file} to chronicle subfolder")
+                except Exception as e:
+                    error_msg = f"Failed to migrate {hook_file}: {e}"
+                    migration_result["errors"].append(error_msg)
+                    logger.error(error_msg)
+            
+            # Look for .env file in old location
+            old_env = old_hooks_dir / ".env"
+            if old_env.exists():
+                new_env = new_chronicle_dir / ".env"
+                try:
+                    shutil.move(str(old_env), str(new_env))
+                    logger.info("Migrated .env file to chronicle subfolder")
+                except Exception as e:
+                    logger.warning(f"Failed to migrate .env file: {e}")
+            
+            # Update settings.json paths
+            settings_path = self.claude_dir / "settings.json"
+            if settings_path.exists():
+                try:
+                    with open(settings_path, 'r') as f:
+                        settings = json.load(f)
+                    
+                    # Update hook paths in settings
+                    if "hooks" in settings:
+                        updated = False
+                        for event_name, event_configs in settings["hooks"].items():
+                            if isinstance(event_configs, list):
+                                for config in event_configs:
+                                    if "hooks" in config and isinstance(config["hooks"], list):
+                                        for hook in config["hooks"]:
+                                            if "command" in hook and isinstance(hook["command"], str):
+                                                # Update path to include chronicle subfolder
+                                                if "/hooks/" in hook["command"] and "/chronicle/" not in hook["command"]:
+                                                    hook["command"] = hook["command"].replace("/hooks/", "/hooks/chronicle/hooks/")
+                                                    updated = True
+                        
+                        if updated:
+                            # Backup and update settings
+                            backup_path = backup_existing_settings(str(settings_path))
+                            with open(settings_path, 'w') as f:
+                                json.dump(settings, f, indent=2)
+                            migration_result["settings_updated"] = True
+                            logger.info("Updated settings.json with new chronicle paths")
+                
+                except Exception as e:
+                    error_msg = f"Failed to update settings.json: {e}"
+                    migration_result["errors"].append(error_msg)
+                    logger.error(error_msg)
+            
+            if migration_result["files_moved"] > 0:
+                migration_result["migrated"] = True
+                logger.info(f"Migration completed: moved {migration_result['files_moved']} files")
+            
+        except Exception as e:
+            error_msg = f"Migration failed: {e}"
+            migration_result["errors"].append(error_msg)
+            logger.error(error_msg)
+        
+        return migration_result
+    
     def install(self, create_backup: bool = True, test_database: bool = True) -> Dict[str, Any]:
         """
         Perform the complete installation process.
@@ -469,10 +831,17 @@ class HookInstaller:
             "settings_updated": False,
             "backup_created": None,
             "database_test": None,
+            "migration_performed": False,
             "errors": []
         }
         
         try:
+            # Check for existing installation and offer migration
+            migration_needed = self._check_for_existing_installation()
+            if migration_needed:
+                logger.info("Detected existing hook installation")
+                install_result["migration_performed"] = self._handle_migration()
+            
             # Backup existing settings if requested
             if create_backup:
                 settings_path = self.claude_dir / "settings.json"

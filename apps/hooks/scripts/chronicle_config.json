@@ -1,0 +1,49 @@
+{
+  "version": "2.0",
+  "features": {
+    "enable_metrics": true,
+    "enable_validation": true,
+    "enable_cache": false,
+    "enable_debug_logging": false
+  },
+  "performance": {
+    "timeout_ms": 100,
+    "batch_size": 10,
+    "max_retries": 3
+  },
+  "hooks": {
+    "session_start": {
+      "enabled": true,
+      "track_metadata": true
+    },
+    "user_prompt_submit": {
+      "enabled": true,
+      "max_prompt_length": 10000
+    },
+    "pre_tool_use": {
+      "enabled": true,
+      "track_parameters": true
+    },
+    "post_tool_use": {
+      "enabled": true,
+      "track_results": true,
+      "max_result_length": 5000
+    },
+    "notification": {
+      "enabled": true,
+      "track_all_types": true
+    },
+    "stop": {
+      "enabled": true,
+      "track_duration": true
+    },
+    "subagent_stop": {
+      "enabled": true,
+      "track_subagent_data": true
+    },
+    "pre_compact": {
+      "enabled": true,
+      "track_compaction_stats": true
+    }
+  }
+}
