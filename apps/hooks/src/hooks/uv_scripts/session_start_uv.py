@@ -47,12 +47,17 @@ from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple, Union, Callable, Generator
 from collections import defaultdict, deque
 
-# Load environment variables
+# Load environment variables with chronicle-aware loading
 try:
-    from dotenv import load_dotenv
-    load_dotenv()
+    from env_loader import load_chronicle_env, get_database_config
+    load_chronicle_env()
 except ImportError:
-    pass
+    # Fallback to standard dotenv
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
 
 # Supabase client
 try:
@@ -321,9 +326,16 @@ class DatabaseManager:
     """Unified database interface with Supabase/SQLite fallback."""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
+        # Import database config loader
+        try:
+            from env_loader import get_database_config
+            db_config = get_database_config()
+        except ImportError:
+            db_config = {'sqlite_path': os.path.expanduser(os.getenv("CLAUDE_HOOKS_DB_PATH", "~/.claude/hooks/chronicle/data/chronicle.db"))}
+        
         self.config = config or {}
         self.supabase_client = None
-        self.sqlite_path = os.path.expanduser(os.getenv("CLAUDE_HOOKS_DB_PATH", "~/.claude/hooks_data.db"))
+        self.sqlite_path = db_config.get('sqlite_path', os.path.expanduser("~/.claude/hooks/chronicle/data/chronicle.db"))
         
         # Initialize Supabase if available
         if SUPABASE_AVAILABLE:
@@ -356,7 +368,8 @@ class DatabaseManager:
                         git_branch TEXT,
                         git_commit TEXT,
                         source TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
                 

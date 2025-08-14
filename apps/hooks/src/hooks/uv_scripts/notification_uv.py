@@ -5,6 +5,7 @@
 #     "aiosqlite>=0.19.0",
 #     "python-dotenv>=1.0.0",
 #     "ujson>=5.8.0",
+#     "supabase>=2.0.0",
 # ]
 # ///
 """
@@ -27,12 +28,18 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-# Load environment variables
+# Load environment variables with chronicle-aware loading
 try:
-    from dotenv import load_dotenv
-    load_dotenv()
+    from env_loader import load_chronicle_env
+    from database_manager import DatabaseManager
+    load_chronicle_env()
 except ImportError:
-    pass
+    # Fallback to standard dotenv
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
 
 # UJSON for fast JSON processing
 try:
@@ -44,60 +51,61 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ===========================================
-# Database Manager (Minimal)
-# ===========================================
-
-class DatabaseManager:
-    """Minimal database manager for notifications."""
-    
-    def __init__(self):
-        self.sqlite_path = os.path.expanduser("~/.claude/hooks_data.db")
-        self._ensure_tables()
-    
-    def _ensure_tables(self):
-        """Ensure SQLite tables exist."""
-        try:
-            os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
-            with sqlite3.connect(self.sqlite_path) as conn:
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        id TEXT PRIMARY KEY,
-                        claude_session_id TEXT UNIQUE,
-                        start_time TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS events (
-                        id TEXT PRIMARY KEY,
-                        session_id TEXT,
-                        event_type TEXT,
-                        hook_event_name TEXT,
-                        timestamp TIMESTAMP,
-                        data TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                conn.commit()
-        except Exception:
-            pass  # Fail silently for notifications
-    
-    def save_event(self, event_data: Dict[str, Any]) -> bool:
-        """Save notification event."""
-        try:
-            with sqlite3.connect(self.sqlite_path) as conn:
-                conn.execute('''
-                    INSERT INTO events 
-                    (id, session_id, event_type, hook_event_name, timestamp, data)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (
-                    event_data.get("event_id", str(uuid.uuid4())),
-                    event_data.get("session_id"),
-                    event_data.get("event_type"),
-                    event_data.get("hook_event_name"),
-                    event_data.get("timestamp"),
-                    json_impl.dumps(event_data.get("data", {}))
+# If DatabaseManager wasn't imported above, define a minimal version
+try:
+    DatabaseManager
+except NameError:
+    # Minimal database manager for standalone operation
+    class DatabaseManager:
+        """Minimal database manager for notifications."""
+        
+        def __init__(self):
+            self.sqlite_path = os.path.expanduser("~/.claude/hooks/chronicle/data/chronicle.db")
+            self._ensure_tables()
+        
+        def _ensure_tables(self):
+            """Ensure SQLite tables exist."""
+            try:
+                os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
+                with sqlite3.connect(self.sqlite_path) as conn:
+                    conn.execute('''
+                        CREATE TABLE IF NOT EXISTS sessions (
+                            id TEXT PRIMARY KEY,
+                            claude_session_id TEXT UNIQUE,
+                            start_time TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ''')
+                    conn.execute('''
+                        CREATE TABLE IF NOT EXISTS events (
+                            id TEXT PRIMARY KEY,
+                            session_id TEXT,
+                            event_type TEXT,
+                            hook_event_name TEXT,
+                            timestamp TIMESTAMP,
+                            data TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ''')
+                    conn.commit()
+            except Exception:
+                pass  # Fail silently for notifications
+        
+        def save_event(self, event_data: Dict[str, Any]) -> bool:
+            """Save notification event."""
+            try:
+                with sqlite3.connect(self.sqlite_path) as conn:
+                    conn.execute('''
+                        INSERT INTO events 
+                        (id, session_id, event_type, hook_event_name, timestamp, data)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (
+                        event_data.get("event_id", str(uuid.uuid4())),
+                        event_data.get("session_id"),
+                        event_data.get("event_type"),
+                        event_data.get("hook_event_name"),
+                        event_data.get("timestamp"),
+                        json_impl.dumps(event_data.get("data", {}))
                 ))
                 conn.commit()
             return True
