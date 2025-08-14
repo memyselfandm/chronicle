@@ -296,52 +296,120 @@ class SessionStartHook(BaseHook):
 
 def main():
     """
-    Main entry point for session start hook.
+    Main entry point for session start hook with comprehensive error handling.
     
-    Reads JSON input from stdin, processes session start event,
-    and outputs JSON response to stdout.
+    Uses enhanced error handling to ensure hooks never crash Claude Code execution
+    while providing useful debugging information for developers.
     """
+    from errors import ErrorHandler, ChronicleLogger, get_log_level_from_env, error_context
+    
+    # Initialize error handling
+    logger = ChronicleLogger(
+        name="chronicle.session_start",
+        log_level=get_log_level_from_env()
+    )
+    error_handler = ErrorHandler(logger)
+    
     try:
-        # Read input from stdin
-        input_data = json.loads(sys.stdin.read())
-        
-        # Initialize hook
-        hook = SessionStartHook()
-        
-        # Process session start
-        success, session_data, event_data = hook.process_session_start(input_data)
-        
-        # Generate additional context
-        additional_context = hook.generate_session_context(session_data, event_data)
-        
-        # Create response
-        response = hook.create_session_start_response(success, session_data, event_data, additional_context)
-        
-        # Output response as JSON
-        print(json.dumps(response))
-        
-        # Exit with success
-        sys.exit(0)
-        
-    except json.JSONDecodeError as e:
-        # Invalid JSON input
-        error_msg = f"Invalid JSON input: {str(e)}"
-        print(error_msg, file=sys.stderr)
-        sys.exit(2)
+        with error_context("session_start_main") as handler:
+            # Read input from stdin with error handling
+            try:
+                input_text = sys.stdin.read().strip()
+                if not input_text:
+                    input_data = {}
+                else:
+                    input_data = json.loads(input_text)
+            except json.JSONDecodeError as e:
+                logger.error("Invalid JSON input received", error=e)
+                # Output minimal response and exit gracefully
+                minimal_response = {
+                    "continue": True, 
+                    "suppressOutput": False,
+                    "hookSpecificOutput": {
+                        "hookEventName": "SessionStart",
+                        "error": "Invalid JSON input",
+                        "sessionInitialized": False
+                    }
+                }
+                print(json.dumps(minimal_response))
+                sys.exit(0)  # Continue Claude execution despite error
+            
+            # Initialize hook with error handling
+            try:
+                hook = SessionStartHook()
+            except Exception as e:
+                should_continue, exit_code, message = error_handler.handle_error(
+                    e, {"phase": "hook_initialization"}, "session_start_init"
+                )
+                # Output error response and continue
+                minimal_response = {
+                    "continue": True,
+                    "suppressOutput": False,
+                    "hookSpecificOutput": {
+                        "hookEventName": "SessionStart",
+                        "error": "Hook initialization failed",
+                        "sessionInitialized": False,
+                        "errorMessage": message
+                    }
+                }
+                print(json.dumps(minimal_response))
+                sys.exit(0)
+            
+            # Process session start with error handling
+            try:
+                success, session_data, event_data = hook.process_session_start(input_data)
+                additional_context = hook.generate_session_context(session_data, event_data)
+                response = hook.create_session_start_response(success, session_data, event_data, additional_context)
+                
+                logger.info("Session start hook completed successfully", {
+                    "success": success,
+                    "claude_session_id": session_data.get("claude_session_id"),
+                    "session_uuid": getattr(hook, "session_uuid", None)
+                })
+                
+            except Exception as e:
+                should_continue, exit_code, message = error_handler.handle_error(
+                    e, {"phase": "session_processing"}, "session_start_process"
+                )
+                # Create error response but continue execution
+                response = {
+                    "continue": True,
+                    "suppressOutput": False,
+                    "hookSpecificOutput": {
+                        "hookEventName": "SessionStart",
+                        "error": "Session processing failed",
+                        "sessionInitialized": False,
+                        "errorMessage": message,
+                        "errorCode": getattr(e, 'error_code', 'UNKNOWN_ERROR')
+                    }
+                }
+                
+                logger.error("Session start processing failed", error=e)
+            
+            # Output response as JSON
+            print(json.dumps(response, indent=2))
+            
+            # Always exit with success (0) to avoid breaking Claude
+            sys.exit(0)
         
     except Exception as e:
-        # General error - log but don't block Claude execution
-        error_msg = f"Session start hook error: {str(e)}"
-        print(error_msg, file=sys.stderr)
+        # Ultimate fallback - should never reach here due to error handling above
+        should_continue, exit_code, message = error_handler.handle_error(
+            e, {"phase": "main_execution"}, "session_start_main"
+        )
         
-        # Try to output a minimal response to continue execution
+        logger.critical("Critical error in session start hook", error=e)
+        
+        # Output absolute minimal response
         try:
             minimal_response = {"continue": True, "suppressOutput": True}
             print(json.dumps(minimal_response))
         except:
-            pass  # If even this fails, just exit
+            # If JSON serialization fails, output empty JSON
+            print("{}")
         
-        sys.exit(1)
+        # Always exit with success to avoid breaking Claude
+        sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -6,16 +6,26 @@ import os
 import time
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Dict, Optional, Generator, Tuple
+from typing import Any, Dict, Optional, Generator, Tuple, List
 import uuid
 
 try:
     from .database import DatabaseManager
     from .utils import extract_session_context, get_git_info, sanitize_data, format_error_message
+    from .security import SecurityValidator, SecurityError, PathTraversalError, InputSizeError
+    from .errors import (
+        ChronicleLogger, ErrorHandler, error_context, with_error_handling,
+        get_log_level_from_env, DatabaseError, ValidationError, HookExecutionError
+    )
 except ImportError:
     # Fallback for when running as standalone script
     from database import DatabaseManager
     from utils import extract_session_context, get_git_info, sanitize_data, format_error_message
+    from security import SecurityValidator, SecurityError, PathTraversalError, InputSizeError
+    from errors import (
+        ChronicleLogger, ErrorHandler, error_context, with_error_handling,
+        get_log_level_from_env, DatabaseError, ValidationError, HookExecutionError
+    )
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -59,15 +69,58 @@ class BaseHook:
             config: Optional configuration dictionary
         """
         self.config = config or {}
-        self.db_manager = DatabaseManager(self.config.get("database"))
+        
+        # Initialize enhanced error handling and logging
+        self.chronicle_logger = ChronicleLogger(
+            name=f"chronicle.{self.__class__.__name__.lower()}",
+            log_level=get_log_level_from_env()
+        )
+        self.error_handler = ErrorHandler(self.chronicle_logger)
+        
+        # Initialize database manager with error handling
+        try:
+            with error_context("database_manager_init"):
+                self.db_manager = DatabaseManager(self.config.get("database"))
+        except Exception as e:
+            should_continue, exit_code, message = self.error_handler.handle_error(
+                e, {"component": "database_manager"}, "database_init"
+            )
+            # Continue with limited functionality - database failures shouldn't break hooks
+            self.db_manager = None
+            self.chronicle_logger.warning("Database manager initialization failed, continuing with limited functionality")
+        
         self.claude_session_id: Optional[str] = None  # Claude's session ID (text)
         self.session_uuid: Optional[str] = None  # Database session UUID
-        self.log_file = os.path.expanduser("~/.claude/hooks_debug.log")
         
-        # Ensure log directory exists
+        # Initialize security validator with configuration and error handling
+        try:
+            security_config = self.config.get("security", {})
+            max_input_size_mb = security_config.get("max_input_size_mb", 10.0)
+            allowed_base_paths = security_config.get("allowed_base_paths")
+            allowed_commands = security_config.get("allowed_commands")
+            
+            self.security_validator = SecurityValidator(
+                max_input_size_mb=max_input_size_mb,
+                allowed_base_paths=allowed_base_paths,
+                allowed_commands=allowed_commands
+            )
+        except Exception as e:
+            should_continue, exit_code, message = self.error_handler.handle_error(
+                e, {"component": "security_validator"}, "security_init"
+            )
+            # Use default security validator on failure
+            self.security_validator = SecurityValidator()
+            self.chronicle_logger.warning("Security validator initialization failed, using defaults")
+        
+        # Legacy log file for backward compatibility
+        self.log_file = os.path.expanduser("~/.claude/hooks_debug.log")
         os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         
-        logger.info("BaseHook initialized")
+        self.chronicle_logger.info("BaseHook initialized", {
+            "hook_class": self.__class__.__name__,
+            "database_available": self.db_manager is not None,
+            "security_enabled": self.security_validator is not None
+        })
     
     def get_claude_session_id(self, input_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
@@ -117,21 +170,26 @@ class BaseHook:
         logger.debug(f"Loaded project context for: {cwd}")
         return context
     
+    @with_error_handling(operation="save_event")
     def save_event(self, event_data: Dict[str, Any]) -> bool:
         """
-        Save event data to database with error handling.
+        Save event data to database with comprehensive error handling.
         Automatically ensures session exists before saving event.
         
         Args:
             event_data: Event data to save
             
         Returns:
-            True if successful, False otherwise
+            True if successful, False otherwise (graceful degradation)
         """
-        try:
+        if not self.db_manager:
+            self.chronicle_logger.warning("Database manager not available, skipping event save")
+            return False
+            
+        with error_context("save_event", {"event_type": event_data.get("event_type")}) as handler:
             # Ensure we have session UUID - create session if needed
             if not self.session_uuid and self.claude_session_id:
-                logger.debug("No session UUID available, attempting to create/find session")
+                self.chronicle_logger.debug("No session UUID available, attempting to create/find session")
                 # Create a minimal session record
                 session_data = {
                     "claude_session_id": self.claude_session_id,
@@ -141,14 +199,12 @@ class BaseHook:
                 success, session_uuid = self.db_manager.save_session(session_data)
                 if success and session_uuid:
                     self.session_uuid = session_uuid
-                    logger.debug(f"Created/found session with UUID: {session_uuid}")
+                    self.chronicle_logger.debug(f"Created/found session with UUID: {session_uuid}")
                 else:
-                    logger.error("Failed to create/find session for event")
-                    return False
+                    raise DatabaseError("Failed to create/find session for event")
             
             if not self.session_uuid:
-                logger.error("Cannot save event: no session UUID available and no claude_session_id")
-                return False
+                raise ValidationError("Cannot save event: no session UUID available and no claude_session_id")
             
             # Use the database session UUID for the foreign key
             if "session_id" not in event_data:
@@ -168,17 +224,16 @@ class BaseHook:
             success = self.db_manager.save_event(sanitized_data)
             
             if success:
-                logger.debug(f"Event saved successfully: {event_data.get('hook_event_name', 'unknown')}")
+                self.chronicle_logger.debug(
+                    f"Event saved successfully: {event_data.get('hook_event_name', 'unknown')}",
+                    {"event_id": event_data.get("event_id"), "session_id": self.session_uuid}
+                )
+                return True
             else:
-                logger.error(f"Failed to save event: {event_data.get('hook_event_name', 'unknown')}")
-                self.log_error(Exception("Database save failed"), "save_event")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Exception saving event: {format_error_message(e, 'save_event')}")
-            self.log_error(e, "save_event")
-            return False
+                raise DatabaseError(f"Failed to save event: {event_data.get('hook_event_name', 'unknown')}")
+                
+        # This should not be reached due to error handling, but provides fallback
+        return False
     
     def save_session(self, session_data: Dict[str, Any]) -> bool:
         """
@@ -323,34 +378,79 @@ class BaseHook:
     
     def process_hook_data(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process hook input data and extract common fields.
+        Process hook input data with comprehensive security validation.
         
         Args:
             input_data: Raw hook input data
             
         Returns:
             Processed and sanitized hook data
+            
+        Raises:
+            SecurityError: If input fails security validation
         """
-        # Extract Claude session ID
-        self.claude_session_id = self.get_claude_session_id(input_data)
-        
-        # Sanitize input
-        sanitized_input = self._sanitize_input(input_data)
-        
-        # Extract common fields
-        raw_hook_event_name = sanitized_input.get("hookEventName", "unknown")
-        normalized_hook_event_name = self._normalize_hook_event_name(raw_hook_event_name)
-        
-        processed_data = {
-            "hook_event_name": normalized_hook_event_name,
-            "claude_session_id": self.claude_session_id,
-            "transcript_path": sanitized_input.get("transcriptPath"),
-            "cwd": sanitized_input.get("cwd", os.getcwd()),
-            "raw_input": sanitized_input,
-            "timestamp": datetime.now().isoformat(),
-        }
-        
-        return processed_data
+        try:
+            # Perform comprehensive security validation and sanitization
+            with self._measure_execution_time() as timer:
+                validated_input = self.security_validator.comprehensive_validation(input_data)
+            
+            # Log security validation time
+            validation_time = timer.duration_ms
+            if validation_time > 5.0:  # Warn if validation takes more than 5ms
+                logger.warning(f"Security validation took {validation_time:.2f}ms (target <5ms)")
+            else:
+                logger.debug(f"Security validation completed in {validation_time:.2f}ms")
+            
+            # Extract Claude session ID
+            self.claude_session_id = self.get_claude_session_id(validated_input)
+            
+            # Additional sanitization using legacy sanitize_data for compatibility
+            sanitized_input = self._sanitize_input(validated_input)
+            
+            # Ensure sanitized_input is always a dict (in case sanitize_data returns a string)
+            if not isinstance(sanitized_input, dict):
+                logger.warning(f"Sanitized input is not a dict, got {type(sanitized_input)}: {str(sanitized_input)[:100]}")
+                # Try to recreate a basic dict structure
+                sanitized_input = {
+                    "hookEventName": validated_input.get("hookEventName", "unknown"),
+                    "sanitized_content": str(sanitized_input)[:1000]  # Truncate for safety
+                }
+            
+            # Extract common fields
+            raw_hook_event_name = sanitized_input.get("hookEventName", "unknown")
+            normalized_hook_event_name = self._normalize_hook_event_name(raw_hook_event_name)
+            
+            processed_data = {
+                "hook_event_name": normalized_hook_event_name,
+                "claude_session_id": self.claude_session_id,
+                "transcript_path": sanitized_input.get("transcriptPath"),
+                "cwd": sanitized_input.get("cwd", os.getcwd()),
+                "raw_input": sanitized_input,
+                "timestamp": datetime.now().isoformat(),
+                "security_validation_time_ms": validation_time,
+            }
+            
+            return processed_data
+            
+        except SecurityError as e:
+            logger.error(f"Security validation failed: {e}")
+            self.log_error(e, "security_validation")
+            
+            # For security violations, we still want to log the attempt but with sanitized data
+            fallback_data = {
+                "hook_event_name": "SecurityViolation",
+                "claude_session_id": self.get_claude_session_id(input_data),
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "timestamp": datetime.now().isoformat(),
+                "raw_input": "[BLOCKED_FOR_SECURITY]",
+            }
+            return fallback_data
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in hook data processing: {e}")
+            self.log_error(e, "process_hook_data")
+            raise
     
     def create_response(self, continue_execution: bool = True, 
                        suppress_output: bool = False,
@@ -480,4 +580,93 @@ class BaseHook:
             return self.db_manager.get_status()
         except Exception as e:
             logger.error(f"Failed to get database status: {format_error_message(e)}")
+            return {"error": str(e)}
+    
+    def validate_file_path(self, file_path: str) -> bool:
+        """
+        Validate file path for security (path traversal prevention).
+        
+        Args:
+            file_path: Path to validate
+            
+        Returns:
+            True if path is valid and safe, False otherwise
+        """
+        try:
+            result = self.security_validator.validate_file_path(file_path)
+            return result is not None
+        except (PathTraversalError, SecurityError) as e:
+            logger.warning(f"File path validation failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error in file path validation: {e}")
+            return False
+    
+    def check_input_size(self, data: Any) -> bool:
+        """
+        Check if input data size is within acceptable limits.
+        
+        Args:
+            data: Data to check
+            
+        Returns:
+            True if size is acceptable, False otherwise
+        """
+        try:
+            return self.security_validator.validate_input_size(data)
+        except InputSizeError as e:
+            logger.warning(f"Input size check failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error in input size check: {e}")
+            return False
+    
+    def escape_shell_command(self, command: str, args: List[str]) -> List[str]:
+        """
+        Safely escape shell command and arguments.
+        
+        Args:
+            command: Base command
+            args: List of command arguments
+            
+        Returns:
+            List of escaped command parts
+        """
+        try:
+            allowed_commands = self.config.get("security", {}).get("allowed_commands", set())
+            return self.security_validator.shell_escaper.safe_command_construction(
+                command, args, allowed_commands
+            )
+        except Exception as e:
+            logger.error(f"Shell command escaping failed: {e}")
+            # Return safely quoted arguments as fallback
+            return [command] + [self.security_validator.escape_shell_argument(arg) for arg in args]
+    
+    def detect_sensitive_data(self, data: Any) -> Dict[str, List[str]]:
+        """
+        Detect sensitive data patterns in input.
+        
+        Args:
+            data: Data to analyze
+            
+        Returns:
+            Dictionary of detected sensitive data by category
+        """
+        try:
+            return self.security_validator.sensitive_data_detector.detect_sensitive_data(data)
+        except Exception as e:
+            logger.error(f"Sensitive data detection failed: {e}")
+            return {}
+    
+    def get_security_metrics(self) -> Dict[str, Any]:
+        """
+        Get security validation metrics.
+        
+        Returns:
+            Dictionary containing security metrics
+        """
+        try:
+            return self.security_validator.get_security_metrics()
+        except Exception as e:
+            logger.error(f"Failed to get security metrics: {e}")
             return {"error": str(e)}
