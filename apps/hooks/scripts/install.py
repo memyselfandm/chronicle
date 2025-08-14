@@ -199,17 +199,21 @@ class HookInstaller:
         # Generate hook configuration
         hook_settings = self._generate_hook_settings()
         
-        # Add backward compatibility information
-        hook_settings = self._add_backward_compatibility_note(hook_settings)
-        
         # Merge with existing settings
         merged_settings = merge_hook_settings(settings, hook_settings)
         
+        # Add backward compatibility information to the final merged settings
+        merged_settings = self._add_backward_compatibility_note(merged_settings)
+        
         # Validate the merged settings before writing
         try:
+            logger.debug(f"Validating merged settings structure: {list(merged_settings.keys())}")
+            if "hooks" in merged_settings:
+                logger.debug(f"Hooks keys: {list(merged_settings['hooks'].keys())}")
             validate_settings_json(merged_settings)
             logger.info("Generated settings passed validation")
         except SettingsValidationError as e:
+            logger.error(f"Validation failed. Settings structure: {json.dumps(merged_settings, indent=2)}")
             raise InstallationError(f"Generated settings failed validation: {e}")
         
         # Write updated settings
@@ -373,15 +377,16 @@ class HookInstaller:
         Add backward compatibility note for existing installations.
         
         Args:
-            settings: Generated settings dictionary
+            settings: Merged settings dictionary (full settings structure)
             
         Returns:
             Settings with backward compatibility information
         """
+        # Ensure hooks section exists (should already exist from merge_hook_settings)
         if "hooks" not in settings:
             settings["hooks"] = {}
         
-        # Add comment about environment variable usage
+        # Add comment about environment variable usage at the top level of settings
         settings["_chronicle_hooks_info"] = {
             "version": "2.0",
             "environment_variables": {
