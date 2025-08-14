@@ -24,17 +24,34 @@ The Claude Code hooks system provides comprehensive observability into agent beh
 - **Performance Metrics**: Measures execution times and resource usage
 - **Database Storage**: Primary storage to Supabase with SQLite fallback
 - **Security & Privacy**: Configurable data sanitization and PII filtering
+- **Modern JSON Output**: Claude Code compliant hookSpecificOutput format with camelCase fields
+- **Permission Controls**: PreToolUse hook can allow/deny/ask for tool execution based on security analysis
 
 ### Supported Hook Events
 
-- **PreToolUse**: Fired before tool execution (can block execution)
-- **PostToolUse**: Fired after tool completion
-- **UserPromptSubmit**: Fired when user submits a prompt
+- **PreToolUse**: Fired before tool execution (can block execution with permission decisions)
+- **PostToolUse**: Fired after tool completion (supports security analysis and decision blocking)
+- **UserPromptSubmit**: Fired when user submits a prompt (supports additionalContext injection)
 - **Notification**: Fired for Claude Code notifications
-- **SessionStart**: Fired when Claude Code starts a session
+- **SessionStart**: Fired when Claude Code starts a session (supports project-aware additionalContext)
 - **Stop**: Fired when main agent completes
 - **SubagentStop**: Fired when subagent tasks complete
 - **PreCompact**: Fired before context compression
+
+### New Features (Sprint 2)
+
+**JSON Output Format Modernization**:
+- All hooks now use Claude Code compliant `hookSpecificOutput` structure
+- Automatic snake_case to camelCase conversion for field names
+- Proper `continue`, `stopReason`, and `suppressOutput` control fields
+- Enhanced response metadata and debugging information
+
+**Permission Control System**:
+- **Auto-approve**: Safe operations like reading documentation, directory listing
+- **Auto-deny**: Dangerous operations like system file modification, malicious commands  
+- **User confirmation**: Critical operations like config changes, elevated privileges
+- Configurable security rules with regex pattern matching
+- Clear permission decision reasons for transparency
 
 ## Prerequisites
 
