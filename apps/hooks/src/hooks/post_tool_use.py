@@ -21,8 +21,8 @@ import time
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-# Add the src directory to the path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Add the core directory to the path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
 
 from base_hook import BaseHook
 

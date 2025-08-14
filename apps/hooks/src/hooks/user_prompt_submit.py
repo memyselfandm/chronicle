@@ -20,16 +20,16 @@ import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-# Add the src directory to Python path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Add the core directory to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
 
 try:
     from base_hook import BaseHook
     from utils import sanitize_data, extract_session_context, get_git_info
 except ImportError:
-    # Try importing from src package
-    from src.base_hook import BaseHook
-    from src.utils import sanitize_data, extract_session_context, get_git_info
+    # Try importing from core package
+    from core.base_hook import BaseHook
+    from core.utils import sanitize_data, extract_session_context, get_git_info
 
 
 class UserPromptSubmitHook(BaseHook):

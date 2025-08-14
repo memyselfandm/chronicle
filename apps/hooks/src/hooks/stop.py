@@ -24,8 +24,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# Add src directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+# Add core directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent / ".." / "core"))
 
 from base_hook import BaseHook
 

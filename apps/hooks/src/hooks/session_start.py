@@ -27,8 +27,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Add src directory to Python path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
+# Add core directory to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'core'))
 
 from base_hook import BaseHook
 

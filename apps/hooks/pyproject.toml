@@ -1,0 +1,299 @@
+[project]
+name = "chronicle-hooks"
+version = "0.1.0"
+description = "Chronicle observability hooks for Claude Code"
+authors = [
+    {name = "Chronicle Team", email = "team@chronicle.dev"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8.1"
+keywords = ["observability", "claude-code", "hooks", "monitoring"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Monitoring",
+]
+
+dependencies = [
+    # Core database dependencies
+    "aiosqlite>=0.19.0",
+    "asyncpg>=0.28.0",
+    # Supabase client for cloud storage
+    "supabase>=2.0.0",
+    # Environment and configuration
+    "python-dotenv>=1.0.0",
+    # Type hints and validation
+    "typing-extensions>=4.7.0",
+    # JSON handling (high performance)
+    "ujson>=5.8.0",
+]
+
+[project.optional-dependencies]
+# Development dependencies
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+]
+
+# Testing dependencies
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "coverage>=7.3.0",
+]
+
+# Documentation dependencies
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.2.0",
+    "mkdocstrings[python]>=0.23.0",
+]
+
+# Performance profiling
+perf = [
+    "py-spy>=0.3.0",
+    "memory-profiler>=0.61.0",
+    "line-profiler>=4.1.0",
+]
+
+# All extras combined
+all = [
+    "chronicle-hooks[dev,test,docs,perf]"
+]
+
+[project.urls]
+Homepage = "https://github.com/chronicle/chronicle-hooks"
+Documentation = "https://chronicle.dev/docs"
+Repository = "https://github.com/chronicle/chronicle-hooks"
+Issues = "https://github.com/chronicle/chronicle-hooks/issues"
+Changelog = "https://github.com/chronicle/chronicle-hooks/blob/main/CHANGELOG.md"
+
+[project.scripts]
+# Command-line tools
+chronicle-install = "scripts.install:main"
+chronicle-test = "scripts.test_hooks:main"
+chronicle-demo = "scripts.demo_test:main"
+
+[build-system]
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "scripts/",
+    "tests/",
+    "config/",
+    "examples/",
+    "README.md",
+    "LICENSE",
+    "requirements.txt",  # Keep for backward compatibility
+]
+
+# ===========================================
+# Development Tools Configuration
+# ===========================================
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "--verbose",
+    "--tb=short",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=80",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "database: marks tests that require database connection",
+    "supabase: marks tests that require Supabase connection",
+    "hooks: marks tests that test Claude Code hooks",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # Directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | venv
+  | \.env
+  | _build
+  | buck-out
+  | build
+  | dist
+  | node_modules
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 100
+src_paths = ["src", "tests", "scripts"]
+
+[tool.flake8]
+max-line-length = 100
+select = ["E", "W", "F"]
+ignore = [
+    "E203",  # whitespace before ':'
+    "E501",  # line too long (handled by black)
+    "W503",  # line break before binary operator
+]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".venv",
+    "venv",
+    ".env",
+    "node_modules",
+]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Gradually enable
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "supabase.*",
+    "ujson.*",
+    "aiosqlite.*",
+    "asyncpg.*",
+]
+ignore_missing_imports = true
+
+# ===========================================
+# UV Configuration
+# ===========================================
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0", 
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+]
+
+[tool.uv.sources]
+# Prefer PyPI packages
+# supabase = { index = "pypi" }
+
+# Local development overrides (uncomment if needed)
+# chronicle-hooks = { path = ".", editable = true }
+
+# ===========================================
+# Ruff Configuration (Alternative to flake8/black/isort)
+# ===========================================
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*" = ["E501", "F401", "F811"]
+
+[tool.ruff.isort]
+known-first-party = ["chronicle_hooks", "src"]
+force-single-line = false
+force-sort-within-sections = false
+single-line-exclusions = ["typing"]
+
+[tool.ruff.mccabe]
+max-complexity = 10
