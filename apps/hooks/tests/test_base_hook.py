@@ -41,7 +41,7 @@ def test_base_hook_init():
         hook = BaseHook()
         
         assert hook.db_manager is not None
-        assert hook.session_id is None  # Will be set when processing
+        assert hook.session_uuid is None  # Will be set when processing
         mock_db.assert_called_once()
 
 
@@ -86,7 +86,7 @@ def test_get_session_id_priority():
             assert session_id == "input-session"
 
 
-@patch('src.base_hook.get_git_info')
+@patch('src.core.base_hook.get_git_info')
 def test_load_project_context(mock_git_info):
     """Test loading project context."""
     from src.core.base_hook import BaseHook
@@ -112,7 +112,7 @@ def test_save_event_success(mock_database_manager):
     """Test successful event saving."""
     from src.core.base_hook import BaseHook
     
-    with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
+    with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
         hook = BaseHook()
         hook.session_id = "test-session"
         
@@ -138,7 +138,7 @@ def test_save_event_failure(mock_database_manager):
     
     mock_database_manager.save_event.return_value = False
     
-    with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
+    with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
         hook = BaseHook()
         hook.session_id = "test-session"
         
@@ -210,7 +210,7 @@ def test_log_error_appends_to_existing():
                 os.unlink(temp_file.name)
 
 
-@patch('src.base_hook.sanitize_data')
+@patch('src.core.base_hook.sanitize_data')
 def test_process_hook_input_sanitization(mock_sanitize):
     """Test that hook input is sanitized."""
     from src.core.base_hook import BaseHook

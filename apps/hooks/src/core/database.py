@@ -168,7 +168,7 @@ class SupabaseClient:
         
         try:
             # Simple query to check connection using chronicle_ prefixed tables
-            result = self._supabase_client.table('chronicle_sessions').select('session_id').limit(1).execute()
+            result = self._supabase_client.from_('chronicle_sessions').select('id').limit(1).execute()
             return True
         except Exception as e:
             logger.debug(f"Health check failed: {format_error_message(e, 'health_check')}")

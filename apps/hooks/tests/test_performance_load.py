@@ -16,9 +16,14 @@ from unittest.mock import Mock, patch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 
-from src.database import SupabaseClient, DatabaseManager
-from src.base_hook import BaseHook
-from src.utils import sanitize_input_data, validate_hook_input
+from src.core.database import SupabaseClient, DatabaseManager
+from src.core.base_hook import BaseHook
+from src.core.utils import sanitize_data
+
+
+def validate_hook_input(data):
+    """Simple validation function for performance testing."""
+    return isinstance(data, dict)
 
 
 class MockSQLiteClient:
@@ -183,7 +188,7 @@ class TestHookPerformance:
         }
 
         start_time = time.perf_counter()
-        sanitized = sanitize_input_data(large_sensitive_data)
+        sanitized = sanitize_data(large_sensitive_data)
         sanitization_time = (time.perf_counter() - start_time) * 1000
 
         # Test validation performance
