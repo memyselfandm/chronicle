@@ -45,11 +45,13 @@ This epic focuses on updating the Chronicle hooks system to align with the lates
 - All hooks properly set `continue`, `stopReason`, and `suppressOutput` fields
 
 **Tasks**:
-- [ ] Update BaseHook.create_response() to support new output format
-- [ ] Implement PreToolUse permission decision logic (allow/deny/ask)
-- [ ] Add additionalContext support to UserPromptSubmit and SessionStart
-- [ ] Update PostToolUse to support decision blocking
-- [ ] Create helper methods for building hookSpecificOutput
+- [x] Update BaseHook.create_response() to support new output format ✅ **COMPLETED**
+- [x] Implement PreToolUse permission decision logic (allow/deny/ask) ✅ **COMPLETED**
+- [x] Add additionalContext support to UserPromptSubmit and SessionStart ✅ **COMPLETED**
+- [x] Update PostToolUse to support decision blocking ✅ **COMPLETED**
+- [x] Create helper methods for building hookSpecificOutput ✅ **COMPLETED**
+
+**Sprint 2 Status**: ✅ **COMPLETED** - New JSON output formats with hookSpecificOutput implemented across all hooks.
 
 ### Feature 3: Add Input Validation and Security
 
@@ -115,11 +117,13 @@ This epic focuses on updating the Chronicle hooks system to align with the lates
 - Proper integration with Claude Code permission system
 
 **Tasks**:
-- [ ] Implement permission decision logic in PreToolUse
-- [ ] Add configurable rules for auto-approval
-- [ ] Create sensitive operation detection
-- [ ] Add permission reason generation
-- [ ] Test integration with Claude Code permissions
+- [x] Implement permission decision logic in PreToolUse ✅ **COMPLETED**
+- [x] Add configurable rules for auto-approval ✅ **COMPLETED**
+- [x] Create sensitive operation detection ✅ **COMPLETED**
+- [x] Add permission reason generation ✅ **COMPLETED**
+- [x] Test integration with Claude Code permissions ✅ **COMPLETED**
+
+**Sprint 2 Status**: ✅ **COMPLETED** - Permission controls implemented with comprehensive security analysis and decision logic.
 
 ### Feature 7: Enhanced Error Handling and Logging
 
@@ -164,9 +168,10 @@ This epic focuses on updating the Chronicle hooks system to align with the lates
 **Rationale**: These fixes are blocking proper hook registration and must be completed first. Can be done independently without dependencies.
 **Status**: All critical configuration issues resolved. Hooks now generate valid Claude Code settings.json configurations.
 
-### Sprint 2: Output Format Modernization  
-**Features**: Feature 2 (Implement New JSON Output Formats), Feature 6 (PreToolUse Permission Controls)
+### ✅ Sprint 2: Output Format Modernization **COMPLETED**
+**Features**: Feature 2 (Implement New JSON Output Formats) ✅, Feature 6 (PreToolUse Permission Controls) ✅
 **Rationale**: These features work together to implement the new output structures. PreToolUse permissions depend on the new JSON format.
+**Status**: All hooks now use new JSON output format with hookSpecificOutput. Permission controls implemented with security analysis.
 
 ### Sprint 3: Security and Validation
 **Features**: Feature 3 (Add Input Validation and Security), Feature 7 (Enhanced Error Handling and Logging)
