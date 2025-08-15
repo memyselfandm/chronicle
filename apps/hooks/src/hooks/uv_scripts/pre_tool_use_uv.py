@@ -27,7 +27,99 @@ import time
 import sqlite3
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+# ===========================================
+# Database Manager (Inline Implementation)
+# ===========================================
+
+class DatabaseError(Exception):
+    """Base exception for database operations."""
+    pass
+
+class DatabaseManager:
+    """Simplified inline database manager for pre-tool tracking."""
+    
+    def __init__(self):
+        self.sqlite_path = os.path.expanduser("~/.claude/hooks/chronicle/data/chronicle.db")
+        self._ensure_sqlite_tables()
+    
+    def _ensure_sqlite_tables(self):
+        """Ensure SQLite tables exist."""
+        try:
+            os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
+            
+            with sqlite3.connect(self.sqlite_path, timeout=30) as conn:
+                conn.execute('''
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        id TEXT PRIMARY KEY,
+                        claude_session_id TEXT UNIQUE,
+                        start_time TIMESTAMP,
+                        project_path TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                conn.execute('''
+                    CREATE TABLE IF NOT EXISTS events (
+                        id TEXT PRIMARY KEY,
+                        session_id TEXT,
+                        event_type TEXT,
+                        hook_event_name TEXT,
+                        timestamp TIMESTAMP,
+                        data TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                conn.commit()
+        except Exception as e:
+            logger.debug(f"SQLite setup failed: {e}")
+    
+    def save_session(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """Save session and return success, session_uuid."""
+        try:
+            session_uuid = str(uuid.uuid4())
+            
+            with sqlite3.connect(self.sqlite_path, timeout=30) as conn:
+                conn.execute('''
+                    INSERT OR REPLACE INTO sessions 
+                    (id, claude_session_id, start_time, project_path)
+                    VALUES (?, ?, ?, ?)
+                ''', (
+                    session_uuid,
+                    session_data.get("claude_session_id"),
+                    session_data.get("start_time", datetime.now().isoformat()),
+                    session_data.get("project_path", os.getcwd())
+                ))
+                conn.commit()
+            
+            return True, session_uuid
+        except Exception as e:
+            logger.debug(f"Session save failed: {e}")
+            return False, None
+    
+    def save_event(self, event_data: Dict[str, Any]) -> bool:
+        """Save event data."""
+        try:
+            with sqlite3.connect(self.sqlite_path, timeout=30) as conn:
+                conn.execute('''
+                    INSERT INTO events 
+                    (id, session_id, event_type, hook_event_name, timestamp, data)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    event_data.get("event_id", str(uuid.uuid4())),
+                    event_data.get("session_id"),
+                    event_data.get("event_type"),
+                    event_data.get("hook_event_name"),
+                    event_data.get("timestamp"),
+                    json_impl.dumps(event_data.get("data", {}))
+                ))
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.debug(f"Event save failed: {e}")
+            return False
 
 # Load environment variables
 try:
@@ -42,8 +134,22 @@ try:
 except ImportError:
     import json as json_impl
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with file output
+
+# Set up chronicle-specific logging
+chronicle_log_dir = Path.home() / ".claude" / "hooks" / "chronicle" / "logs"
+chronicle_log_dir.mkdir(parents=True, exist_ok=True)
+chronicle_log_file = chronicle_log_dir / "chronicle.log"
+
+# Configure logger
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(chronicle_log_file),
+        logging.StreamHandler()  # Also log to stderr for UV scripts
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # ===========================================
@@ -173,91 +279,6 @@ def check_sensitive_parameters(tool_input: Dict[str, Any]) -> List[str]:
 # Database Manager (Simplified)
 # ===========================================
 
-class DatabaseManager:
-    """Simplified database manager for pre-tool tracking."""
-    
-    def __init__(self):
-        self.sqlite_path = os.path.expanduser("~/.claude/hooks_data.db")
-        self._ensure_sqlite_tables()
-    
-    def _ensure_sqlite_tables(self):
-        """Ensure SQLite tables exist."""
-        try:
-            os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
-            
-            with sqlite3.connect(self.sqlite_path) as conn:
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        id TEXT PRIMARY KEY,
-                        claude_session_id TEXT UNIQUE,
-                        start_time TIMESTAMP,
-                        project_path TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS events (
-                        id TEXT PRIMARY KEY,
-                        session_id TEXT,
-                        event_type TEXT,
-                        hook_event_name TEXT,
-                        timestamp TIMESTAMP,
-                        data TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                conn.commit()
-        except Exception as e:
-            logger.debug(f"SQLite setup failed: {e}")
-    
-    def save_session(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
-        """Save session and return success, session_uuid."""
-        try:
-            session_uuid = str(uuid.uuid4())
-            
-            with sqlite3.connect(self.sqlite_path) as conn:
-                conn.execute('''
-                    INSERT OR REPLACE INTO sessions 
-                    (id, claude_session_id, start_time, project_path)
-                    VALUES (?, ?, ?, ?)
-                ''', (
-                    session_uuid,
-                    session_data.get("claude_session_id"),
-                    session_data.get("start_time", datetime.now().isoformat()),
-                    session_data.get("project_path", os.getcwd())
-                ))
-                conn.commit()
-            
-            return True, session_uuid
-        except Exception:
-            return False, None
-    
-    def save_event(self, event_data: Dict[str, Any]) -> bool:
-        """Save event data."""
-        try:
-            with sqlite3.connect(self.sqlite_path) as conn:
-                conn.execute('''
-                    INSERT INTO events 
-                    (id, session_id, event_type, hook_event_name, timestamp, data)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (
-                    event_data.get("event_id", str(uuid.uuid4())),
-                    event_data.get("session_id"),
-                    event_data.get("event_type"),
-                    event_data.get("hook_event_name"),
-                    event_data.get("timestamp"),
-                    json_impl.dumps(event_data.get("data", {}))
-                ))
-                conn.commit()
-            return True
-        except Exception:
-            return False
-
-# ===========================================
-# Pre Tool Use Hook Implementation
-# ===========================================
-
 class PreToolUseHook:
     """Hook for pre-tool execution with permission controls."""
     
@@ -267,9 +288,9 @@ class PreToolUseHook:
         self.session_uuid: Optional[str] = None
     
     def get_claude_session_id(self, input_data: Dict[str, Any]) -> Optional[str]:
-        """Extract Claude session ID."""
-        if "sessionId" in input_data:
-            return input_data["sessionId"]
+        """Extract Claude session ID as per Claude Code spec."""
+        if "session_id" in input_data:
+            return input_data["session_id"]
         return os.getenv("CLAUDE_SESSION_ID")
     
     def process_hook(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -278,9 +299,9 @@ class PreToolUseHook:
             # Extract session ID
             self.claude_session_id = self.get_claude_session_id(input_data)
             
-            # Extract tool information
-            tool_name = input_data.get('toolName', 'unknown')
-            tool_input = input_data.get('toolInput', {})
+            # Extract tool information as per Claude Code spec
+            tool_name = input_data.get('tool_name', 'unknown')
+            tool_input = input_data.get('tool_input', {})
             
             # Fast permission evaluation
             permission_result = self.evaluate_permission_decision(input_data)
@@ -324,14 +345,14 @@ class PreToolUseHook:
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "ask",
                     "permissionDecisionReason": "Error in permission evaluation",
-                    "toolName": input_data.get('toolName', 'unknown')
+                    "toolName": input_data.get('tool_name', 'unknown')
                 }
             }
     
     def evaluate_permission_decision(self, hook_input: Dict[str, Any]) -> Dict[str, str]:
         """Evaluate permission decision for tool execution."""
-        tool_name = hook_input.get('toolName', '')
-        tool_input = hook_input.get('toolInput', {})
+        tool_name = hook_input.get('tool_name', '')
+        tool_input = hook_input.get('tool_input', {})
         
         if not tool_name:
             return {
@@ -360,13 +381,13 @@ class PreToolUseHook:
         if ask_result:
             return ask_result
         
-        # Default for standard tools
-        standard_tools = ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "LS", "WebFetch", "WebSearch"]
+        # Default for standard tools - allow to respect auto-approve mode
+        standard_tools = ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "LS", "WebFetch", "WebSearch", "TodoWrite"]
         
         if tool_name in standard_tools:
             return {
-                "permissionDecision": "ask",
-                "permissionDecisionReason": f"Standard operation requires confirmation: {tool_name}"
+                "permissionDecision": "allow",
+                "permissionDecisionReason": f"Standard operation auto-approved: {tool_name}"
             }
         
         # Unknown tools
@@ -405,25 +426,28 @@ class PreToolUseHook:
     
     def _check_auto_approval(self, tool_name: str, tool_input: Dict[str, Any]) -> Optional[Dict[str, str]]:
         """Check if operation should be auto-approved."""
-        # Documentation file reading
+        # Auto-approve all Read operations except sensitive files (handled by _check_denial)
         if tool_name == "Read":
-            file_path = tool_input.get('file_path', '')
-            if matches_patterns(file_path, COMPILED_PATTERNS["auto_approve"].get("documentation_files", [])):
-                return {
-                    "permissionDecision": "allow",
-                    "permissionDecisionReason": f"Auto-approved: Reading documentation file {file_path}"
-                }
+            return {
+                "permissionDecision": "allow",
+                "permissionDecisionReason": "Auto-approved: Read operation (sensitive files blocked by deny rules)"
+            }
         
-        # Safe glob patterns
+        # Auto-approve standard file editing operations (except sensitive files)
+        if tool_name in ["Write", "Edit", "MultiEdit"]:
+            return {
+                "permissionDecision": "allow", 
+                "permissionDecisionReason": f"Auto-approved: {tool_name} operation (sensitive files blocked by deny rules)"
+            }
+        
+        # Auto-approve all Glob operations except dangerous patterns (handled by _check_denial)
         if tool_name == "Glob":
-            pattern = tool_input.get('pattern', '')
-            if matches_patterns(pattern, COMPILED_PATTERNS["auto_approve"].get("safe_glob_patterns", [])):
-                return {
-                    "permissionDecision": "allow",
-                    "permissionDecisionReason": f"Auto-approved: Safe glob pattern {pattern}"
-                }
+            return {
+                "permissionDecision": "allow",
+                "permissionDecisionReason": "Auto-approved: Glob pattern search"
+            }
         
-        # Safe bash commands
+        # Auto-approve safe bash commands, let dangerous ones be caught by _check_denial
         if tool_name == "Bash":
             command = tool_input.get('command', '')
             if matches_patterns(command, COMPILED_PATTERNS["auto_approve"].get("safe_bash_commands", [])):
@@ -432,36 +456,24 @@ class PreToolUseHook:
                     "permissionDecisionReason": f"Auto-approved: Safe bash command {command}"
                 }
         
-        # Safe read-only tools
-        safe_tools = ["LS", "WebSearch", "Grep"]
+        # Auto-approve all safe read-only and utility tools
+        safe_tools = ["LS", "WebSearch", "Grep", "WebFetch", "TodoWrite"]
         if tool_name in safe_tools:
             return {
                 "permissionDecision": "allow",
-                "permissionDecisionReason": f"Auto-approved: Safe read-only tool {tool_name}"
+                "permissionDecisionReason": f"Auto-approved: Safe utility tool {tool_name}"
             }
         
         return None
     
     def _check_ask_confirmation(self, tool_name: str, tool_input: Dict[str, Any]) -> Optional[Dict[str, str]]:
-        """Check if operation requires user confirmation."""
-        # Critical config files
-        if tool_name in ["Write", "Edit", "MultiEdit"]:
-            file_path = tool_input.get('file_path', '')
-            if matches_patterns(file_path, COMPILED_PATTERNS["ask"].get("critical_config_files", [])):
-                return {
-                    "permissionDecision": "ask",
-                    "permissionDecisionReason": f"Critical config file modification: {file_path}"
-                }
+        """Check if operation requires user confirmation.
         
-        # Sudo commands
-        if tool_name == "Bash":
-            command = tool_input.get('command', '')
-            if matches_patterns(command, COMPILED_PATTERNS["ask"].get("sudo_commands", [])):
-                return {
-                    "permissionDecision": "ask",
-                    "permissionDecisionReason": f"Elevated privileges required: {command}"
-                }
-        
+        NOTE: This method is disabled to respect Claude Code's auto-approve mode.
+        Chronicle should be purely observational and not interfere with tool execution.
+        Dangerous operations are still blocked by _check_denial().
+        """
+        # Disabled to respect auto-approve mode - Chronicle should not interfere
         return None
     
     def _sanitize_tool_input(self, tool_input: Dict[str, Any]) -> Dict[str, Any]:
@@ -522,7 +534,7 @@ class PreToolUseHook:
             }
         else:  # ask
             return {
-                "continue": False,
+                "continue": True,
                 "suppressOutput": False,
                 "stopReason": reason,
                 "hookSpecificOutput": hook_output
@@ -535,18 +547,43 @@ class PreToolUseHook:
 def main():
     """Main entry point for pre-tool use hook."""
     try:
+        logger.info("=" * 60)
+        logger.info("PRE TOOL USE HOOK STARTED")
+        logger.info("=" * 60)
+        
         # Read input from stdin
-        input_text = sys.stdin.read().strip()
-        if not input_text:
+        try:
+            input_data = json_impl.load(sys.stdin)
+            logger.info(f"Parsed input data keys: {list(input_data.keys())}")
+            
+            # Log specific PreToolUse data as per Claude Code spec
+            tool_name = input_data.get('tool_name', 'unknown')
+            tool_input = input_data.get('tool_input', {})
+            logger.info(f"Tool name: {tool_name}")
+            logger.info(f"Tool input keys: {list(tool_input.keys()) if isinstance(tool_input, dict) else 'non-dict'}")
+            
+            # Log session ID extraction attempt
+            session_id = input_data.get('session_id') or os.getenv('CLAUDE_SESSION_ID')
+            logger.info(f"Session ID extracted: {'Yes' if session_id else 'No'}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"No input data received or invalid JSON: {e}")
             input_data = {}
-        else:
-            input_data = json_impl.loads(input_text)
         
         # Process hook
         start_time = time.perf_counter()
+        logger.info("Initializing PreToolUseHook...")
         
         hook = PreToolUseHook()
+        logger.info("Processing permission evaluation...")
         result = hook.process_hook(input_data)
+        
+        # Log permission decision
+        hook_output = result.get('hookSpecificOutput', {})
+        permission_decision = hook_output.get('permissionDecision', 'unknown')
+        permission_reason = hook_output.get('permissionDecisionReason', 'no reason')
+        logger.info(f"Permission decision: {permission_decision}")
+        logger.info(f"Permission reason: {permission_reason}")
+        logger.info(f"Hook processing result keys: {list(result.keys())}")
         
         # Add execution time
         execution_time = (time.perf_counter() - start_time) * 1000
