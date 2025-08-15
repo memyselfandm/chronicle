@@ -117,6 +117,12 @@ class HookInstaller:
             "pre_compact_uv.py"
         ]
         
+        # Helper modules that hooks depend on
+        self.helper_files = [
+            "database_manager.py",
+            "env_loader.py"
+        ]
+        
         # Update hooks source directory to point to UV scripts
         self.hooks_source_dir = self.hooks_source_dir / "src" / "hooks" / "uv_scripts"
         
@@ -232,6 +238,22 @@ class HookInstaller:
                 error_msg = f"Failed to copy {hook_file}: {e}"
                 errors.append(error_msg)
                 logger.error(error_msg)
+        
+        # Copy helper files
+        for helper_file in self.helper_files:
+            source_path = self.hooks_source_dir / helper_file
+            dest_path = hooks_dest_dir / helper_file
+            
+            if not source_path.exists():
+                logger.warning(f"Helper file not found, skipping: {helper_file}")
+                continue
+                
+            try:
+                shutil.copy2(source_path, dest_path)
+                self._make_executable(dest_path)
+                logger.info(f"Copied helper file: {helper_file}")
+            except Exception as e:
+                logger.warning(f"Failed to copy helper {helper_file}: {e}")
         
         if errors and not copied_files:
             raise InstallationError(f"Failed to copy any hook files: {'; '.join(errors)}")
@@ -407,10 +429,11 @@ CHRONICLE_TIMEOUT_MS=100
         hook_configs = {
             "PreToolUse": [
                 {
+                    "matcher": "",
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/pre_tool_use_uv.py",
+                            "command": f"{hook_path_template}/pre_tool_use_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -418,10 +441,11 @@ CHRONICLE_TIMEOUT_MS=100
             ],
             "PostToolUse": [
                 {
+                    "matcher": "",
                     "hooks": [
                         {
                             "type": "command", 
-                            "command": f"uv run {hook_path_template}/post_tool_use_uv.py",
+                            "command": f"{hook_path_template}/post_tool_use_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -432,7 +456,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/user_prompt_submit_uv.py",
+                            "command": f"{hook_path_template}/user_prompt_submit_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -443,7 +467,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/notification_uv.py", 
+                            "command": f"{hook_path_template}/notification_uv.py", 
                             "timeout": 5
                         }
                     ]
@@ -454,7 +478,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/stop_uv.py",
+                            "command": f"{hook_path_template}/stop_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -465,7 +489,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/subagent_stop_uv.py",
+                            "command": f"{hook_path_template}/subagent_stop_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -477,7 +501,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/pre_compact_uv.py",
+                            "command": f"{hook_path_template}/pre_compact_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -487,7 +511,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/pre_compact_uv.py",
+                            "command": f"{hook_path_template}/pre_compact_uv.py",
                             "timeout": 10
                         }
                     ]
@@ -499,7 +523,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/session_start_uv.py",
+                            "command": f"{hook_path_template}/session_start_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -509,7 +533,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/session_start_uv.py",
+                            "command": f"{hook_path_template}/session_start_uv.py",
                             "timeout": 5
                         }
                     ]
@@ -519,7 +543,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"uv run {hook_path_template}/session_start_uv.py",
+                            "command": f"{hook_path_template}/session_start_uv.py",
                             "timeout": 5
                         }
                     ]

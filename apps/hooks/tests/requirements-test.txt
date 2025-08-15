@@ -1,0 +1,30 @@
+# Testing requirements for UV single-file scripts
+
+# Core testing framework
+pytest>=7.4.0
+pytest-timeout>=2.1.0
+pytest-json-report>=1.5.0
+
+# Performance testing
+pytest-benchmark>=4.0.0
+
+# Coverage (optional)
+pytest-cov>=4.1.0
+
+# Mocking
+pytest-mock>=3.11.0
+
+# Async testing (if needed)
+pytest-asyncio>=0.21.0
+
+# UV package manager (required for running scripts)
+uv>=0.5.0
+
+# Database drivers for testing
+aiosqlite>=0.19.0
+asyncpg>=0.28.0
+
+# Other dependencies matching UV scripts
+python-dotenv>=1.0.0
+supabase>=2.0.0
+ujson>=5.8.0

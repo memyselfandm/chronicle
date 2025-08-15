@@ -2,12 +2,8 @@
 # /// script
 # requires-python = ">=3.8"
 # dependencies = [
-#     "aiosqlite>=0.19.0",
-#     "asyncpg>=0.28.0",
 #     "python-dotenv>=1.0.0",
-#     "typing-extensions>=4.7.0",
 #     "supabase>=2.0.0",
-#     "ujson>=5.8.0",
 # ]
 # ///
 """
@@ -42,22 +38,32 @@ import threading
 import uuid
 import re
 from contextlib import contextmanager
+
+@contextmanager
+def measure_performance(operation_name):
+    """Simple performance measurement context manager."""
+    start_time = time.perf_counter()
+    metrics = {}
+    yield metrics
+    end_time = time.perf_counter()
+    metrics['duration_ms'] = (end_time - start_time) * 1000
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, List, Tuple, Union, Callable, Generator
 from collections import defaultdict, deque
 
 # Load environment variables with chronicle-aware loading
+# (Database manager and env loader are inlined below)
+class DatabaseError(Exception):
+    """Base exception for database operations."""
+    pass
+
+# Fallback to standard dotenv if needed
 try:
-    from env_loader import load_chronicle_env, get_database_config
-    load_chronicle_env()
+    from dotenv import load_dotenv
+    load_dotenv()
 except ImportError:
-    # Fallback to standard dotenv
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except ImportError:
-        pass
+    pass
 
 # Supabase client
 try:
@@ -259,6 +265,16 @@ def resolve_project_path(fallback_path: Optional[str] = None) -> str:
     
     return os.getcwd()
 
+def get_cached_session_id() -> Optional[str]:
+    """Get session ID from cache if available."""
+    try:
+        session_cache_file = Path.home() / ".claude" / "hooks" / "chronicle" / "tmp" / "current_session_id"
+        if session_cache_file.exists():
+            return session_cache_file.read_text().strip()
+    except Exception:
+        pass
+    return None
+
 def get_project_context_with_env_support(cwd: Optional[str] = None) -> Dict[str, Any]:
     """Capture project information with environment variable support."""
     resolved_cwd = resolve_project_path(cwd)
@@ -315,208 +331,341 @@ def format_error_message(error: Exception, context: Optional[str] = None) -> str
     return error_msg
 
 # ===========================================
-# Inline Database Module
+# Inline Environment Loader (Minimal)
 # ===========================================
 
-class DatabaseError(Exception):
-    """Base exception for database operations."""
-    pass
+def load_chronicle_env() -> Dict[str, str]:
+    """Load environment variables for Chronicle with fallback support."""
+    loaded_vars = {}
+    
+    try:
+        from dotenv import load_dotenv, dotenv_values
+        
+        # Search for .env file in common locations
+        search_paths = [
+            Path.cwd() / '.env',
+            Path(__file__).parent / '.env',
+            Path.home() / '.claude' / 'hooks' / 'chronicle' / '.env',
+            Path(__file__).parent.parent / '.env',
+        ]
+        
+        env_path = None
+        for path in search_paths:
+            if path.exists() and path.is_file():
+                env_path = path
+                break
+        
+        if env_path:
+            loaded_vars = dotenv_values(env_path)
+            load_dotenv(env_path, override=True)
+        
+        # Apply critical defaults
+        defaults = {
+            'CLAUDE_HOOKS_DB_PATH': str(Path.home() / '.claude' / 'hooks' / 'chronicle' / 'data' / 'chronicle.db'),
+            'CLAUDE_HOOKS_LOG_LEVEL': 'INFO',
+            'CLAUDE_HOOKS_ENABLED': 'true',
+        }
+        
+        for key, default_value in defaults.items():
+            if not os.getenv(key):
+                os.environ[key] = default_value
+                loaded_vars[key] = default_value
+                
+    except ImportError:
+        pass
+        
+    return loaded_vars
+
+def get_database_config() -> Dict[str, Any]:
+    """Get database configuration with proper paths."""
+    load_chronicle_env()
+    
+    # Determine database path based on installation
+    script_path = Path(__file__).resolve()
+    if '.claude/hooks/chronicle' in str(script_path):
+        # Installed location
+        data_dir = Path.home() / '.claude' / 'hooks' / 'chronicle' / 'data'
+        data_dir.mkdir(parents=True, exist_ok=True)
+        default_db_path = str(data_dir / 'chronicle.db')
+    else:
+        # Development mode
+        default_db_path = str(Path.cwd() / 'data' / 'chronicle.db')
+    
+    config = {
+        'supabase_url': os.getenv('SUPABASE_URL'),
+        'supabase_key': os.getenv('SUPABASE_ANON_KEY'),
+        'sqlite_path': os.getenv('CLAUDE_HOOKS_DB_PATH', default_db_path),
+        'db_timeout': int(os.getenv('CLAUDE_HOOKS_DB_TIMEOUT', '30')),
+        'retry_attempts': int(os.getenv('CLAUDE_HOOKS_DB_RETRY_ATTEMPTS', '3')),
+        'retry_delay': float(os.getenv('CLAUDE_HOOKS_DB_RETRY_DELAY', '1.0')),
+    }
+    
+    # Ensure SQLite directory exists
+    sqlite_path = Path(config['sqlite_path'])
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    return config
+
+# ===========================================
+# Inline Database Manager (Essential)
+# ===========================================
 
 class DatabaseManager:
     """Unified database interface with Supabase/SQLite fallback."""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        # Import database config loader
-        try:
-            from env_loader import get_database_config
-            db_config = get_database_config()
-        except ImportError:
-            db_config = {'sqlite_path': os.path.expanduser(os.getenv("CLAUDE_HOOKS_DB_PATH", "~/.claude/hooks/chronicle/data/chronicle.db"))}
+        """Initialize database manager with configuration."""
+        load_chronicle_env()
+        self.config = config or get_database_config()
         
-        self.config = config or {}
+        # Initialize clients
         self.supabase_client = None
-        self.sqlite_path = db_config.get('sqlite_path', os.path.expanduser("~/.claude/hooks/chronicle/data/chronicle.db"))
+        self.sqlite_path = Path(self.config['sqlite_path']).expanduser().resolve()
+        self.timeout = self.config.get('db_timeout', 30)
         
         # Initialize Supabase if available
         if SUPABASE_AVAILABLE:
-            supabase_url = os.getenv("SUPABASE_URL")
-            supabase_key = os.getenv("SUPABASE_ANON_KEY")
+            supabase_url = self.config.get('supabase_url')
+            supabase_key = self.config.get('supabase_key')
             
             if supabase_url and supabase_key:
                 try:
                     self.supabase_client = create_client(supabase_url, supabase_key)
-                    logger.debug("Supabase client initialized")
-                except Exception as e:
-                    logger.warning(f"Failed to initialize Supabase: {e}")
+                except Exception:
+                    pass
         
         # Ensure SQLite database exists
-        self._ensure_sqlite_tables()
-    
-    def _ensure_sqlite_tables(self):
-        """Ensure SQLite tables exist."""
-        try:
-            os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
-            
-            with sqlite3.connect(self.sqlite_path) as conn:
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        id TEXT PRIMARY KEY,
-                        claude_session_id TEXT UNIQUE,
-                        start_time TIMESTAMP,
-                        end_time TIMESTAMP,
-                        project_path TEXT,
-                        git_branch TEXT,
-                        git_commit TEXT,
-                        source TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS events (
-                        id TEXT PRIMARY KEY,
-                        session_id TEXT,
-                        event_type TEXT,
-                        hook_event_name TEXT,
-                        timestamp TIMESTAMP,
-                        data TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY(session_id) REFERENCES sessions(id)
-                    )
-                ''')
-                conn.commit()
+        self._ensure_sqlite_database()
         
+        # Set table names
+        if self.supabase_client:
+            self.SESSIONS_TABLE = "chronicle_sessions"
+            self.EVENTS_TABLE = "chronicle_events"
+        else:
+            self.SESSIONS_TABLE = "sessions"
+            self.EVENTS_TABLE = "events"
+    
+    def _ensure_sqlite_database(self):
+        """Ensure SQLite database and directory structure exist."""
+        try:
+            self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                self._create_sqlite_schema(conn)
+                conn.commit()
+                
         except Exception as e:
-            logger.error(f"Failed to create SQLite tables: {e}")
+            raise DatabaseError(f"Cannot initialize SQLite at {self.sqlite_path}: {e}")
+    
+    def _create_sqlite_schema(self, conn: sqlite3.Connection):
+        """Create SQLite schema matching Supabase structure."""
+        conn.execute("PRAGMA foreign_keys = ON")
+        
+        # Sessions table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                claude_session_id TEXT UNIQUE,
+                start_time TIMESTAMP,
+                end_time TIMESTAMP,
+                project_path TEXT,
+                git_branch TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Events table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id TEXT PRIMARY KEY,
+                session_id TEXT,
+                event_type TEXT NOT NULL,
+                timestamp TIMESTAMP,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(session_id) REFERENCES sessions(id)
+            )
+        ''')
+        
+        # Create indexes
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type)')
     
     def save_session(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
-        """Save session data and return (success, session_uuid)."""
+        """Save session data to database."""
         try:
-            session_uuid = session_data.get("id", str(uuid.uuid4()))
+            if "claude_session_id" not in session_data:
+                return False, None
+            
+            claude_session_id = session_data.get("claude_session_id")
             
             # Try Supabase first
             if self.supabase_client:
                 try:
+                    # Check for existing session
+                    existing = self.supabase_client.table(self.SESSIONS_TABLE).select("id").eq("claude_session_id", claude_session_id).execute()
+                    
+                    if existing.data:
+                        session_uuid = existing.data[0]["id"]
+                    else:
+                        session_uuid = str(uuid.uuid4())
+                    
+                    # Build metadata
+                    metadata = {}
+                    if "git_commit" in session_data:
+                        metadata["git_commit"] = session_data.get("git_commit")
+                    if "source" in session_data:
+                        metadata["source"] = session_data.get("source")
+                    
                     supabase_data = {
                         "id": session_uuid,
                         "claude_session_id": session_data.get("claude_session_id"),
                         "start_time": session_data.get("start_time"),
+                        "end_time": session_data.get("end_time"),
                         "project_path": session_data.get("project_path"),
                         "git_branch": session_data.get("git_branch"),
-                        "git_commit": session_data.get("git_commit"),
-                        "source": session_data.get("source")
+                        "metadata": metadata,
                     }
                     
-                    self.supabase_client.table("chronicle_sessions").upsert(supabase_data).execute()
-                    logger.debug("Session saved to Supabase")
+                    self.supabase_client.table(self.SESSIONS_TABLE).upsert(supabase_data, on_conflict="claude_session_id").execute()
                     return True, session_uuid
-                except Exception as e:
-                    logger.warning(f"Supabase save failed, falling back to SQLite: {e}")
+                    
+                except Exception:
+                    pass
             
             # SQLite fallback
-            with sqlite3.connect(self.sqlite_path) as conn:
+            session_uuid = session_data.get("id")
+            if not session_uuid:
+                with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM sessions WHERE claude_session_id = ?", (claude_session_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        session_uuid = row[0]
+                    else:
+                        session_uuid = str(uuid.uuid4())
+            
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
                 conn.execute('''
                     INSERT OR REPLACE INTO sessions 
-                    (id, claude_session_id, start_time, project_path, git_branch, git_commit, source)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (id, claude_session_id, start_time, end_time, project_path, 
+                     git_branch, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ''', (
                     session_uuid,
                     session_data.get("claude_session_id"),
                     session_data.get("start_time"),
+                    session_data.get("end_time"),
                     session_data.get("project_path"),
                     session_data.get("git_branch"),
-                    session_data.get("git_commit"),
-                    session_data.get("source")
                 ))
                 conn.commit()
             
-            logger.debug("Session saved to SQLite")
             return True, session_uuid
             
-        except Exception as e:
-            logger.error(f"Failed to save session: {e}")
+        except Exception:
             return False, None
     
     def save_event(self, event_data: Dict[str, Any]) -> bool:
         """Save event data to database."""
         try:
-            event_id = event_data.get("event_id", str(uuid.uuid4()))
+            event_id = str(uuid.uuid4())
+            
+            if "session_id" not in event_data:
+                return False
             
             # Try Supabase first
             if self.supabase_client:
                 try:
+                    metadata_jsonb = event_data.get("data", {})
+                    
+                    if "hook_event_name" in event_data:
+                        metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
+                    
+                    if "metadata" in event_data:
+                        metadata_jsonb.update(event_data.get("metadata", {}))
+                    
+                    # Ensure valid event_type
+                    event_type = event_data.get("event_type")
+                    valid_types = ["prompt", "tool_use", "session_start", "session_end", "notification", "error"]
+                    if event_type not in valid_types:
+                        event_type = "notification"
+                    
                     supabase_data = {
                         "id": event_id,
                         "session_id": event_data.get("session_id"),
-                        "event_type": event_data.get("event_type"),
-                        "hook_event_name": event_data.get("hook_event_name"),
+                        "event_type": event_type,
                         "timestamp": event_data.get("timestamp"),
-                        "data": json_impl.dumps(event_data.get("data", {}))
+                        "metadata": metadata_jsonb,
                     }
                     
-                    self.supabase_client.table("chronicle_events").insert(supabase_data).execute()
-                    logger.debug("Event saved to Supabase")
+                    self.supabase_client.table(self.EVENTS_TABLE).insert(supabase_data).execute()
                     return True
-                except Exception as e:
-                    logger.warning(f"Supabase event save failed, falling back to SQLite: {e}")
+                    
+                except Exception:
+                    pass
             
             # SQLite fallback
-            with sqlite3.connect(self.sqlite_path) as conn:
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                metadata_jsonb = event_data.get("data", {})
+                
+                if "hook_event_name" in event_data:
+                    metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
+                
+                if "metadata" in event_data:
+                    metadata_jsonb.update(event_data.get("metadata", {}))
+                
                 conn.execute('''
                     INSERT INTO events 
-                    (id, session_id, event_type, hook_event_name, timestamp, data)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (id, session_id, event_type, timestamp, metadata)
+                    VALUES (?, ?, ?, ?, ?)
                 ''', (
                     event_id,
                     event_data.get("session_id"),
                     event_data.get("event_type"),
-                    event_data.get("hook_event_name"),
                     event_data.get("timestamp"),
-                    json_impl.dumps(event_data.get("data", {}))
+                    json.dumps(metadata_jsonb),
                 ))
                 conn.commit()
             
-            logger.debug("Event saved to SQLite")
             return True
             
-        except Exception as e:
-            logger.error(f"Failed to save event: {e}")
+        except Exception:
             return False
-
-    def get_status(self) -> Dict[str, Any]:
-        """Get database connection status."""
-        status = {
-            "supabase_available": self.supabase_client is not None,
-            "sqlite_path": self.sqlite_path,
-            "sqlite_exists": os.path.exists(self.sqlite_path)
-        }
-        
-        if self.supabase_client:
-            try:
-                # Test connection
-                result = self.supabase_client.table("chronicle_sessions").select("id").limit(1).execute()
-                status["supabase_connected"] = True
-            except:
-                status["supabase_connected"] = False
-        
-        return status
-
-# ===========================================
-# Inline Performance Module
-# ===========================================
-
-@contextmanager
-def measure_performance(operation_name: str):
-    """Context manager for performance measurement."""
-    start_time = time.perf_counter()
-    metrics = {"operation_name": operation_name, "metadata": {}}
     
-    try:
-        yield metrics
-    finally:
-        end_time = time.perf_counter()
-        metrics["duration_ms"] = (end_time - start_time) * 1000
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve session by ID from database."""
+        try:
+            # Try Supabase first
+            if self.supabase_client:
+                try:
+                    result = self.supabase_client.table(self.SESSIONS_TABLE).select("*").eq("claude_session_id", session_id).execute()
+                    if result.data:
+                        return result.data[0]
+                except Exception:
+                    pass
+            
+            # SQLite fallback
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    "SELECT * FROM sessions WHERE claude_session_id = ?",
+                    (session_id,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return dict(row)
+            
+            return None
+            
+        except Exception:
+            return None
+
+# ===========================================
+# Inline Database Module
+# ===========================================
 
 class SimpleCache:
     """Simple in-memory cache for hook operations."""
@@ -558,18 +707,39 @@ class BaseHook:
     
     def get_claude_session_id(self, input_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """Extract Claude session ID from input data or environment."""
-        if input_data and "sessionId" in input_data:
-            session_id = input_data["sessionId"]
+        if input_data and "session_id" in input_data:
+            session_id = input_data["session_id"]
             logger.debug(f"Claude session ID from input: {session_id}")
+            # Store session ID for other hooks to use
+            self._store_session_id(session_id)
             return session_id
         
         session_id = os.getenv("CLAUDE_SESSION_ID")
         if session_id:
             logger.debug(f"Claude session ID from environment: {session_id}")
+            # Store even valid session IDs for other hooks to use
+            self._store_session_id(session_id)
             return session_id
         
-        logger.warning("No Claude session ID found")
-        return None
+        # Generate fallback session ID when Claude Code doesn't provide one
+        fallback_id = f"chronicle-fallback-{uuid.uuid4()}"
+        logger.warning(f"No Claude session ID found, generated fallback: {fallback_id}")
+        
+        # Store fallback session ID for other hooks to use
+        self._store_session_id(fallback_id)
+        return fallback_id
+    
+    def _store_session_id(self, session_id: str):
+        """Store session ID in a temporary file for other hooks to access."""
+        try:
+            session_cache_dir = Path.home() / ".claude" / "hooks" / "chronicle" / "tmp"
+            session_cache_dir.mkdir(parents=True, exist_ok=True)
+            session_cache_file = session_cache_dir / "current_session_id"
+            with open(session_cache_file, 'w') as f:
+                f.write(session_id)
+            logger.debug(f"Stored session ID to cache: {session_id}")
+        except Exception as e:
+            logger.warning(f"Failed to store session ID: {e}")
     
     def load_project_context(self, cwd: Optional[str] = None) -> Dict[str, Any]:
         """Load project context with environment support."""
@@ -912,11 +1082,11 @@ def main():
     """Main entry point for session start hook."""
     try:
         # Read input from stdin
-        input_text = sys.stdin.read().strip()
-        if not input_text:
+        try:
+            input_data = json_impl.load(sys.stdin)
+        except json.JSONDecodeError as e:
+            logger.warning(f"No input data received or invalid JSON: {e}")
             input_data = {}
-        else:
-            input_data = json_impl.loads(input_text)
         
         # Initialize hook
         hook = SessionStartHook()

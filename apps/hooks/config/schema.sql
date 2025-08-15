@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS chronicle_sessions (
     git_branch TEXT,
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ,
+    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -22,7 +23,7 @@ CREATE TABLE IF NOT EXISTS chronicle_events (
     session_id UUID REFERENCES chronicle_sessions(id) ON DELETE CASCADE,
     event_type TEXT NOT NULL CHECK (event_type IN ('prompt', 'tool_use', 'session_start', 'session_end', 'notification', 'error')),
     timestamp TIMESTAMPTZ NOT NULL,
-    data JSONB NOT NULL DEFAULT '{}',
+    metadata JSONB NOT NULL DEFAULT '{}',
     tool_name TEXT,
     duration_ms INTEGER CHECK (duration_ms >= 0),
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -47,8 +48,8 @@ ON chronicle_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_chronicle_events_tool_name 
 ON chronicle_events(tool_name) WHERE tool_name IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_chronicle_events_data_gin 
-ON chronicle_events USING GIN(data);
+CREATE INDEX IF NOT EXISTS idx_chronicle_events_metadata_gin 
+ON chronicle_events USING GIN(metadata);
 
 CREATE INDEX IF NOT EXISTS idx_chronicle_events_timestamp 
 ON chronicle_events(timestamp DESC);
@@ -118,8 +119,8 @@ AS $$
         COUNT(*) as usage_count,
         AVG(e.duration_ms) as avg_duration_ms,
         PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY e.duration_ms) as p95_duration_ms,
-        -- Calculate success rate based on event data
-        (COUNT(*) FILTER (WHERE (e.data->>'success')::boolean = true)::NUMERIC / COUNT(*)) * 100 as success_rate
+        -- Calculate success rate based on event metadata
+        (COUNT(*) FILTER (WHERE (e.metadata->>'success')::boolean = true)::NUMERIC / COUNT(*)) * 100 as success_rate
     FROM chronicle_events e
     WHERE e.tool_name IS NOT NULL 
       AND e.created_at >= NOW() - INTERVAL '1 hour' * time_window_hours

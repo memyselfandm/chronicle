@@ -1,0 +1,1 @@
+- DO NOT directly change the scripts or settings in .claude or ~/.claude. only update the source code that modifies these files.
