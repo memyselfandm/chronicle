@@ -4,6 +4,7 @@
 # dependencies = [
 #     "aiosqlite>=0.19.0",
 #     "python-dotenv>=1.0.0",
+#     "supabase>=2.18.0",
 #     "typing-extensions>=4.7.0",
 #     "ujson>=5.8.0",
 # ]
@@ -207,8 +208,10 @@ class PreToolUseHook(BaseHook):
             )
             
             # Save event
+            logger.info(f"Attempting to save pre_tool_use event for tool: {tool_name}")
+            logger.info(f"Event data event_type: {event_data.get('event_type')}")
             save_success = self.save_event(event_data)
-            logger.debug(f"Event save result: {save_success}")
+            logger.info(f"Event save result: {save_success}")
             
             # Create response based on permission decision
             return self._create_permission_response(tool_name, permission_result, save_success)
@@ -261,7 +264,7 @@ class PreToolUseHook(BaseHook):
             return ask_result
         
         # Default for standard tools - allow to respect auto-approve mode
-        standard_tools = ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "LS", "WebFetch", "WebSearch", "TodoWrite"]
+        standard_tools = ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "LS", "WebFetch", "WebSearch", "TodoWrite", "ExitPlanMode"]
         
         if tool_name in standard_tools:
             return {
@@ -336,7 +339,7 @@ class PreToolUseHook(BaseHook):
                 }
         
         # Auto-approve all safe read-only and utility tools
-        safe_tools = ["LS", "WebSearch", "Grep", "WebFetch", "TodoWrite"]
+        safe_tools = ["LS", "WebSearch", "Grep", "WebFetch", "TodoWrite", "ExitPlanMode"]
         if tool_name in safe_tools:
             return {
                 "permissionDecision": "allow",

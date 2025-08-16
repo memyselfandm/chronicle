@@ -63,9 +63,10 @@ class BaseHook:
     def save_event(self, event_data: Dict[str, Any]) -> bool:
         """Save event with auto session creation."""
         try:
+            logger.info(f"save_event called with event_type: {event_data.get('event_type')}")
             # Ensure session exists
             if not self.session_uuid and self.claude_session_id:
-                logger.debug(f"Creating new session for Claude session ID: {self.claude_session_id}")
+                logger.info(f"No session_uuid, creating new session for Claude session ID: {self.claude_session_id}")
                 session_data = {
                     "claude_session_id": self.claude_session_id,
                     "start_time": datetime.now().isoformat(),
@@ -89,9 +90,9 @@ class BaseHook:
             if "event_id" not in event_data:
                 event_data["event_id"] = str(uuid.uuid4())
             
-            logger.debug(f"Saving event with ID: {event_data['event_id']}")
+            logger.info(f"Saving event with ID: {event_data['event_id']}, event_type: {event_data.get('event_type')}")
             result = self.db_manager.save_event(event_data)
-            logger.debug(f"Event save result: {result}")
+            logger.info(f"Database save_event returned: {result}")
             return result
             
         except Exception as e:

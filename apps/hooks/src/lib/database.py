@@ -141,16 +141,18 @@ class DatabaseManager:
             )
         ''')
         
-        # Events table - removed CHECK constraint to allow all event types
+        # Events table - no CHECK constraint to allow all event types
         conn.execute('''
             CREATE TABLE IF NOT EXISTS events (
                 id TEXT PRIMARY KEY,
-                session_id TEXT,
+                session_id TEXT NOT NULL,
                 event_type TEXT NOT NULL,
-                timestamp TIMESTAMP,
-                metadata TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(session_id) REFERENCES sessions(id)
+                timestamp TEXT NOT NULL,
+                data TEXT NOT NULL DEFAULT '{}',
+                tool_name TEXT,
+                duration_ms INTEGER CHECK (duration_ms >= 0),
+                created_at TEXT DEFAULT (datetime('now', 'utc')),
+                FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
         ''')
         
@@ -160,15 +162,21 @@ class DatabaseManager:
         conn.execute('CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)')
     
     def save_session(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
-        """Save session data to database."""
+        """Save session data to BOTH databases (Supabase and SQLite)."""
         try:
             if "claude_session_id" not in session_data:
                 return False, None
             
             claude_session_id = validate_and_fix_session_id(session_data.get("claude_session_id"))
             
+            # Track save results
+            supabase_saved = False
+            sqlite_saved = False
+            session_uuid = None
+            
             # Try Supabase first
             if self.supabase_client:
+                logger.info(f"Supabase client is available for session save")
                 try:
                     # Check for existing session
                     existing = self.supabase_client.table(self.SESSIONS_TABLE).select("id").eq("claude_session_id", claude_session_id).execute()
@@ -196,49 +204,89 @@ class DatabaseManager:
                     }
                     
                     self.supabase_client.table(self.SESSIONS_TABLE).upsert(supabase_data, on_conflict="claude_session_id").execute()
-                    logger.debug(f"Supabase session saved successfully: {session_uuid}")
-                    return True, session_uuid
+                    logger.info(f"Supabase session saved successfully: {session_uuid}")
+                    supabase_saved = True
                     
                 except Exception as e:
                     logger.warning(f"Supabase session save failed: {e}")
-                    pass
+            else:
+                logger.warning(f"Supabase client is NOT available for session save")
             
-            # SQLite fallback
-            session_uuid = session_data.get("id")
-            if not session_uuid:
+            # Always try SQLite regardless of Supabase result
+            try:
+                # If we don't have a session_uuid yet, check SQLite or generate one
+                if not session_uuid:
+                    with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT id FROM sessions WHERE claude_session_id = ?", (claude_session_id,))
+                        row = cursor.fetchone()
+                        if row:
+                            session_uuid = row[0]
+                        else:
+                            session_uuid = str(uuid.uuid4())
+                
                 with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM sessions WHERE claude_session_id = ?", (claude_session_id,))
-                    row = cursor.fetchone()
-                    if row:
-                        session_uuid = row[0]
-                    else:
-                        session_uuid = str(uuid.uuid4())
+                    conn.execute('''
+                        INSERT OR REPLACE INTO sessions 
+                        (id, claude_session_id, start_time, end_time, project_path, 
+                         git_branch)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (
+                        session_uuid,
+                        claude_session_id,
+                        session_data.get("start_time"),
+                        session_data.get("end_time"),
+                        session_data.get("project_path"),
+                        session_data.get("git_branch"),
+                    ))
+                    conn.commit()
+                    logger.info(f"SQLite session saved successfully: {session_uuid}")
+                    sqlite_saved = True
+            except Exception as e:
+                logger.warning(f"SQLite session save failed: {e}")
             
-            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                conn.execute('''
-                    INSERT OR REPLACE INTO sessions 
-                    (id, claude_session_id, start_time, end_time, project_path, 
-                     git_branch, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (
-                    session_uuid,
-                    claude_session_id,
-                    session_data.get("start_time"),
-                    session_data.get("end_time"),
-                    session_data.get("project_path"),
-                    session_data.get("git_branch"),
-                ))
-                conn.commit()
+            # Log final result
+            if supabase_saved and sqlite_saved:
+                logger.info(f"Session saved to BOTH databases: {session_uuid}")
+            elif supabase_saved:
+                logger.info(f"Session saved to Supabase only: {session_uuid}")
+            elif sqlite_saved:
+                logger.info(f"Session saved to SQLite only: {session_uuid}")
+            else:
+                logger.error(f"Session failed to save to any database")
+                return False, None
             
-            return True, session_uuid
+            # Return success if at least one database saved
+            return (supabase_saved or sqlite_saved), session_uuid
             
         except Exception as e:
             logger.error(f"Session save failed: {e}")
+            
+            # If SQLite failed but Supabase is available, try Supabase as fallback
+            if self.supabase_client:
+                try:
+                    logger.info("Retrying with Supabase after SQLite failure...")
+                    session_uuid = str(uuid.uuid4())
+                    session_data_copy = session_data.copy()
+                    session_data_copy["id"] = session_uuid
+                    session_data_copy["claude_session_id"] = claude_session_id
+                    
+                    result = self.supabase_client.table(self.SESSIONS_TABLE).upsert(
+                        session_data_copy,
+                        on_conflict="claude_session_id"
+                    ).execute()
+                    
+                    if result.data:
+                        session_uuid = ensure_valid_uuid(result.data[0]["id"])
+                        logger.info(f"Successfully saved to Supabase on retry: {session_uuid}")
+                        return True, session_uuid
+                except Exception as retry_error:
+                    logger.error(f"Supabase retry also failed: {retry_error}")
+            
             return False, None
     
     def save_event(self, event_data: Dict[str, Any]) -> bool:
-        """Save event data to database with UPDATED event type mapping."""
+        """Save event data to BOTH databases (Supabase and SQLite)."""
         try:
             event_id = str(uuid.uuid4())
             
@@ -248,6 +296,10 @@ class DatabaseManager:
             
             # Ensure session_id is a valid UUID
             session_id = ensure_valid_uuid(event_data.get("session_id"))
+            
+            # Track save results
+            supabase_saved = False
+            sqlite_saved = False
             
             # Try Supabase first
             if self.supabase_client:
@@ -278,41 +330,90 @@ class DatabaseManager:
                         "metadata": metadata_jsonb,
                     }
                     
+                    logger.info(f"Saving to Supabase - event_type: {event_type} (original: {event_data.get('event_type')})")
                     self.supabase_client.table(self.EVENTS_TABLE).insert(supabase_data).execute()
-                    logger.debug(f"Supabase event saved successfully: {event_data.get('event_type')}")
-                    return True
+                    logger.info(f"Supabase event saved successfully: {event_type}")
+                    supabase_saved = True
                     
                 except Exception as e:
                     logger.warning(f"Supabase event save failed: {e}")
-                    pass
             
-            # SQLite fallback
-            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                metadata_jsonb = event_data.get("data", {})
-                
-                if "hook_event_name" in event_data:
-                    metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
-                
-                if "metadata" in event_data:
-                    metadata_jsonb.update(event_data.get("metadata", {}))
-                
-                conn.execute('''
-                    INSERT INTO events 
-                    (id, session_id, event_type, timestamp, metadata)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (
-                    event_id,
-                    session_id,
-                    event_data.get("event_type"),
-                    event_data.get("timestamp"),
-                    json.dumps(metadata_jsonb),
-                ))
-                conn.commit()
+            # Always try SQLite regardless of Supabase result
+            try:
+                with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                    metadata_jsonb = event_data.get("data", {})
+                    
+                    if "hook_event_name" in event_data:
+                        metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
+                    
+                    if "metadata" in event_data:
+                        metadata_jsonb.update(event_data.get("metadata", {}))
+                    
+                    # Extract tool_name if present in data
+                    tool_name = None
+                    if metadata_jsonb and "tool_name" in metadata_jsonb:
+                        tool_name = metadata_jsonb["tool_name"]
+                    
+                    conn.execute('''
+                        INSERT INTO events 
+                        (id, session_id, event_type, timestamp, data, tool_name)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (
+                        event_id,
+                        session_id,
+                        event_data.get("event_type"),
+                        event_data.get("timestamp"),
+                        json.dumps(metadata_jsonb),
+                        tool_name,
+                    ))
+                    conn.commit()
+                    logger.info(f"SQLite event saved successfully: {event_data.get('event_type')}")
+                    sqlite_saved = True
+            except Exception as e:
+                logger.warning(f"SQLite event save failed: {e}")
             
-            return True
+            # Log final result
+            if supabase_saved and sqlite_saved:
+                logger.info(f"Event saved to BOTH databases: {event_data.get('event_type')}")
+            elif supabase_saved:
+                logger.info(f"Event saved to Supabase only: {event_data.get('event_type')}")
+            elif sqlite_saved:
+                logger.info(f"Event saved to SQLite only: {event_data.get('event_type')}")
+            else:
+                logger.error(f"Event failed to save to any database: {event_data.get('event_type')}")
+            
+            # Return success if at least one database saved
+            return supabase_saved or sqlite_saved
             
         except Exception as e:
             logger.error(f"Event save failed: {e}")
+            
+            # If SQLite failed but Supabase is available, try Supabase as fallback
+            if self.supabase_client:
+                try:
+                    logger.info("Retrying event save with Supabase after SQLite failure...")
+                    metadata_jsonb = event_data.get("data", {})
+                    
+                    if "hook_event_name" in event_data:
+                        metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
+                    
+                    if "metadata" in event_data:
+                        metadata_jsonb.update(event_data.get("metadata", {}))
+                    
+                    supabase_data = {
+                        "id": event_id,
+                        "session_id": session_id,
+                        "event_type": event_data.get("event_type"),
+                        "timestamp": event_data.get("timestamp"),
+                        "metadata": metadata_jsonb,
+                    }
+                    
+                    self.supabase_client.table(self.EVENTS_TABLE).insert(supabase_data).execute()
+                    logger.info(f"Successfully saved event to Supabase on retry: {event_data.get('event_type')}")
+                    return True
+                except Exception as retry_error:
+                    logger.error(f"Supabase event retry also failed: {retry_error}")
+            
             return False
     
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:

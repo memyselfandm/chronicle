@@ -2,6 +2,47 @@
 
 ## [Unreleased]
 
+## [3.1.0] - 2025-08-16
+
+### Fixed - Pre-Tool-Use Event Visibility Issues
+
+**Critical fixes for pre_tool_use events not appearing in Supabase:**
+
+#### Database Save Strategy
+- **Fixed**: Modified `save_event()` and `save_session()` to save to BOTH databases (Supabase and SQLite) instead of returning after first success
+- **Changed**: Database operations now attempt both databases regardless of individual results
+- **Improved**: Return success if at least one database saves successfully
+
+#### SQLite Schema Constraints
+- **Fixed**: Removed restrictive CHECK constraint on event_type column that was blocking valid event types
+- **Added**: Migration script `fix_sqlite_check_constraint.py` to safely update existing databases
+- **Preserved**: Database views and triggers during migration process
+
+#### Missing Dependencies
+- **Fixed**: Added `supabase>=2.18.0` dependency to pre_tool_use.py UV script header
+- **Resolved**: Supabase client was not available due to missing dependency in UV environment
+
+#### Environment Configuration
+- **Fixed**: Added Supabase credentials to Chronicle installation .env file
+- **Updated**: Environment variables now properly loaded for all hooks
+
+#### Tool Permissions
+- **Added**: ExitPlanMode to auto-approved tools list in pre_tool_use hook
+- **Updated**: Both standard_tools and safe_tools lists for consistency
+
+### Technical Details
+
+**Files Modified:**
+- `src/lib/database.py` - Modified save_event() and save_session() for dual database saves
+- `src/hooks/pre_tool_use.py` - Added supabase dependency and ExitPlanMode tool
+- `fix_sqlite_check_constraint.py` - New migration script for schema updates
+- `.claude/hooks/chronicle/.env` - Added Supabase configuration
+
+**Database Changes:**
+- Removed CHECK constraint from SQLite events.event_type column
+- Sessions and events now save to both Supabase and SQLite simultaneously
+- Improved logging to track database save operations
+
 ### Fixed - Database Persistence Issues (2025-01-14)
 
 **Critical fixes for Chronicle hooks database save failures:**
