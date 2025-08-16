@@ -1,4 +1,4 @@
-# Chronicle Dashboard Updates for Hooks Refactor Backlog
+# Chronicle Dashboard Production Ready Backlog
 
 ## Critical Context
 
@@ -21,15 +21,22 @@
 
 ## Overview
 
-This epic focuses on updating the Chronicle Dashboard to work with the new database schema and event structure implemented during the hooks refactor. The primary goals are:
+This epic focuses on transforming the Chronicle Dashboard from a demo prototype to a production-ready observability tool. After completing the hooks refactor integration, we discovered the dashboard is running in pure demo mode with no real data connections.
 
-1. **Fix Breaking Errors**: Resolve the TypeError and other runtime errors preventing dashboard from working
+### Primary Goals
+
+**Phase 1: Schema Compatibility (Sprint 1) ✅**
+1. **Fix Breaking Errors**: Resolve the TypeError and other runtime errors
 2. **Update Database Queries**: Use correct table names with `chronicle_` prefix
-3. **Align Event Types**: Update to new hook-based event type system
-4. **Fix Type Definitions**: Ensure TypeScript interfaces match actual database schema
-5. **Update Mock Data**: Align mock data generators with new structure
-6. **Maintain UI/UX**: Keep existing dashboard functionality and appearance
-7. **Add Backwards Compatibility**: Support both old and new event types during transition
+
+**Phase 2: Production Readiness (Sprints 2-6)**
+3. **Remove Demo Mode**: Replace demo EventDashboard with real data component
+4. **Wire Real Data**: Connect dashboard to actual Supabase data streams
+5. **Align Event Types**: Update to new hook-based event type system
+6. **Fix Type Definitions**: Ensure TypeScript interfaces match actual database schema
+7. **Real Connection Status**: Monitor actual Supabase connection state
+8. **Add Authentication**: Implement secure access control
+9. **Production UI**: Remove demo labels and add professional interface
 
 ## Critical Implementation Guidelines
 
@@ -194,7 +201,91 @@ This epic focuses on updating the Chronicle Dashboard to work with the new datab
 - [ ] Update integration tests
 - [ ] Fix all TypeScript errors in tests
 
-### Feature 10: Documentation Updates
+### Feature 10: Remove Demo Mode and Wire Real Data
+**Description**: Replace the demo EventDashboard with a component that uses real data.
+
+**Acceptance Criteria**:
+- Dashboard uses `useEvents` and `useSessions` hooks
+- No more fake data generation in production mode
+- Real-time events stream from Supabase
+- Events display as they arrive from hooks
+
+**Tasks**:
+- [ ] Create new ProductionEventDashboard component
+- [ ] Import and use `useEvents` hook for real data
+- [ ] Import and use `useSessions` hook for session data
+- [ ] Remove all `generateMockEvent` calls from production code
+- [ ] Update main page.tsx to use production component
+- [ ] Keep demo component for development/testing only
+
+### Feature 11: Fix Connection Status Monitoring
+**Description**: Make ConnectionStatus monitor actual Supabase connection.
+
+**Acceptance Criteria**:
+- Connection status reflects real Supabase state
+- Auto-reconnect on connection loss
+- Show meaningful connection errors
+- Real-time subscription status displayed
+
+**Tasks**:
+- [ ] Update ConnectionStatus to monitor Supabase client
+- [ ] Add connection state to useEvents hook
+- [ ] Implement reconnection logic
+- [ ] Add connection error handling
+- [ ] Display real subscription status
+
+### Feature 12: Add Authentication System
+**Description**: Implement secure authentication for dashboard access.
+
+**Acceptance Criteria**:
+- Users must authenticate to access dashboard
+- Support multiple auth methods (email/password, OAuth)
+- Session management and logout
+- Protected routes and RLS integration
+
+**Tasks**:
+- [ ] Set up Supabase Auth configuration
+- [ ] Create login/signup components
+- [ ] Add auth context provider
+- [ ] Implement protected route wrapper
+- [ ] Configure RLS policies for user data
+- [ ] Add logout functionality
+
+### Feature 13: Production UI Updates
+**Description**: Remove all demo labels and create professional interface.
+
+**Acceptance Criteria**:
+- No "Demo" or "Demonstrating" text in production
+- Professional application title
+- Production-ready UI components
+- Proper loading and error states
+
+**Tasks**:
+- [ ] Change "Chronicle Dashboard Demo" to "Chronicle Observability"
+- [ ] Remove "Demonstrating..." subtitle
+- [ ] Remove fake control buttons (Connect/Disconnect if not real)
+- [ ] Add proper loading skeletons
+- [ ] Implement error boundaries
+- [ ] Add production favicon and metadata
+
+### Feature 14: Environment Configuration
+**Description**: Set up proper environment configuration for production.
+
+**Acceptance Criteria**:
+- Clear separation of dev/staging/production configs
+- Secure credential management
+- Feature flags for gradual rollout
+- Performance monitoring setup
+
+**Tasks**:
+- [ ] Create environment-specific configs
+- [ ] Remove MOCK_DATA flag entirely
+- [ ] Set up proper secret management
+- [ ] Configure performance monitoring
+- [ ] Add error tracking (Sentry or similar)
+- [ ] Document deployment process
+
+### Feature 15: Documentation Updates
 **Description**: Update documentation to reflect new structure.
 
 **Acceptance Criteria**:
@@ -249,8 +340,27 @@ This epic focuses on updating the Chronicle Dashboard to work with the new datab
 - **Agent 2**: Update all test files (Feature 9)
 - **Dependency Note**: Tests may need compatibility layer, but can update syntax in parallel
 
-### Sprint 5: Documentation & Final Polish
-**Features**: Feature 10 + any remaining fixes
+### Sprint 5: Production Data Integration
+**Features**: Feature 10, Feature 11
+**Goal**: Replace demo mode with real data connections
+
+**Parallelization Strategy**:
+- **Agent 1**: Create production dashboard component with real data (Feature 10)
+- **Agent 2**: Fix connection status monitoring (Feature 11)
+- **Dependency Note**: Both can work independently on their features
+
+### Sprint 6: Security & Production UI
+**Features**: Feature 12, Feature 13, Feature 14
+**Goal**: Add authentication and production-ready interface
+
+**Parallelization Strategy**:
+- **Agent 1**: Implement authentication system (Feature 12)
+- **Agent 2**: Update UI for production (Feature 13)
+- **Agent 3**: Configure production environment (Feature 14)
+- **No dependencies**: All three can work simultaneously
+
+### Sprint 7: Documentation & Final Polish
+**Features**: Feature 15 + any remaining fixes
 **Goal**: Complete documentation and final testing
 
 **Parallelization Strategy**:
@@ -273,6 +383,13 @@ This epic focuses on updating the Chronicle Dashboard to work with the new datab
 - Full backwards compatibility
 - All tests passing
 - Complete documentation
+
+### Critical for Production (Sprint 5-6)
+- Real data integration working
+- Authentication implemented
+- Production UI without demo labels
+- Proper connection monitoring
+- Environment configurations set
 
 ## Risk Assessment
 
@@ -355,10 +472,23 @@ For immediate testing while working on full fix:
 
 ## Path Forward
 
-The immediate priority is Sprint 1 to restore basic dashboard functionality. This will:
-1. Fix the breaking errors preventing dashboard from loading
-2. Enable basic event viewing and session tracking
-3. Restore value to users who depend on the dashboard
-4. Create foundation for remaining updates
+### Completed
+**Sprint 1** ✅ restored basic dashboard functionality:
+1. Fixed the breaking errors preventing dashboard from loading
+2. Updated database queries to use correct table names
+3. Fixed session_id field references
 
-Once Sprint 1 is complete, we can incrementally improve the dashboard while maintaining functionality.
+### Next Priority: Production Readiness
+The dashboard currently only shows demo data. **Sprint 5-6 are critical** to make it production-ready:
+
+1. **Sprint 5**: Wire up real data connections
+   - Replace demo EventDashboard with production component
+   - Connect to actual Supabase data streams
+   - Fix connection status monitoring
+
+2. **Sprint 6**: Security and professional UI
+   - Add authentication system
+   - Remove all demo labels
+   - Configure production environment
+
+Without these sprints, the dashboard remains a non-functional demo that doesn't show real Chronicle events.
