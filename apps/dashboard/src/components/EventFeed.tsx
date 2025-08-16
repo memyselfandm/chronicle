@@ -39,16 +39,22 @@ function EventCard({ event, onClick }: EventCardProps) {
 
   const getEventBadgeVariant = (type: EventData['type']) => {
     switch (type) {
-      case 'success':
+      case 'session_start':
+        return 'purple';
+      case 'pre_tool_use':
+      case 'post_tool_use':
         return 'success';
-      case 'tool_use':
+      case 'user_prompt_submit':
         return 'info';
-      case 'file_op':
+      case 'stop':
+      case 'subagent_stop':
         return 'warning';
+      case 'pre_compact':
+        return 'secondary';
       case 'error':
         return 'destructive';
-      case 'lifecycle':
-        return 'purple';
+      case 'notification':
+        return 'default';
       default:
         return 'default';
     }
@@ -56,17 +62,21 @@ function EventCard({ event, onClick }: EventCardProps) {
 
   const getEventIcon = (type: EventData['type']) => {
     switch (type) {
-      case 'success': return '✅';
-      case 'tool_use': return '🔧';
-      case 'file_op': return '📁';
+      case 'session_start': return '🎯';
+      case 'pre_tool_use': return '🔧';
+      case 'post_tool_use': return '✅';
+      case 'user_prompt_submit': return '💬';
+      case 'stop': return '⏹️';
+      case 'subagent_stop': return '🔄';
+      case 'pre_compact': return '📦';
+      case 'notification': return '🔔';
       case 'error': return '❌';
-      case 'lifecycle': return '🔄';
       default: return '📄';
     }
   };
 
   const formatEventType = (type: string) => {
-    return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const truncateSessionId = (sessionId: string) => {

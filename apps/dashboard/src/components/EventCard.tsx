@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 interface Event {
   id: string;
   timestamp: string;
-  type: 'prompt' | 'tool_use' | 'session';
+  type: 'session_start' | 'pre_tool_use' | 'post_tool_use' | 'user_prompt_submit' | 'stop' | 'subagent_stop' | 'pre_compact' | 'notification' | 'error';
   session_id: string;
   data: {
     tool_name?: string;
@@ -32,12 +32,22 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
 
     const getEventTypeColor = (type: string) => {
       switch (type) {
-        case 'prompt':
-          return 'info'; // blue
-        case 'tool_use':
-          return 'success'; // green
-        case 'session':
+        case 'session_start':
           return 'purple'; // purple
+        case 'pre_tool_use':
+        case 'post_tool_use':
+          return 'success'; // green
+        case 'user_prompt_submit':
+          return 'info'; // blue
+        case 'stop':
+        case 'subagent_stop':
+          return 'warning'; // yellow
+        case 'pre_compact':
+          return 'secondary'; // gray
+        case 'error':
+          return 'destructive'; // red
+        case 'notification':
+          return 'default'; // gray
         default:
           return 'default';
       }

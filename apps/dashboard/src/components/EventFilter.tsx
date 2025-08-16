@@ -33,7 +33,7 @@ export function EventFilter({
    * Format event type string for display
    */
   const formatEventType = (eventType: EventType): string => {
-    return eventType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   /**

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 interface Event {
   id: string;
   timestamp: string;
-  type: 'prompt' | 'tool_use' | 'session' | 'lifecycle' | 'error' | 'file_op' | 'system' | 'notification';
+  type: 'session_start' | 'pre_tool_use' | 'post_tool_use' | 'user_prompt_submit' | 'stop' | 'subagent_stop' | 'pre_compact' | 'notification' | 'error';
   session_id: string;
   data: {
     tool_name?: string;
@@ -59,18 +59,20 @@ const AnimatedEventCard = forwardRef<HTMLButtonElement, AnimatedEventCardProps>(
 
     const getEventTypeColor = (type: string) => {
       switch (type) {
-        case 'prompt':
-          return 'info'; // blue
-        case 'tool_use':
-          return 'success'; // green
-        case 'session':
-        case 'lifecycle':
+        case 'session_start':
           return 'purple'; // purple
+        case 'pre_tool_use':
+        case 'post_tool_use':
+          return 'success'; // green
+        case 'user_prompt_submit':
+          return 'info'; // blue
+        case 'stop':
+        case 'subagent_stop':
+          return 'warning'; // yellow
+        case 'pre_compact':
+          return 'secondary'; // gray
         case 'error':
           return 'destructive'; // red
-        case 'file_op':
-          return 'warning'; // yellow
-        case 'system':
         case 'notification':
           return 'default'; // gray
         default:
@@ -80,14 +82,15 @@ const AnimatedEventCard = forwardRef<HTMLButtonElement, AnimatedEventCardProps>(
 
     const getEventIcon = (type: string) => {
       switch (type) {
-        case 'prompt': return '💬';
-        case 'tool_use': return '🔧';
-        case 'session': return '🎯';
-        case 'lifecycle': return '🔄';
-        case 'error': return '❌';
-        case 'file_op': return '📁';
-        case 'system': return '⚙️';
+        case 'session_start': return '🎯';
+        case 'pre_tool_use': return '🔧';
+        case 'post_tool_use': return '✅';
+        case 'user_prompt_submit': return '💬';
+        case 'stop': return '⏹️';
+        case 'subagent_stop': return '🔄';
+        case 'pre_compact': return '📦';
         case 'notification': return '🔔';
+        case 'error': return '❌';
         default: return '📄';
       }
     };
@@ -174,7 +177,7 @@ const AnimatedEventCard = forwardRef<HTMLButtonElement, AnimatedEventCardProps>(
                 variant={getEventTypeColor(event.type)}
                 className="text-xs font-medium"
               >
-                {event.type.replace('_', ' ')}
+                {event.type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
               </Badge>
               {showNewHighlight && (
                 <span 

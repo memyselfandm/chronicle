@@ -155,18 +155,20 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
   const getEventTypeColor = (type: string) => {
     switch (type) {
-      case 'prompt':
-        return 'info';
-      case 'tool_use':
-        return 'success';
-      case 'session':
-      case 'lifecycle':
+      case 'session_start':
         return 'purple';
+      case 'pre_tool_use':
+      case 'post_tool_use':
+        return 'success';
+      case 'user_prompt_submit':
+        return 'info';
+      case 'stop':
+      case 'subagent_stop':
+        return 'warning';
+      case 'pre_compact':
+        return 'secondary';
       case 'error':
         return 'destructive';
-      case 'file_op':
-        return 'warning';
-      case 'system':
       case 'notification':
         return 'default';
       default:
@@ -174,18 +176,13 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success':
-        return 'success';
-      case 'error':
-        return 'destructive';
-      case 'warning':
-        return 'warning';
-      case 'pending':
-        return 'default';
-      default:
-        return 'default';
+  const getSuccessColor = (success: boolean | undefined) => {
+    if (success === true) {
+      return 'success';
+    } else if (success === false) {
+      return 'destructive';
+    } else {
+      return 'default';
     }
   };
 
@@ -204,8 +201,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Badge variant={getEventTypeColor(event.type)} className="font-medium">
-                {event.type.replace('_', ' ')}
+              <Badge variant={getEventTypeColor(event.event_type)} className="font-medium">
+                {event.event_type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
               </Badge>
               <Badge variant={getStatusColor(event.status)} className="font-medium">
                 {event.status}
@@ -285,7 +282,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyToClipboard(event.data, "eventData")}
+                onClick={() => copyToClipboard(event.metadata, "eventData")}
                 className="text-xs"
               >
                 {copiedField === "eventData" ? "Copied!" : "Copy JSON"}
@@ -293,7 +290,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
             </div>
           </CardHeader>
           <CardContent>
-            <JSONViewer data={event.data} />
+            <JSONViewer data={event.metadata} />
           </CardContent>
         </Card>
 
@@ -347,12 +344,12 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                           variant={getEventTypeColor(relatedEvent.type)}
                           className="text-xs"
                         >
-                          {relatedEvent.type}
+                          {relatedEvent.type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
                         </Badge>
                         <span className="text-sm text-text-secondary">
-                          {relatedEvent.type === "tool_use" && relatedEvent.data.tool_name
+                          {(relatedEvent.type === "pre_tool_use" || relatedEvent.type === "post_tool_use") && relatedEvent.data.tool_name
                             ? relatedEvent.data.tool_name
-                            : relatedEvent.type}
+                            : relatedEvent.type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
                         </span>
                       </div>
                       <div className="text-xs text-text-muted font-mono">

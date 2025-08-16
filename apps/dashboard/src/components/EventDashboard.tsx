@@ -10,28 +10,34 @@ import type { Event } from '@/types/events';
 
 // Mock data generator for demo
 const generateMockEvent = (id: string): Event => {
-  const types = ['tool_use', 'prompt', 'session', 'error', 'file_op'] as const;
-  const statuses = ['success', 'error', 'pending', 'warning'] as const;
+  const types = ['session_start', 'pre_tool_use', 'post_tool_use', 'user_prompt_submit', 'stop', 'error', 'notification'] as const;
   const tools = ['Read', 'Write', 'Edit', 'Bash', 'Search', 'WebFetch'];
   
-  const type = types[Math.floor(Math.random() * types.length)];
-  const status = statuses[Math.floor(Math.random() * statuses.length)];
+  const event_type = types[Math.floor(Math.random() * types.length)];
+  const isToolEvent = event_type === 'pre_tool_use' || event_type === 'post_tool_use';
   
   return {
     id,
-    type,
-    timestamp: new Date().toISOString(),
     session_id: `session-${Math.random().toString(36).substring(2, 15)}`,
-    status,
-    data: {
-      tool_name: type === 'tool_use' ? tools[Math.floor(Math.random() * tools.length)] : undefined,
-      parameters: type === 'tool_use' ? { 
-        file_path: '/path/to/file.ts',
-        content: 'Sample file content'
-      } : undefined,
-      result: status === 'success' ? 'Operation completed successfully' : undefined,
-      error_message: status === 'error' ? 'Something went wrong' : undefined,
-      duration_ms: Math.floor(Math.random() * 1000) + 50,
+    event_type,
+    timestamp: new Date().toISOString(),
+    metadata: {
+      success: Math.random() > 0.3,
+      ...(isToolEvent && {
+        parameters: { 
+          file_path: '/path/to/file.ts',
+          content: 'Sample file content'
+        },
+        result: 'Operation completed successfully'
+      }),
+      ...(event_type === 'error' && {
+        error_message: 'Something went wrong',
+        error_type: 'RuntimeError'
+      }),
+      ...(event_type === 'notification' && {
+        title: 'System Notification',
+        message: 'Event processed successfully'
+      }),
       ...Math.random() > 0.5 && {
         additional_context: {
           nested_data: {
@@ -42,7 +48,10 @@ const generateMockEvent = (id: string): Event => {
           }
         }
       }
-    }
+    },
+    tool_name: isToolEvent ? tools[Math.floor(Math.random() * tools.length)] : undefined,
+    duration_ms: event_type === 'post_tool_use' ? Math.floor(Math.random() * 1000) + 50 : undefined,
+    created_at: new Date().toISOString()
   };
 };
 
