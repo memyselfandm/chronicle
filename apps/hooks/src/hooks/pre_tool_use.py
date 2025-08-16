@@ -264,7 +264,7 @@ class PreToolUseHook(BaseHook):
             return ask_result
         
         # Default for standard tools - allow to respect auto-approve mode
-        standard_tools = ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "LS", "WebFetch", "WebSearch", "TodoWrite", "ExitPlanMode"]
+        standard_tools = ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep", "LS", "WebFetch", "WebSearch", "TodoWrite"]
         
         if tool_name in standard_tools:
             return {
@@ -339,7 +339,7 @@ class PreToolUseHook(BaseHook):
                 }
         
         # Auto-approve all safe read-only and utility tools
-        safe_tools = ["LS", "WebSearch", "Grep", "WebFetch", "TodoWrite", "ExitPlanMode"]
+        safe_tools = ["LS", "WebSearch", "Grep", "WebFetch", "TodoWrite"]
         if tool_name in safe_tools:
             return {
                 "permissionDecision": "allow",
