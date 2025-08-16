@@ -6,14 +6,32 @@
  * Available event types that can be filtered
  */
 export type EventType = 
-  | 'tool_use'
-  | 'prompt' 
-  | 'session'
-  | 'lifecycle'
-  | 'error'
-  | 'file_op'
-  | 'system'
-  | 'notification';
+  | 'session_start'
+  | 'pre_tool_use'
+  | 'post_tool_use'
+  | 'user_prompt_submit'
+  | 'stop'
+  | 'subagent_stop'
+  | 'pre_compact'
+  | 'notification'
+  | 'error';
+
+/**
+ * Type guard to check if a string is a valid EventType
+ */
+export const isValidEventType = (type: any): type is EventType => {
+  return [
+    'session_start',
+    'pre_tool_use',
+    'post_tool_use',
+    'user_prompt_submit',
+    'stop',
+    'subagent_stop',
+    'pre_compact',
+    'notification',
+    'error'
+  ].includes(type);
+};
 
 /**
  * Filter state interface for managing event filtering

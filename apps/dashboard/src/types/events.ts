@@ -1,170 +1,132 @@
 /**
  * Event-related type definitions for the Chronicle Dashboard
+ * Updated to match database schema exactly
  */
 
 import { EventType } from './filters';
 
 /**
- * Base event interface
+ * Base event interface matching database schema
  */
 export interface BaseEvent {
-  /** Unique event identifier */
+  /** Unique event identifier (UUID) */
   id: string;
-  /** Event type category */
-  type: EventType;
-  /** Event timestamp in ISO format */
-  timestamp: string;
-  /** Session ID this event belongs to */
+  /** Session ID this event belongs to (UUID) */
   session_id: string;
-  /** Event status */
-  status: 'success' | 'error' | 'pending' | 'warning';
-  /** Additional event data */
-  data: Record<string, any>;
+  /** Event type category */
+  event_type: EventType;
+  /** Event timestamp (TIMESTAMPTZ) */
+  timestamp: string;
+  /** Event metadata (JSONB) */
+  metadata: Record<string, any>;
+  /** Tool name for tool-related events */
+  tool_name?: string;
+  /** Duration in milliseconds for tool events */
+  duration_ms?: number;
+  /** When record was created */
+  created_at: string;
 }
 
 /**
- * Tool usage event interface
+ * Session start event interface
  */
-export interface ToolUseEvent extends BaseEvent {
-  type: 'tool_use';
-  data: {
-    tool_name: string;
-    parameters?: Record<string, any>;
-    result?: any;
-    duration_ms?: number;
-    error_message?: string;
-  };
+export interface SessionStartEvent extends BaseEvent {
+  event_type: 'session_start';
 }
 
 /**
- * Prompt event interface
+ * Pre-tool use event interface
  */
-export interface PromptEvent extends BaseEvent {
-  type: 'prompt';
-  data: {
-    prompt_type: 'user' | 'system' | 'assistant';
-    content?: string;
-    token_count?: number;
-    model?: string;
-  };
+export interface PreToolUseEvent extends BaseEvent {
+  event_type: 'pre_tool_use';
+  tool_name: string;
 }
 
 /**
- * Session lifecycle event interface
+ * Post-tool use event interface
  */
-export interface SessionEvent extends BaseEvent {
-  type: 'session';
-  data: {
-    action: 'start' | 'end' | 'pause' | 'resume';
-    project_name?: string;
-    project_path?: string;
-    git_branch?: string;
-    duration_ms?: number;
-  };
+export interface PostToolUseEvent extends BaseEvent {
+  event_type: 'post_tool_use';
+  tool_name: string;
+  duration_ms?: number;
 }
 
 /**
- * Lifecycle event interface
+ * User prompt submit event interface
  */
-export interface LifecycleEvent extends BaseEvent {
-  type: 'lifecycle';
-  data: {
-    event_name: string;
-    component?: string;
-    metadata?: Record<string, any>;
-  };
+export interface UserPromptSubmitEvent extends BaseEvent {
+  event_type: 'user_prompt_submit';
 }
 
 /**
- * Error event interface
+ * Stop event interface
  */
-export interface ErrorEvent extends BaseEvent {
-  type: 'error';
-  status: 'error';
-  data: {
-    error_type: string;
-    error_message: string;
-    stack_trace?: string;
-    context?: Record<string, any>;
-  };
+export interface StopEvent extends BaseEvent {
+  event_type: 'stop';
 }
 
 /**
- * File operation event interface
+ * Subagent stop event interface
  */
-export interface FileOpEvent extends BaseEvent {
-  type: 'file_op';
-  data: {
-    operation: 'read' | 'write' | 'edit' | 'delete' | 'create';
-    file_path: string;
-    file_type?: string;
-    size_bytes?: number;
-    diff?: string;
-  };
+export interface SubagentStopEvent extends BaseEvent {
+  event_type: 'subagent_stop';
 }
 
 /**
- * System event interface
+ * Pre-compact event interface
  */
-export interface SystemEvent extends BaseEvent {
-  type: 'system';
-  data: {
-    system_event: string;
-    cpu_usage?: number;
-    memory_usage?: number;
-    disk_usage?: number;
-    network_stats?: Record<string, any>;
-  };
+export interface PreCompactEvent extends BaseEvent {
+  event_type: 'pre_compact';
 }
 
 /**
  * Notification event interface
  */
 export interface NotificationEvent extends BaseEvent {
-  type: 'notification';
-  data: {
-    notification_type: 'info' | 'warning' | 'error' | 'success';
-    title: string;
-    message: string;
-    action_required?: boolean;
-  };
+  event_type: 'notification';
+}
+
+/**
+ * Error event interface
+ */
+export interface ErrorEvent extends BaseEvent {
+  event_type: 'error';
 }
 
 /**
  * Union type for all event types
  */
 export type Event = 
-  | ToolUseEvent
-  | PromptEvent
-  | SessionEvent
-  | LifecycleEvent
-  | ErrorEvent
-  | FileOpEvent
-  | SystemEvent
-  | NotificationEvent;
+  | SessionStartEvent
+  | PreToolUseEvent
+  | PostToolUseEvent
+  | UserPromptSubmitEvent
+  | StopEvent
+  | SubagentStopEvent
+  | PreCompactEvent
+  | NotificationEvent
+  | ErrorEvent;
 
 /**
- * Session information interface
+ * Session information interface matching database schema
  */
 export interface Session {
-  /** Unique session identifier */
+  /** Unique session identifier (UUID) */
   id: string;
-  /** Session status */
-  status: 'active' | 'idle' | 'completed' | 'error';
-  /** Session start timestamp */
-  started_at: string;
-  /** Session end timestamp (if completed) */
-  ended_at?: string;
-  /** Project name associated with this session */
-  project_name?: string;
+  /** Claude session identifier */
+  claude_session_id: string;
   /** Project file path */
   project_path?: string;
   /** Git branch name */
   git_branch?: string;
-  /** Total number of events in this session */
-  event_count: number;
-  /** Last activity timestamp */
-  last_activity?: string;
+  /** Session start timestamp */
+  start_time: string;
+  /** Session end timestamp (if completed) */
+  end_time?: string;
+  /** Session metadata (JSONB) */
+  metadata: Record<string, any>;
+  /** When record was created */
+  created_at: string;
 }
 
 /**
