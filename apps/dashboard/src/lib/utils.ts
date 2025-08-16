@@ -162,6 +162,70 @@ export function getToolCategory(toolName: string): string {
 }
 
 /**
+ * Format duration in milliseconds to human-readable format
+ */
+export function formatDuration(durationMs: number | undefined | null): string {
+  if (durationMs == null || durationMs < 0) {
+    return "";
+  }
+
+  if (durationMs < 1000) {
+    return `${Math.round(durationMs)}ms`;
+  }
+
+  const seconds = durationMs / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  
+  if (minutes < 60) {
+    return remainingSeconds === 0 
+      ? `${minutes}m` 
+      : `${minutes}m ${remainingSeconds}s`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  
+  return remainingMinutes === 0 
+    ? `${hours}h` 
+    : `${hours}h ${remainingMinutes}m`;
+}
+
+/**
+ * Generate better descriptions for event types
+ */
+export function getEventDescription(event: { event_type: string; tool_name?: string; metadata?: any }): string {
+  const { event_type, tool_name, metadata } = event;
+  
+  switch (event_type) {
+    case 'session_start':
+      return 'Session started';
+    case 'pre_tool_use':
+      return tool_name ? `Starting to use ${tool_name}` : 'Starting tool use';
+    case 'post_tool_use':
+      return tool_name ? `Finished using ${tool_name}` : 'Finished tool use';
+    case 'user_prompt_submit':
+      return 'User submitted a prompt';
+    case 'stop':
+      return 'Session stopped';
+    case 'subagent_stop':
+      return 'Subagent stopped';
+    case 'pre_compact':
+      return 'Starting message compaction';
+    case 'notification':
+      return metadata?.message || 'Notification received';
+    case 'error':
+      return metadata?.error || 'Error occurred';
+    default:
+      return event_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+}
+
+/**
  * Debounce function for search inputs
  */
 export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(

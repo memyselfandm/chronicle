@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import type { Event } from "@/types/events";
+import { formatDuration } from "@/lib/utils";
 
 interface EventDetailModalProps {
   event: Event | null;
@@ -204,9 +205,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <Badge variant={getEventTypeColor(event.event_type)} className="font-medium">
                 {event.event_type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
               </Badge>
-              <Badge variant={getStatusColor(event.status)} className="font-medium">
-                {event.status}
-              </Badge>
+              {/* Status badge removed as it's not in the new schema */}
             </div>
             <div className="text-sm text-text-muted">
               Event ID: <span className="font-mono text-xs">{event.id}</span>
@@ -218,6 +217,18 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
           <div className="text-right text-sm text-text-muted">
             <div>{format(new Date(event.timestamp), "MMM d, yyyy")}</div>
             <div className="font-mono">{format(new Date(event.timestamp), "HH:mm:ss.SSS")}</div>
+            {/* Tool name for tool events */}
+            {(event.event_type === 'pre_tool_use' || event.event_type === 'post_tool_use') && event.tool_name && (
+              <div className="text-sm text-text-muted">
+                Tool: <span className="font-mono text-xs text-text-primary">{event.tool_name}</span>
+              </div>
+            )}
+            {/* Duration for post tool use events */}
+            {event.event_type === 'post_tool_use' && event.duration_ms && (
+              <div className="text-sm text-text-muted">
+                Duration: <span className="font-mono text-xs text-text-primary">{formatDuration(event.duration_ms)}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -341,16 +352,19 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <Badge
-                          variant={getEventTypeColor(relatedEvent.type)}
+                          variant={getEventTypeColor(relatedEvent.event_type)}
                           className="text-xs"
                         >
-                          {relatedEvent.type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
+                          {relatedEvent.event_type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
                         </Badge>
                         <span className="text-sm text-text-secondary">
-                          {(relatedEvent.type === "pre_tool_use" || relatedEvent.type === "post_tool_use") && relatedEvent.data.tool_name
-                            ? relatedEvent.data.tool_name
-                            : relatedEvent.type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
+                          {(relatedEvent.event_type === "pre_tool_use" || relatedEvent.event_type === "post_tool_use") && relatedEvent.tool_name
+                            ? relatedEvent.tool_name
+                            : relatedEvent.event_type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
                         </span>
+                        {relatedEvent.event_type === "post_tool_use" && relatedEvent.duration_ms && (
+                          <span className="text-xs text-text-muted">({formatDuration(relatedEvent.duration_ms)})</span>
+                        )}
                       </div>
                       <div className="text-xs text-text-muted font-mono">
                         {format(new Date(relatedEvent.timestamp), "HH:mm:ss")}

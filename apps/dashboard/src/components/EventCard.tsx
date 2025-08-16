@@ -2,19 +2,9 @@ import { forwardRef, useState } from 'react';
 import { format } from 'date-fns';
 import { CardContent, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { cn } from '@/lib/utils';
+import { cn, formatDuration, getEventDescription } from '@/lib/utils';
+import type { Event } from '@/types/events';
 
-interface Event {
-  id: string;
-  timestamp: string;
-  type: 'session_start' | 'pre_tool_use' | 'post_tool_use' | 'user_prompt_submit' | 'stop' | 'subagent_stop' | 'pre_compact' | 'notification' | 'error';
-  session_id: string;
-  data: {
-    tool_name?: string;
-    status?: 'success' | 'error' | 'pending';
-    [key: string]: unknown;
-  } | null;
-}
 
 interface EventCardProps {
   event: Event;
@@ -30,24 +20,24 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
       onClick?.(event);
     };
 
-    const getEventTypeColor = (type: string) => {
-      switch (type) {
+    const getEventTypeColor = (event_type: string) => {
+      switch (event_type) {
         case 'session_start':
-          return 'purple'; // purple
+          return 'purple';
         case 'pre_tool_use':
         case 'post_tool_use':
-          return 'success'; // green
+          return 'success';
         case 'user_prompt_submit':
-          return 'info'; // blue
+          return 'info';
         case 'stop':
         case 'subagent_stop':
-          return 'warning'; // yellow
+          return 'warning';
         case 'pre_compact':
-          return 'secondary'; // gray
+          return 'secondary';
         case 'error':
-          return 'destructive'; // red
+          return 'destructive';
         case 'notification':
-          return 'default'; // gray
+          return 'default';
         default:
           return 'default';
       }
@@ -116,11 +106,16 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge 
-                variant={getEventTypeColor(event.type)}
+                variant={getEventTypeColor(event.event_type)}
                 className="text-xs font-medium"
               >
-                {event.type}
+                {event.event_type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
               </Badge>
+              {event.tool_name && (
+                <span className="text-xs font-medium text-text-primary bg-accent-blue/10 px-2 py-0.5 rounded">
+                  {event.tool_name}
+                </span>
+              )}
             </div>
             <div className="text-xs text-text-muted">
               <span 
@@ -144,9 +139,12 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
               <span className="text-text-muted">Session:</span>{' '}
               <span className="font-mono text-xs">{truncatedSessionId}</span>
             </div>
-            {event.data?.tool_name && (
-              <div className="text-sm text-text-primary">
-                <span className="font-medium">{event.data.tool_name}</span>
+            <div className="text-sm text-text-secondary">
+              {getEventDescription(event)}
+            </div>
+            {event.event_type === 'post_tool_use' && event.duration_ms && (
+              <div className="text-xs text-text-muted">
+                Duration: <span className="font-medium">{formatDuration(event.duration_ms)}</span>
               </div>
             )}
           </div>
@@ -158,4 +156,4 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
 
 EventCard.displayName = 'EventCard';
 
-export { EventCard, type Event };
+export { EventCard };
