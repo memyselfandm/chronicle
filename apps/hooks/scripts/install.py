@@ -107,14 +107,14 @@ class HookInstaller:
         
         # Define hook files to install - UV single-file scripts
         self.hook_files = [
-            "pre_tool_use_uv.py",
-            "post_tool_use_uv.py", 
-            "user_prompt_submit_uv.py",
-            "notification_uv.py",
-            "session_start_uv.py",
-            "stop_uv.py",
-            "subagent_stop_uv.py",
-            "pre_compact_uv.py"
+            "pre_tool_use.py",
+            "post_tool_use.py", 
+            "user_prompt_submit.py",
+            "notification.py",
+            "session_start.py",
+            "stop.py",
+            "subagent_stop.py",
+            "pre_compact.py"
         ]
         
         # Helper modules that hooks depend on
@@ -433,7 +433,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/pre_tool_use_uv.py",
+                            "command": f"{hook_path_template}/pre_tool_use.py",
                             "timeout": 10
                         }
                     ]
@@ -445,7 +445,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command", 
-                            "command": f"{hook_path_template}/post_tool_use_uv.py",
+                            "command": f"{hook_path_template}/post_tool_use.py",
                             "timeout": 10
                         }
                     ]
@@ -456,7 +456,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/user_prompt_submit_uv.py",
+                            "command": f"{hook_path_template}/user_prompt_submit.py",
                             "timeout": 5
                         }
                     ]
@@ -467,7 +467,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/notification_uv.py", 
+                            "command": f"{hook_path_template}/notification.py", 
                             "timeout": 5
                         }
                     ]
@@ -478,7 +478,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/stop_uv.py",
+                            "command": f"{hook_path_template}/stop.py",
                             "timeout": 5
                         }
                     ]
@@ -489,7 +489,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/subagent_stop_uv.py",
+                            "command": f"{hook_path_template}/subagent_stop.py",
                             "timeout": 5
                         }
                     ]
@@ -501,7 +501,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/pre_compact_uv.py",
+                            "command": f"{hook_path_template}/pre_compact.py",
                             "timeout": 10
                         }
                     ]
@@ -511,7 +511,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/pre_compact_uv.py",
+                            "command": f"{hook_path_template}/pre_compact.py",
                             "timeout": 10
                         }
                     ]
@@ -523,7 +523,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/session_start_uv.py",
+                            "command": f"{hook_path_template}/session_start.py",
                             "timeout": 5
                         }
                     ]
@@ -533,7 +533,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/session_start_uv.py",
+                            "command": f"{hook_path_template}/session_start.py",
                             "timeout": 5
                         }
                     ]
@@ -543,7 +543,7 @@ CHRONICLE_TIMEOUT_MS=100
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{hook_path_template}/session_start_uv.py",
+                            "command": f"{hook_path_template}/session_start.py",
                             "timeout": 5
                         }
                     ]

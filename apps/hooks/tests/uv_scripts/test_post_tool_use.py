@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for post_tool_use_uv.py hook.
+Tests for post_tool_use.py hook.
 
 Tests tool execution tracking, result validation, and error detection.
 """
@@ -20,7 +20,7 @@ class TestPostToolUseHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("PostToolUse", "post_tool_use_uv.py")
+        self.hook = HookTestCase("PostToolUse", "post_tool_use.py")
     
     def test_successful_tool_execution(self, test_env):
         """Test handling of successful tool execution."""

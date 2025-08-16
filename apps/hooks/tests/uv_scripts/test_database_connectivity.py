@@ -30,7 +30,7 @@ def test_sqlite_connectivity():
         env.pop("SUPABASE_ANON_KEY", None)
         
         # Run session start hook
-        script_path = Path(__file__).parent.parent.parent / "src" / "hooks" / "uv_scripts" / "session_start_uv.py"
+        script_path = Path(__file__).parent.parent.parent / "src" / "hooks" / "session_start.py"
         
         input_data = {
             "sessionId": "sqlite-test",
@@ -99,7 +99,7 @@ def test_supabase_connectivity():
     env["CLAUDE_SESSION_ID"] = "supabase-test"
     
     # Run session start hook
-    script_path = Path(__file__).parent.parent.parent / "src" / "hooks" / "uv_scripts" / "session_start_uv.py"
+    script_path = Path(__file__).parent.parent.parent / "src" / "hooks" / "session_start.py"
     
     input_data = {
         "sessionId": f"supabase-test-{int(time.time())}",
@@ -152,7 +152,7 @@ def test_database_fallback():
         env["SUPABASE_ANON_KEY"] = "invalid-key"
         
         # Run hook
-        script_path = Path(__file__).parent.parent.parent / "src" / "hooks" / "uv_scripts" / "session_start_uv.py"
+        script_path = Path(__file__).parent.parent.parent / "src" / "hooks" / "session_start.py"
         
         input_data = {
             "sessionId": "fallback-test",

@@ -29,7 +29,7 @@ def test_hook_execution():
     
     try:
         result = subprocess.run(
-            ["uv", "run", str(hooks_dir / "session_start_uv.py")],
+            ["uv", "run", str(hooks_dir / "session_start.py")],
             input=json.dumps(test_data),
             capture_output=True,
             text=True,
@@ -65,7 +65,7 @@ def test_database_write():
     
     try:
         result = subprocess.run(
-            ["uv", "run", str(hooks_dir / "user_prompt_submit_uv.py")],
+            ["uv", "run", str(hooks_dir / "user_prompt_submit.py")],
             input=json.dumps(test_data),
             capture_output=True,
             text=True,
@@ -108,14 +108,14 @@ def check_installation():
     
     # Check hooks
     hook_files = [
-        "session_start_uv.py",
-        "user_prompt_submit_uv.py", 
-        "pre_tool_use_uv.py",
-        "post_tool_use_uv.py",
-        "notification_uv.py",
-        "stop_uv.py",
-        "subagent_stop_uv.py",
-        "pre_compact_uv.py"
+        "session_start.py",
+        "user_prompt_submit.py", 
+        "pre_tool_use.py",
+        "post_tool_use.py",
+        "notification.py",
+        "stop.py",
+        "subagent_stop.py",
+        "pre_compact.py"
     ]
     
     installed_hooks = 0

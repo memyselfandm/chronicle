@@ -12,7 +12,7 @@ echo ""
 
 # Run the hook and capture all output
 echo "Running session_start hook..."
-echo "$TEST_INPUT" | uv run /Users/m/.claude/hooks/chronicle/hooks/session_start_uv.py 2>&1
+echo "$TEST_INPUT" | uv run /Users/m/.claude/hooks/chronicle/hooks/session_start.py 2>&1
 
 echo ""
 echo "Checking environment variables..."

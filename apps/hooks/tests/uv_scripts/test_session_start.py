@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for session_start_uv.py hook.
+Tests for session_start.py hook.
 
 Tests session initialization, project context extraction, and git info capture.
 """
@@ -23,7 +23,7 @@ class TestSessionStartHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("SessionStart", "session_start_uv.py")
+        self.hook = HookTestCase("SessionStart", "session_start.py")
     
     def test_basic_session_start(self, test_env):
         """Test basic session start functionality."""

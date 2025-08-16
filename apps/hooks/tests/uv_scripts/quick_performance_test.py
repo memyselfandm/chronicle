@@ -20,7 +20,7 @@ SCRIPT_DIR = Path(__file__).parent.parent.parent / "src" / "hooks" / "uv_scripts
 HOOKS = [
     {
         "name": "SessionStart",
-        "script": "session_start_uv.py",
+        "script": "session_start.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",
@@ -31,7 +31,7 @@ HOOKS = [
     },
     {
         "name": "PreToolUse",
-        "script": "pre_tool_use_uv.py",
+        "script": "pre_tool_use.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",
@@ -43,7 +43,7 @@ HOOKS = [
     },
     {
         "name": "PostToolUse",
-        "script": "post_tool_use_uv.py",
+        "script": "post_tool_use.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",
@@ -56,7 +56,7 @@ HOOKS = [
     },
     {
         "name": "UserPromptSubmit",
-        "script": "user_prompt_submit_uv.py",
+        "script": "user_prompt_submit.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",
@@ -67,7 +67,7 @@ HOOKS = [
     },
     {
         "name": "Notification",
-        "script": "notification_uv.py",
+        "script": "notification.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",
@@ -78,7 +78,7 @@ HOOKS = [
     },
     {
         "name": "Stop",
-        "script": "stop_uv.py",
+        "script": "stop.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",
@@ -89,7 +89,7 @@ HOOKS = [
     },
     {
         "name": "SubagentStop",
-        "script": "subagent_stop_uv.py",
+        "script": "subagent_stop.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",
@@ -100,7 +100,7 @@ HOOKS = [
     },
     {
         "name": "PreCompact",
-        "script": "pre_compact_uv.py",
+        "script": "pre_compact.py",
         "input": {
             "sessionId": "perf-test",
             "transcriptPath": "/tmp/test.jsonl",

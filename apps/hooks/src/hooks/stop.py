@@ -1,6 +1,14 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.8"
+# dependencies = [
+#     "python-dotenv>=1.0.0",
+#     "supabase>=2.0.0",
+#     "ujson>=5.8.0",
+# ]
+# ///
 """
-Claude Code Hook: Session End Tracking (stop.py)
+Claude Code Hook: Session End Tracking (stop.py) - UV Single-File Script
 
 This hook is triggered when Claude Code main agent execution completes.
 It captures session end data, calculates duration, and stores final metrics.
@@ -10,370 +18,638 @@ Features:
 - Calculates total session duration from start to end
 - Counts total events that occurred during session
 - Stores session_end event with comprehensive metrics
-- Handles gracefully when session_start wasn't captured
-
-Hook Event: Stop
-Matchers: N/A (triggered on agent completion)
 """
 
 import json
+import os
 import sys
 import time
 import logging
+import sqlite3
+import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
-# Add core directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent / ".." / "core"))
+# ===========================================
+# Inline Environment Loader (Minimal)
+# ===========================================
 
-from base_hook import BaseHook
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-
-class StopHook(BaseHook):
-    """
-    Hook for tracking session end and calculating final session metrics.
+def load_chronicle_env() -> Dict[str, str]:
+    """Load environment variables for Chronicle with fallback support."""
+    loaded_vars = {}
     
-    Responsibilities:
-    - Query database for existing session record
-    - Calculate session duration if start_time available
-    - Count events that occurred during the session
-    - Update session record with end_time and final metrics
-    - Create session_end event with comprehensive data
-    - Handle missing session_start scenarios gracefully
-    """
+    try:
+        from dotenv import load_dotenv, dotenv_values
+        
+        # Search for .env file in common locations
+        search_paths = [
+            Path.cwd() / '.env',
+            Path(__file__).parent / '.env',
+            Path.home() / '.claude' / 'hooks' / 'chronicle' / '.env',
+            Path(__file__).parent.parent / '.env',
+        ]
+        
+        env_path = None
+        for path in search_paths:
+            if path.exists() and path.is_file():
+                env_path = path
+                break
+        
+        if env_path:
+            loaded_vars = dotenv_values(env_path)
+            load_dotenv(env_path, override=True)
+        
+        # Apply critical defaults
+        defaults = {
+            'CLAUDE_HOOKS_DB_PATH': str(Path.home() / '.claude' / 'hooks' / 'chronicle' / 'data' / 'chronicle.db'),
+            'CLAUDE_HOOKS_LOG_LEVEL': 'INFO',
+            'CLAUDE_HOOKS_ENABLED': 'true',
+        }
+        
+        for key, default_value in defaults.items():
+            if not os.getenv(key):
+                os.environ[key] = default_value
+                loaded_vars[key] = default_value
+                
+    except ImportError:
+        pass
+        
+    return loaded_vars
+
+def get_database_config() -> Dict[str, Any]:
+    """Get database configuration with proper paths."""
+    load_chronicle_env()
+    
+    # Determine database path based on installation
+    script_path = Path(__file__).resolve()
+    if '.claude/hooks/chronicle' in str(script_path):
+        # Installed location
+        data_dir = Path.home() / '.claude' / 'hooks' / 'chronicle' / 'data'
+        data_dir.mkdir(parents=True, exist_ok=True)
+        default_db_path = str(data_dir / 'chronicle.db')
+    else:
+        # Development mode
+        default_db_path = str(Path.cwd() / 'data' / 'chronicle.db')
+    
+    config = {
+        'supabase_url': os.getenv('SUPABASE_URL'),
+        'supabase_key': os.getenv('SUPABASE_ANON_KEY'),
+        'sqlite_path': os.getenv('CLAUDE_HOOKS_DB_PATH', default_db_path),
+        'db_timeout': int(os.getenv('CLAUDE_HOOKS_DB_TIMEOUT', '30')),
+        'retry_attempts': int(os.getenv('CLAUDE_HOOKS_DB_RETRY_ATTEMPTS', '3')),
+        'retry_delay': float(os.getenv('CLAUDE_HOOKS_DB_RETRY_DELAY', '1.0')),
+    }
+    
+    # Ensure SQLite directory exists
+    sqlite_path = Path(config['sqlite_path'])
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    return config
+
+# ===========================================
+# Inline Database Manager (Essential)
+# ===========================================
+
+# Supabase support
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    Client = None
+
+class DatabaseError(Exception):
+    """Base exception for database operations."""
+    pass
+
+class DatabaseManager:
+    """Unified database interface with Supabase/SQLite fallback."""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """Initialize the StopHook with database connectivity."""
-        super().__init__(config)
-        self.hook_name = "stop"
-        logger.info("StopHook initialized")
-    
-    def find_existing_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Find existing session record in database.
+        """Initialize database manager with configuration."""
+        load_chronicle_env()
+        self.config = config or get_database_config()
         
-        Args:
-            session_id: The session ID to search for
+        # Initialize clients
+        self.supabase_client = None
+        self.sqlite_path = Path(self.config['sqlite_path']).expanduser().resolve()
+        self.timeout = self.config.get('db_timeout', 30)
+        
+        # Initialize Supabase if available
+        if SUPABASE_AVAILABLE:
+            supabase_url = self.config.get('supabase_url')
+            supabase_key = self.config.get('supabase_key')
             
-        Returns:
-            Session data dictionary if found, None otherwise
-        """
+            if supabase_url and supabase_key:
+                try:
+                    self.supabase_client = create_client(supabase_url, supabase_key)
+                except Exception:
+                    pass
+        
+        # Ensure SQLite database exists
+        self._ensure_sqlite_database()
+        
+        # Set table names
+        if self.supabase_client:
+            self.SESSIONS_TABLE = "chronicle_sessions"
+            self.EVENTS_TABLE = "chronicle_events"
+        else:
+            self.SESSIONS_TABLE = "sessions"
+            self.EVENTS_TABLE = "events"
+    
+    def _ensure_sqlite_database(self):
+        """Ensure SQLite database and directory structure exist."""
         try:
-            # Try to query Supabase first
-            if hasattr(self.db_manager, 'supabase_client') and self.db_manager.supabase_client._supabase_client:
-                supabase = self.db_manager.supabase_client._supabase_client
-                result = supabase.table('sessions').select('*').eq('session_id', session_id).execute()
-                
-                if result.data and len(result.data) > 0:
-                    logger.debug(f"Found existing session: {session_id}")
-                    return result.data[0]
-                else:
-                    logger.warning(f"No existing session found for: {session_id}")
-                    return None
-            else:
-                logger.warning("Supabase client not available for session lookup")
-                return None
+            self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                self._create_sqlite_schema(conn)
+                conn.commit()
                 
         except Exception as e:
-            logger.error(f"Error finding existing session {session_id}: {e}")
-            self.log_error(e, "find_existing_session")
-            return None
+            raise DatabaseError(f"Cannot initialize SQLite at {self.sqlite_path}: {e}")
     
-    def count_session_events(self, session_id: str) -> int:
-        """
-        Count total events that occurred during this session.
+    def _create_sqlite_schema(self, conn: sqlite3.Connection):
+        """Create SQLite schema matching Supabase structure."""
+        conn.execute("PRAGMA foreign_keys = ON")
         
-        Args:
-            session_id: The session ID to count events for
-            
-        Returns:
-            Number of events in the session
-        """
-        try:
-            # Try to query Supabase for event count
-            if hasattr(self.db_manager, 'supabase_client') and self.db_manager.supabase_client._supabase_client:
-                supabase = self.db_manager.supabase_client._supabase_client
-                result = supabase.table('events').select('event_id').eq('session_id', session_id).execute()
-                
-                if result.data:
-                    event_count = len(result.data)
-                    logger.debug(f"Counted {event_count} events for session {session_id}")
-                    return event_count
-                else:
-                    logger.info(f"No events found for session {session_id}")
-                    return 0
-            else:
-                logger.warning("Supabase client not available for event counting")
-                return 0
-                
-        except Exception as e:
-            logger.error(f"Error counting events for session {session_id}: {e}")
-            self.log_error(e, "count_session_events")
-            return 0
+        # Sessions table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                claude_session_id TEXT UNIQUE,
+                start_time TIMESTAMP,
+                end_time TIMESTAMP,
+                project_path TEXT,
+                git_branch TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Events table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id TEXT PRIMARY KEY,
+                session_id TEXT,
+                event_type TEXT NOT NULL,
+                timestamp TIMESTAMP,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(session_id) REFERENCES sessions(id)
+            )
+        ''')
+        
+        # Create indexes
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type)')
     
-    def calculate_session_duration(self, start_time_str: Optional[str], end_time: datetime) -> Optional[int]:
-        """
-        Calculate session duration in milliseconds.
-        
-        Args:
-            start_time_str: ISO format start time string
-            end_time: End time as datetime object
-            
-        Returns:
-            Duration in milliseconds, or None if start_time not available
-        """
-        if not start_time_str:
-            logger.warning("Cannot calculate duration: no start_time available")
-            return None
-        
+    def save_session(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+        """Save session data to database."""
         try:
-            # Parse start time from ISO format
-            start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+            if "claude_session_id" not in session_data:
+                return False, None
             
-            # Calculate duration in milliseconds
-            duration_seconds = (end_time - start_time).total_seconds()
-            duration_ms = int(duration_seconds * 1000)
+            claude_session_id = session_data.get("claude_session_id")
             
-            logger.debug(f"Calculated session duration: {duration_ms}ms ({duration_seconds:.2f}s)")
-            return duration_ms
+            # Try Supabase first
+            if self.supabase_client:
+                try:
+                    # Check for existing session
+                    existing = self.supabase_client.table(self.SESSIONS_TABLE).select("id").eq("claude_session_id", claude_session_id).execute()
+                    
+                    if existing.data:
+                        session_uuid = existing.data[0]["id"]
+                    else:
+                        session_uuid = str(uuid.uuid4())
+                    
+                    # Build metadata
+                    metadata = {}
+                    if "git_commit" in session_data:
+                        metadata["git_commit"] = session_data.get("git_commit")
+                    if "source" in session_data:
+                        metadata["source"] = session_data.get("source")
+                    
+                    supabase_data = {
+                        "id": session_uuid,
+                        "claude_session_id": session_data.get("claude_session_id"),
+                        "start_time": session_data.get("start_time"),
+                        "end_time": session_data.get("end_time"),
+                        "project_path": session_data.get("project_path"),
+                        "git_branch": session_data.get("git_branch"),
+                        "metadata": metadata,
+                    }
+                    
+                    self.supabase_client.table(self.SESSIONS_TABLE).upsert(supabase_data, on_conflict="claude_session_id").execute()
+                    return True, session_uuid
+                    
+                except Exception:
+                    pass
             
-        except Exception as e:
-            logger.error(f"Error calculating session duration: {e}")
-            self.log_error(e, "calculate_session_duration")
-            return None
+            # SQLite fallback
+            session_uuid = session_data.get("id")
+            if not session_uuid:
+                with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM sessions WHERE claude_session_id = ?", (claude_session_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        session_uuid = row[0]
+                    else:
+                        session_uuid = str(uuid.uuid4())
+            
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                conn.execute('''
+                    INSERT OR REPLACE INTO sessions 
+                    (id, claude_session_id, start_time, end_time, project_path, 
+                     git_branch, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (
+                    session_uuid,
+                    session_data.get("claude_session_id"),
+                    session_data.get("start_time"),
+                    session_data.get("end_time"),
+                    session_data.get("project_path"),
+                    session_data.get("git_branch"),
+                ))
+                conn.commit()
+            
+            return True, session_uuid
+            
+        except Exception:
+            return False, None
     
-    def update_session_record(self, session_id: str, existing_session: Optional[Dict[str, Any]], 
-                            end_time: datetime, duration_ms: Optional[int], events_count: int) -> bool:
-        """
-        Update session record with end time and final metrics.
-        
-        Args:
-            session_id: Session ID to update
-            existing_session: Existing session data if found
-            end_time: Session end time
-            duration_ms: Session duration in milliseconds
-            events_count: Total events in session
-            
-        Returns:
-            True if update successful, False otherwise
-        """
+    def save_event(self, event_data: Dict[str, Any]) -> bool:
+        """Save event data to database."""
         try:
-            if existing_session:
-                # Update existing session with end data
-                updated_session = existing_session.copy()
-                updated_session.update({
-                    "end_time": end_time.isoformat(),
-                    "duration_ms": duration_ms,
-                    "events_count": events_count,
-                    "updated_at": datetime.now().isoformat()
-                })
-                
-                logger.debug(f"Updating existing session {session_id} with end data")
-            else:
-                # Create minimal session record for sessions without session_start
-                updated_session = {
-                    "session_id": session_id,
-                    "start_time": None,
-                    "end_time": end_time.isoformat(),
-                    "duration_ms": duration_ms,
-                    "events_count": events_count,
-                    "source": "unknown",  # We don't know how it started
-                    "project_path": self.load_project_context().get("cwd"),
-                    "created_at": datetime.now().isoformat(),
-                    "missing_session_start": True
-                }
-                
-                logger.info(f"Creating new session record for {session_id} (missing session_start)")
+            event_id = str(uuid.uuid4())
             
-            # Save the updated/new session
-            success = self.save_session(updated_session)
+            if "session_id" not in event_data:
+                return False
             
-            if success:
-                logger.info(f"Successfully updated session record for {session_id}")
-            else:
-                logger.error(f"Failed to update session record for {session_id}")
+            # Try Supabase first
+            if self.supabase_client:
+                try:
+                    metadata_jsonb = event_data.get("data", {})
+                    
+                    if "hook_event_name" in event_data:
+                        metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
+                    
+                    if "metadata" in event_data:
+                        metadata_jsonb.update(event_data.get("metadata", {}))
+                    
+                    # Ensure valid event_type
+                    event_type = event_data.get("event_type")
+                    valid_types = ["prompt", "tool_use", "session_start", "session_end", "notification", "error"]
+                    if event_type not in valid_types:
+                        event_type = "notification"
+                    
+                    supabase_data = {
+                        "id": event_id,
+                        "session_id": event_data.get("session_id"),
+                        "event_type": event_type,
+                        "timestamp": event_data.get("timestamp"),
+                        "metadata": metadata_jsonb,
+                    }
+                    
+                    self.supabase_client.table(self.EVENTS_TABLE).insert(supabase_data).execute()
+                    return True
+                    
+                except Exception:
+                    pass
+            
+            # SQLite fallback
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                metadata_jsonb = event_data.get("data", {})
                 
-            return success
+                if "hook_event_name" in event_data:
+                    metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
+                
+                if "metadata" in event_data:
+                    metadata_jsonb.update(event_data.get("metadata", {}))
+                
+                conn.execute('''
+                    INSERT INTO events 
+                    (id, session_id, event_type, timestamp, metadata)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (
+                    event_id,
+                    event_data.get("session_id"),
+                    event_data.get("event_type"),
+                    event_data.get("timestamp"),
+                    json.dumps(metadata_jsonb),
+                ))
+                conn.commit()
             
-        except Exception as e:
-            logger.error(f"Error updating session record: {e}")
-            self.log_error(e, "update_session_record")
+            return True
+            
+        except Exception:
             return False
     
-    def create_session_end_event(self, session_id: str, end_time: datetime, 
-                                duration_ms: Optional[int], events_count: int,
-                                missing_session_start: bool = False) -> bool:
-        """
-        Create session_end event with comprehensive metrics.
-        
-        Args:
-            session_id: Session ID
-            end_time: Session end time
-            duration_ms: Session duration in milliseconds
-            events_count: Total events in session
-            missing_session_start: Whether session_start was captured
-            
-        Returns:
-            True if event created successfully, False otherwise
-        """
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve session by ID from database."""
         try:
+            # Try Supabase first
+            if self.supabase_client:
+                try:
+                    result = self.supabase_client.table(self.SESSIONS_TABLE).select("*").eq("claude_session_id", session_id).execute()
+                    if result.data:
+                        return result.data[0]
+                except Exception:
+                    pass
+            
+            # SQLite fallback
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    "SELECT * FROM sessions WHERE claude_session_id = ?",
+                    (session_id,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return dict(row)
+            
+            return None
+            
+        except Exception:
+            return None
+    
+    def find_session(self, claude_session_id: str) -> Optional[Dict[str, Any]]:
+        """Find session by Claude session ID."""
+        return self.get_session(claude_session_id)
+    
+    def count_session_events(self, session_id: str) -> int:
+        """Count total events for a session."""
+        try:
+            # Try Supabase first
+            if self.supabase_client:
+                try:
+                    result = self.supabase_client.table(self.EVENTS_TABLE).select("id", count="exact").eq("session_id", session_id).execute()
+                    return result.count or 0
+                except Exception:
+                    pass
+            
+            # SQLite fallback
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                cursor = conn.execute(
+                    "SELECT COUNT(*) FROM events WHERE session_id = ?",
+                    (session_id,)
+                )
+                row = cursor.fetchone()
+                return row[0] if row else 0
+            
+        except Exception:
+            return 0
+    
+    def update_session_end(self, session_id: str, end_time: str, event_count: int) -> bool:
+        """Update session with end time and metrics."""
+        try:
+            # Try Supabase first
+            if self.supabase_client:
+                try:
+                    update_data = {
+                        "end_time": end_time,
+                        "updated_at": datetime.now().isoformat()
+                    }
+                    
+                    self.supabase_client.table(self.SESSIONS_TABLE).update(update_data).eq("id", session_id).execute()
+                    return True
+                    
+                except Exception:
+                    pass
+            
+            # SQLite fallback
+            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
+                conn.execute('''
+                    UPDATE sessions 
+                    SET end_time = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (end_time, session_id))
+                conn.commit()
+                return conn.total_changes > 0
+            
+        except Exception:
+            return False
+
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# UJSON for fast JSON processing
+try:
+    import ujson as json_impl
+except ImportError:
+    import json as json_impl
+
+# Configure logging with file output
+# Set up chronicle-specific logging
+chronicle_log_dir = Path.home() / ".claude" / "hooks" / "chronicle" / "logs"
+chronicle_log_dir.mkdir(parents=True, exist_ok=True)
+chronicle_log_file = chronicle_log_dir / "chronicle.log"
+
+# Configure logger
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(chronicle_log_file),
+        logging.StreamHandler()  # Also log to stderr for UV scripts
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# ===========================================
+# Database Manager
+# ===========================================
+
+class StopHook:
+    """Hook for tracking session end and calculating final session metrics."""
+    
+    def __init__(self):
+        self.db_manager = DatabaseManager()
+        self.claude_session_id: Optional[str] = None
+    
+    def get_claude_session_id(self, input_data: Dict[str, Any]) -> Optional[str]:
+        """Extract Claude session ID."""
+        if "session_id" in input_data:
+            return input_data["session_id"]
+        return os.getenv("CLAUDE_SESSION_ID")
+    
+    def process_hook(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process session stop hook."""
+        try:
+            # Extract session ID
+            self.claude_session_id = self.get_claude_session_id(input_data)
+            logger.info(f"Attempting to terminate session: {self.claude_session_id}")
+            
+            if not self.claude_session_id:
+                logger.warning("No Claude session ID found for termination")
+                return self._create_response(
+                    session_found=False,
+                    error="No session ID available"
+                )
+            
+            # Find existing session
+            logger.info(f"Looking up session in database: {self.claude_session_id}")
+            session = self.db_manager.find_session(self.claude_session_id)
+            
+            if not session:
+                logger.warning(f"Session not found in database: {self.claude_session_id}")
+                return self._create_response(
+                    session_found=False,
+                    error="Session not found in database"
+                )
+            
+            session_id = session["id"]
+            logger.info(f"Found session record with ID: {session_id}")
+            
+            # Count events in this session
+            event_count = self.db_manager.count_session_events(session_id)
+            logger.info(f"Total events in session: {event_count}")
+            
+            # Update session with end time and metrics
+            end_time = datetime.now().isoformat()
+            logger.info(f"Setting session end time: {end_time}")
+            session_updated = self.db_manager.update_session_end(
+                session_id, end_time, event_count
+            )
+            logger.info(f"Session update result: {session_updated}")
+            
+            # Calculate session metrics
+            duration_minutes = None
+            if session["start_time"]:
+                try:
+                    start_time = datetime.fromisoformat(session["start_time"].replace('Z', '+00:00'))
+                    end_time_dt = datetime.fromisoformat(end_time)
+                    duration_minutes = (end_time_dt - start_time).total_seconds() / 60
+                    logger.info(f"Session duration calculated: {duration_minutes:.2f} minutes")
+                except Exception as e:
+                    logger.warning(f"Could not calculate session duration: {e}")
+            
+            # Create session end event
             event_data = {
-                "session_id": session_id,
-                "hook_event_name": "Stop",
                 "event_type": "session_end",
-                "timestamp": end_time.isoformat(),
-                "success": True,
+                "hook_event_name": "Stop",
+                "session_id": session_id,
+                "timestamp": end_time,
                 "data": {
-                    "end_time": end_time.isoformat(),
-                    "duration_ms": duration_ms,
-                    "events_count": events_count,
-                    "missing_session_start": missing_session_start
-                },
-                "raw_input": {
-                    "hook_event_name": "Stop",
-                    "session_id": session_id,
-                    "processed_at": end_time.isoformat()
+                    "session_duration_minutes": duration_minutes,
+                    "total_events": event_count,
+                    "end_reason": input_data.get("reason", "normal_completion"),
+                    "final_metrics": {
+                        "start_time": session["start_time"],
+                        "end_time": end_time,
+                        "event_count": event_count
+                    }
                 }
             }
             
-            success = self.save_event(event_data)
+            # Save session end event
+            logger.info("Saving session end event to database...")
+            event_saved = self.db_manager.save_event(event_data)
+            logger.info(f"Session end event saved: {event_saved}")
             
-            if success:
-                logger.info(f"Successfully created session_end event for {session_id}")
-                if duration_ms:
-                    logger.info(f"Session duration: {duration_ms}ms, Events: {events_count}")
-                else:
-                    logger.info(f"Session end tracked (duration unknown), Events: {events_count}")
-            else:
-                logger.error(f"Failed to create session_end event for {session_id}")
-                
-            return success
+            return self._create_response(
+                session_found=True,
+                session_updated=session_updated,
+                event_saved=event_saved,
+                duration_minutes=duration_minutes,
+                event_count=event_count
+            )
             
         except Exception as e:
-            logger.error(f"Error creating session_end event: {e}")
-            self.log_error(e, "create_session_end_event")
-            return False
+            logger.debug(f"Stop hook error: {e}")
+            return self._create_response(
+                session_found=False,
+                error="Processing failed"
+            )
     
-    def process_stop_hook(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Main processing logic for the stop hook.
+    def _create_response(self, session_found: bool = False,
+                        session_updated: bool = False,
+                        event_saved: bool = False,
+                        duration_minutes: Optional[float] = None,
+                        event_count: int = 0,
+                        error: Optional[str] = None) -> Dict[str, Any]:
+        """Create stop hook response as per Claude Code spec."""
         
-        Args:
-            input_data: Hook input data from Claude Code
-            
-        Returns:
-            Hook response dictionary
-        """
-        try:
-            # Process common hook data
-            processed_data = self.process_hook_data(input_data)
-            
-            if not self.session_id:
-                logger.error("No session ID available for stop hook")
-                return self.create_response(continue_execution=True, suppress_output=True)
-            
-            end_time = datetime.now()
-            
-            # Find existing session record
-            existing_session = self.find_existing_session(self.session_id)
-            
-            # Calculate duration if possible
-            duration_ms = None
-            missing_session_start = existing_session is None
-            
-            if existing_session and existing_session.get("start_time"):
-                duration_ms = self.calculate_session_duration(
-                    existing_session["start_time"], 
-                    end_time
-                )
-            
-            # Count events in session
-            events_count = self.count_session_events(self.session_id)
-            
-            # Update session record
-            session_updated = self.update_session_record(
-                self.session_id, 
-                existing_session, 
-                end_time, 
-                duration_ms, 
-                events_count
-            )
-            
-            # Create session_end event
-            event_created = self.create_session_end_event(
-                self.session_id,
-                end_time,
-                duration_ms,
-                events_count,
-                missing_session_start
-            )
-            
-            # Determine overall success
-            overall_success = session_updated and event_created
-            
-            if overall_success:
-                logger.info(f"Stop hook completed successfully for session {self.session_id}")
-            else:
-                logger.warning(f"Stop hook completed with some failures for session {self.session_id}")
-            
-            # Return success response (don't block Claude Code execution)
-            return self.create_response(
-                continue_execution=True,
-                suppress_output=True,
-                hook_specific_data={
-                    "hookEventName": "Stop",
-                    "sessionEndTracked": overall_success,
-                    "durationMs": duration_ms,
-                    "eventsCount": events_count,
-                    "missingSessionStart": missing_session_start
-                }
-            )
-            
-        except Exception as e:
-            logger.error(f"Unexpected error in stop hook: {e}")
-            self.log_error(e, "process_stop_hook")
-            
-            # Always return success to avoid blocking Claude Code
-            return self.create_response(continue_execution=True, suppress_output=True)
+        # Stop hooks should not return hookSpecificOutput
+        # They only support decision and reason fields
+        response = {
+            "continue": True,
+            "suppressOutput": True  # Session end is internal
+        }
+        
+        # Log the internal metrics for debugging
+        logger.info(f"Session termination - Found: {session_found}, Updated: {session_updated}, Events: {event_count}")
+        if duration_minutes is not None:
+            logger.info(f"Session duration: {round(duration_minutes, 2)} minutes")
+        if error:
+            logger.error(f"Stop hook error: {error}")
+        
+        return response
 
+# ===========================================
+# Main Entry Point
+# ===========================================
 
 def main():
-    """Main entry point for the stop hook."""
+    """Main entry point for stop hook."""
     try:
+        logger.info("=" * 60)
+        logger.info("STOP HOOK STARTED - SESSION TERMINATION")
+        logger.info("=" * 60)
+        
         # Read input from stdin
-        input_text = sys.stdin.read().strip()
-        
-        if not input_text:
-            logger.warning("No input received from stdin")
-            print(json.dumps({"continue": True, "suppressOutput": True}))
-            return
-        
-        # Parse JSON input
         try:
-            input_data = json.loads(input_text)
+            input_data = json_impl.load(sys.stdin)
+            logger.info(f"Parsed input data keys: {list(input_data.keys())}")
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON input: {e}")
-            print(json.dumps({"continue": True, "suppressOutput": True}))
-            return
+            logger.warning(f"No input data received or invalid JSON: {e}")
+            input_data = {}
         
-        # Create and run the hook
+        # Process hook
+        start_time = time.perf_counter()
+        logger.info("Initializing StopHook for session termination...")
+        
         hook = StopHook()
-        response = hook.process_stop_hook(input_data)
+        logger.info("Processing session stop...")
+        result = hook.process_hook(input_data)
+        logger.info(f"Session stop processing result: {result}")
         
-        # Output response as JSON
-        print(json.dumps(response))
+        # Add execution time
+        execution_time = (time.perf_counter() - start_time) * 1000
+        result["execution_time_ms"] = execution_time
+        
+        # Log performance and session metrics
+        if execution_time > 100:
+            logger.warning(f"Hook exceeded 100ms requirement: {execution_time:.2f}ms")
+        
+        if result.get("hookSpecificOutput", {}).get("sessionDurationMinutes"):
+            duration = result["hookSpecificOutput"]["sessionDurationMinutes"]
+            logger.info(f"Session completed - Duration: {duration} minutes")
+        
+        if result.get("hookSpecificOutput", {}).get("eventCount"):
+            events = result["hookSpecificOutput"]["eventCount"]
+            logger.info(f"Total events in session: {events}")
+        
+        logger.info("=" * 60)
+        logger.info("STOP HOOK COMPLETED - SESSION TERMINATED")
+        logger.info("=" * 60)
+        
+        # Output result
+        print(json_impl.dumps(result, indent=2))
+        sys.exit(0)
         
     except Exception as e:
-        logger.error(f"Fatal error in stop hook: {e}")
-        # Always output a valid response to avoid breaking Claude Code
-        print(json.dumps({"continue": True, "suppressOutput": True}))
-        sys.exit(0)  # Exit successfully to avoid blocking Claude Code
-
+        logger.error(f"Critical error in stop hook: {e}")
+        logger.debug(f"Critical error details: {e}", exc_info=True)
+        print(json_impl.dumps({"continue": True, "suppressOutput": True}))
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()

@@ -52,17 +52,17 @@ except ImportError:
 
 def main():
     """Update all UV scripts."""
-    script_dir = Path(__file__).parent
+    script_dir = Path(__file__).parent.parent  # Go up to hooks/ directory
     
     # List of files to update
     files_to_update = [
-        'notification_uv.py',
-        'post_tool_use_uv.py',
-        'pre_compact_uv.py',
-        'pre_tool_use_uv.py',
-        'stop_uv.py',
-        'subagent_stop_uv.py',
-        'user_prompt_submit_uv.py',
+        'notification.py',
+        'post_tool_use.py',
+        'pre_compact.py',
+        'pre_tool_use.py',
+        'stop.py',
+        'subagent_stop.py',
+        'user_prompt_submit.py',
     ]
     
     for filename in files_to_update:

@@ -88,14 +88,14 @@ class TestRunner:
         
         perf_results = {}
         hooks = [
-            ("SessionStart", "session_start_uv.py"),
-            ("PreToolUse", "pre_tool_use_uv.py"),
-            ("PostToolUse", "post_tool_use_uv.py"),
-            ("UserPromptSubmit", "user_prompt_submit_uv.py"),
-            ("Notification", "notification_uv.py"),
-            ("Stop", "stop_uv.py"),
-            ("SubagentStop", "subagent_stop_uv.py"),
-            ("PreCompact", "pre_compact_uv.py")
+            ("SessionStart", "session_start.py"),
+            ("PreToolUse", "pre_tool_use.py"),
+            ("PostToolUse", "post_tool_use.py"),
+            ("UserPromptSubmit", "user_prompt_submit.py"),
+            ("Notification", "notification.py"),
+            ("Stop", "stop.py"),
+            ("SubagentStop", "subagent_stop.py"),
+            ("PreCompact", "pre_compact.py")
         ]
         
         for hook_name, script_name in hooks:

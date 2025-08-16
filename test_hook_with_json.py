@@ -18,7 +18,7 @@ test_data = {
 }
 
 # Path to the hook
-hook_path = os.path.expanduser("~/.claude/hooks/chronicle/hooks/pre_tool_use_uv.py")
+hook_path = os.path.expanduser("~/.claude/hooks/chronicle/hooks/pre_tool_use.py")
 
 if not os.path.exists(hook_path):
     print(f"❌ Hook not found at: {hook_path}")

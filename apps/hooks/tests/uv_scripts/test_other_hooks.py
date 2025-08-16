@@ -18,7 +18,7 @@ class TestNotificationHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("Notification", "notification_uv.py")
+        self.hook = HookTestCase("Notification", "notification.py")
     
     def test_basic_notification(self, test_env):
         """Test basic notification handling."""
@@ -97,7 +97,7 @@ class TestStopHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("Stop", "stop_uv.py")
+        self.hook = HookTestCase("Stop", "stop.py")
     
     def test_basic_stop(self, test_env):
         """Test basic stop functionality."""
@@ -176,7 +176,7 @@ class TestSubagentStopHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("SubagentStop", "subagent_stop_uv.py")
+        self.hook = HookTestCase("SubagentStop", "subagent_stop.py")
     
     def test_basic_subagent_stop(self, test_env):
         """Test basic subagent stop functionality."""
@@ -220,7 +220,7 @@ class TestPreCompactHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("PreCompact", "pre_compact_uv.py")
+        self.hook = HookTestCase("PreCompact", "pre_compact.py")
     
     def test_manual_compact(self, test_env):
         """Test manual compaction trigger."""
@@ -320,14 +320,14 @@ class TestAllHooksPerformance:
     def test_all_hooks_under_100ms(self, test_env):
         """Test that all hooks execute under 100ms."""
         hooks = [
-            ("SessionStart", "session_start_uv.py", {"source": "startup"}),
-            ("PreToolUse", "pre_tool_use_uv.py", {"toolName": "Read", "toolInput": {}}),
-            ("PostToolUse", "post_tool_use_uv.py", {"toolName": "Read", "toolInput": {}, "toolResponse": {}}),
-            ("UserPromptSubmit", "user_prompt_submit_uv.py", {"prompt": "test"}),
-            ("Notification", "notification_uv.py", {"message": "test"}),
-            ("Stop", "stop_uv.py", {"stopHookActive": False}),
-            ("SubagentStop", "subagent_stop_uv.py", {"taskId": "test"}),
-            ("PreCompact", "pre_compact_uv.py", {"trigger": "manual"})
+            ("SessionStart", "session_start.py", {"source": "startup"}),
+            ("PreToolUse", "pre_tool_use.py", {"toolName": "Read", "toolInput": {}}),
+            ("PostToolUse", "post_tool_use.py", {"toolName": "Read", "toolInput": {}, "toolResponse": {}}),
+            ("UserPromptSubmit", "user_prompt_submit.py", {"prompt": "test"}),
+            ("Notification", "notification.py", {"message": "test"}),
+            ("Stop", "stop.py", {"stopHookActive": False}),
+            ("SubagentStop", "subagent_stop.py", {"taskId": "test"}),
+            ("PreCompact", "pre_compact.py", {"trigger": "manual"})
         ]
         
         for hook_name, script_name, extra_data in hooks:

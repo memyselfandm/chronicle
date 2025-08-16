@@ -11,11 +11,11 @@ def test_hook_with_debug():
     """Test hook with detailed debug output."""
     
     hooks_dir = Path.home() / '.claude' / 'hooks' / 'chronicle' / 'hooks'
-    hook_script = hooks_dir / 'user_prompt_submit_uv.py'
+    hook_script = hooks_dir / 'user_prompt_submit.py'
     
     # Create a modified version of the hook with debug logging
     debug_hook_content = f'''#!/usr/bin/env -S uv run
-# Debug version of user_prompt_submit_uv.py
+# Debug version of user_prompt_submit.py
 
 import json
 import os

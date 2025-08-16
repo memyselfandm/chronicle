@@ -26,7 +26,7 @@ class TestEndToEndScenarios:
         session_id = f"integration-test-{int(time.time())}"
         
         # 1. Session Start
-        session_hook = HookTestCase("SessionStart", "session_start_uv.py")
+        session_hook = HookTestCase("SessionStart", "session_start.py")
         session_input = session_hook.create_test_input(
             sessionId=session_id,
             source="startup"
@@ -41,7 +41,7 @@ class TestEndToEndScenarios:
         assert session_uuid is not None
         
         # 2. User Prompt
-        prompt_hook = HookTestCase("UserPromptSubmit", "user_prompt_submit_uv.py")
+        prompt_hook = HookTestCase("UserPromptSubmit", "user_prompt_submit.py")
         prompt_input = prompt_hook.create_test_input(
             sessionId=session_id,
             prompt="Create a hello world Python script"
@@ -52,7 +52,7 @@ class TestEndToEndScenarios:
         assert_performance(exec_time)
         
         # 3. Pre Tool Use (Write)
-        pre_hook = HookTestCase("PreToolUse", "pre_tool_use_uv.py")
+        pre_hook = HookTestCase("PreToolUse", "pre_tool_use.py")
         pre_input = pre_hook.create_test_input(
             sessionId=session_id,
             toolName="Write",
@@ -67,7 +67,7 @@ class TestEndToEndScenarios:
         assert_performance(exec_time)
         
         # 4. Post Tool Use
-        post_hook = HookTestCase("PostToolUse", "post_tool_use_uv.py")
+        post_hook = HookTestCase("PostToolUse", "post_tool_use.py")
         post_input = post_hook.create_test_input(
             sessionId=session_id,
             toolName="Write",
@@ -86,7 +86,7 @@ class TestEndToEndScenarios:
         assert_performance(exec_time)
         
         # 5. Stop
-        stop_hook = HookTestCase("Stop", "stop_uv.py")
+        stop_hook = HookTestCase("Stop", "stop.py")
         stop_input = stop_hook.create_test_input(
             sessionId=session_id,
             stopHookActive=False
@@ -126,7 +126,7 @@ class TestEndToEndScenarios:
         task_id = "task-123"
         
         # Start session
-        session_hook = HookTestCase("SessionStart", "session_start_uv.py")
+        session_hook = HookTestCase("SessionStart", "session_start.py")
         session_input = session_hook.create_test_input(
             sessionId=session_id,
             source="startup"
@@ -135,7 +135,7 @@ class TestEndToEndScenarios:
         assert exit_code == 0
         
         # Pre tool use for Task
-        pre_hook = HookTestCase("PreToolUse", "pre_tool_use_uv.py")
+        pre_hook = HookTestCase("PreToolUse", "pre_tool_use.py")
         pre_input = pre_hook.create_test_input(
             sessionId=session_id,
             toolName="Task",
@@ -150,7 +150,7 @@ class TestEndToEndScenarios:
         assert_performance(exec_time)
         
         # Post tool use for Task
-        post_hook = HookTestCase("PostToolUse", "post_tool_use_uv.py")
+        post_hook = HookTestCase("PostToolUse", "post_tool_use.py")
         post_input = post_hook.create_test_input(
             sessionId=session_id,
             toolName="Task",
@@ -168,7 +168,7 @@ class TestEndToEndScenarios:
         assert_performance(exec_time)
         
         # Subagent stop
-        subagent_hook = HookTestCase("SubagentStop", "subagent_stop_uv.py")
+        subagent_hook = HookTestCase("SubagentStop", "subagent_stop.py")
         subagent_input = subagent_hook.create_test_input(
             sessionId=session_id,
             taskId=task_id,
@@ -184,7 +184,7 @@ class TestEndToEndScenarios:
         session_id = f"notification-test-{int(time.time())}"
         
         # Notification for permission request
-        notif_hook = HookTestCase("Notification", "notification_uv.py")
+        notif_hook = HookTestCase("Notification", "notification.py")
         notif_input = notif_hook.create_test_input(
             sessionId=session_id,
             message="Claude needs your permission to use Bash"
@@ -195,7 +195,7 @@ class TestEndToEndScenarios:
         assert_performance(exec_time)
         
         # Pre tool use with potential denial
-        pre_hook = HookTestCase("PreToolUse", "pre_tool_use_uv.py")
+        pre_hook = HookTestCase("PreToolUse", "pre_tool_use.py")
         pre_input = pre_hook.create_test_input(
             sessionId=session_id,
             toolName="Bash",
@@ -215,10 +215,10 @@ class TestEndToEndScenarios:
         
         # Simulate a session with multiple events
         hooks = [
-            ("SessionStart", "session_start_uv.py", {"source": "startup"}),
-            ("UserPromptSubmit", "user_prompt_submit_uv.py", {"prompt": "Test 1"}),
-            ("UserPromptSubmit", "user_prompt_submit_uv.py", {"prompt": "Test 2"}),
-            ("UserPromptSubmit", "user_prompt_submit_uv.py", {"prompt": "Test 3"}),
+            ("SessionStart", "session_start.py", {"source": "startup"}),
+            ("UserPromptSubmit", "user_prompt_submit.py", {"prompt": "Test 1"}),
+            ("UserPromptSubmit", "user_prompt_submit.py", {"prompt": "Test 2"}),
+            ("UserPromptSubmit", "user_prompt_submit.py", {"prompt": "Test 3"}),
         ]
         
         for hook_name, script_name, extra_data in hooks:
@@ -228,7 +228,7 @@ class TestEndToEndScenarios:
             assert exit_code == 0
         
         # Trigger manual compaction
-        compact_hook = HookTestCase("PreCompact", "pre_compact_uv.py")
+        compact_hook = HookTestCase("PreCompact", "pre_compact.py")
         compact_input = compact_hook.create_test_input(
             sessionId=session_id,
             trigger="manual",
@@ -251,7 +251,7 @@ class TestEndToEndScenarios:
         session_id = f"error-test-{int(time.time())}"
         
         # Pre tool use with problematic input
-        pre_hook = HookTestCase("PreToolUse", "pre_tool_use_uv.py")
+        pre_hook = HookTestCase("PreToolUse", "pre_tool_use.py")
         pre_input = pre_hook.create_test_input(
             sessionId=session_id,
             toolName="Write",
@@ -267,7 +267,7 @@ class TestEndToEndScenarios:
         assert_performance(exec_time)
         
         # Post tool use with failure
-        post_hook = HookTestCase("PostToolUse", "post_tool_use_uv.py")
+        post_hook = HookTestCase("PostToolUse", "post_tool_use.py")
         post_input = post_hook.create_test_input(
             sessionId=session_id,
             toolName="Write",
@@ -306,7 +306,7 @@ class TestEndToEndScenarios:
                 future = executor.submit(
                     run_hook_concurrent,
                     "SessionStart",
-                    "session_start_uv.py",
+                    "session_start.py",
                     i
                 )
                 futures.append(future)
@@ -329,7 +329,7 @@ class TestDatabaseIntegration:
                 session_id = f"sqlite-test-{int(time.time())}"
                 
                 # Run session start
-                hook = HookTestCase("SessionStart", "session_start_uv.py")
+                hook = HookTestCase("SessionStart", "session_start.py")
                 input_data = hook.create_test_input(
                     sessionId=session_id,
                     source="startup"
@@ -363,7 +363,7 @@ class TestDatabaseIntegration:
                 conn.commit()
             
             # Run hook - should handle migration
-            hook = HookTestCase("SessionStart", "session_start_uv.py")
+            hook = HookTestCase("SessionStart", "session_start.py")
             input_data = hook.create_test_input(source="startup")
             
             exit_code, stdout, stderr, exec_time = hook.run_hook(input_data)
@@ -383,7 +383,7 @@ class TestEnvironmentIntegration:
     def test_git_repository_integration(self, test_env, git_repo):
         """Test hooks in a git repository context."""
         with temp_env_vars(CLAUDE_PROJECT_DIR=git_repo["path"]):
-            hook = HookTestCase("SessionStart", "session_start_uv.py")
+            hook = HookTestCase("SessionStart", "session_start.py")
             input_data = hook.create_test_input(
                 source="startup",
                 cwd=git_repo["path"]
@@ -421,7 +421,7 @@ class TestEnvironmentIntegration:
                         (project_path / file_name).touch()
                 
                 # Run session start
-                hook = HookTestCase("SessionStart", "session_start_uv.py")
+                hook = HookTestCase("SessionStart", "session_start.py")
                 input_data = hook.create_test_input(
                     source="startup",
                     cwd=str(project_path)

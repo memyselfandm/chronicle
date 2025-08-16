@@ -10,7 +10,7 @@ def test_manual_hook():
     """Test hook execution manually with detailed output."""
     
     hooks_dir = Path.home() / '.claude' / 'hooks' / 'chronicle' / 'hooks'
-    hook_script = hooks_dir / 'user_prompt_submit_uv.py'
+    hook_script = hooks_dir / 'user_prompt_submit.py'
     
     if not hook_script.exists():
         print(f"❌ Hook script not found: {hook_script}")

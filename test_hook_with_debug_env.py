@@ -12,7 +12,7 @@ def test_hook_with_debug_env():
     """Test hook with debug logging enabled."""
     
     hooks_dir = Path.home() / '.claude' / 'hooks' / 'chronicle' / 'hooks'
-    hook_script = hooks_dir / 'user_prompt_submit_uv.py'
+    hook_script = hooks_dir / 'user_prompt_submit.py'
     
     # Test data
     test_data = {

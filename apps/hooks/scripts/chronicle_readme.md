@@ -10,14 +10,14 @@ chronicle/
 ├── .env               # Environment variables (database configuration)
 ├── config.json        # Chronicle-specific configuration
 ├── hooks/             # UV single-file hook scripts
-│   ├── session_start_uv.py      # Session initialization
-│   ├── user_prompt_submit_uv.py # Prompt tracking
-│   ├── pre_tool_use_uv.py       # Pre-tool execution
-│   ├── post_tool_use_uv.py      # Post-tool execution
-│   ├── notification_uv.py       # Notification tracking
-│   ├── stop_uv.py              # Session stop
-│   ├── subagent_stop_uv.py     # Subagent stop
-│   └── pre_compact_uv.py       # Pre-compact operation
+│   ├── session_start.py      # Session initialization
+│   ├── user_prompt_submit.py # Prompt tracking
+│   ├── pre_tool_use.py       # Pre-tool execution
+│   ├── post_tool_use.py      # Post-tool execution
+│   ├── notification.py       # Notification tracking
+│   ├── stop.py              # Session stop
+│   ├── subagent_stop.py     # Subagent stop
+│   └── pre_compact.py       # Pre-compact operation
 ├── data/              # Local data storage
 │   └── chronicle.db   # SQLite database (when not using Supabase)
 └── logs/              # Chronicle logs

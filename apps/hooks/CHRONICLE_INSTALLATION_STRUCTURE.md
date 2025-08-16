@@ -20,14 +20,14 @@ This document defines the installation structure for Chronicle hooks using a ded
         │   ├── subagent_stop.py
         │   └── user_prompt_submit.py
         ├── uv_scripts/           # UV single-file scripts
-        │   ├── notification_uv.py
-        │   ├── post_tool_use_uv.py
-        │   ├── pre_compact_uv.py
-        │   ├── pre_tool_use_uv.py
-        │   ├── session_start_uv.py
-        │   ├── stop_uv.py
-        │   ├── subagent_stop_uv.py
-        │   └── user_prompt_submit_uv.py
+        │   ├── notification.py
+        │   ├── post_tool_use.py
+        │   ├── pre_compact.py
+        │   ├── pre_tool_use.py
+        │   ├── session_start.py
+        │   ├── stop.py
+        │   ├── subagent_stop.py
+        │   └── user_prompt_submit.py
         ├── config/               # Configuration files
         │   ├── settings.json     # Hook-specific settings
         │   └── environment.env   # Environment variables template
@@ -77,7 +77,7 @@ This document defines the installation structure for Chronicle hooks using a ded
 | Source File | Installation Target |
 |-------------|-------------------|
 | `apps/hooks/src/hooks/*.py` | `~/.claude/hooks/chronicle/hooks/*.py` |
-| `apps/hooks/src/hooks/uv_scripts/*.py` | `~/.claude/hooks/chronicle/uv_scripts/*.py` |
+| `apps/hooks/src/hooks/uv_scripts/*.py` | `~/.claude/hooks/chronicle/uv_scripts/*.py` | (utility scripts only)
 | Generated settings | `~/.claude/hooks/chronicle/config/settings.json` |
 | Environment template | `~/.claude/hooks/chronicle/config/environment.env` |
 
@@ -88,14 +88,14 @@ Claude Code settings.json will reference hooks using the new paths:
 ```json
 {
   "hooks": {
-    "pre_tool_use": "~/.claude/hooks/chronicle/uv_scripts/pre_tool_use_uv.py",
-    "post_tool_use": "~/.claude/hooks/chronicle/uv_scripts/post_tool_use_uv.py",
-    "user_prompt_submit": "~/.claude/hooks/chronicle/uv_scripts/user_prompt_submit_uv.py",
-    "notification": "~/.claude/hooks/chronicle/uv_scripts/notification_uv.py",
-    "session_start": "~/.claude/hooks/chronicle/uv_scripts/session_start_uv.py",
-    "stop": "~/.claude/hooks/chronicle/uv_scripts/stop_uv.py",
-    "subagent_stop": "~/.claude/hooks/chronicle/uv_scripts/subagent_stop_uv.py",
-    "pre_compact": "~/.claude/hooks/chronicle/uv_scripts/pre_compact_uv.py"
+    "pre_tool_use": "~/.claude/hooks/chronicle/hooks/pre_tool_use.py",
+    "post_tool_use": "~/.claude/hooks/chronicle/hooks/post_tool_use.py",
+    "user_prompt_submit": "~/.claude/hooks/chronicle/hooks/user_prompt_submit.py",
+    "notification": "~/.claude/hooks/chronicle/hooks/notification.py",
+    "session_start": "~/.claude/hooks/chronicle/hooks/session_start.py",
+    "stop": "~/.claude/hooks/chronicle/hooks/stop.py",
+    "subagent_stop": "~/.claude/hooks/chronicle/hooks/subagent_stop.py",
+    "pre_compact": "~/.claude/hooks/chronicle/hooks/pre_compact.py"
   }
 }
 ```

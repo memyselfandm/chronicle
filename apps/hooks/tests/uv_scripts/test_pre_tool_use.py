@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for pre_tool_use_uv.py hook.
+Tests for pre_tool_use.py hook.
 
 Tests tool validation, permission decisions, and security checks.
 """
@@ -20,7 +20,7 @@ class TestPreToolUseHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("PreToolUse", "pre_tool_use_uv.py")
+        self.hook = HookTestCase("PreToolUse", "pre_tool_use.py")
     
     def test_basic_tool_use_allow(self, test_env):
         """Test basic tool use that should be allowed."""

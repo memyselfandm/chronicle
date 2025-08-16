@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for user_prompt_submit_uv.py hook.
+Tests for user_prompt_submit.py hook.
 
 Tests prompt validation, content injection, and security filtering.
 """
@@ -18,7 +18,7 @@ class TestUserPromptSubmitHook:
     
     def setup_method(self):
         """Set up test case."""
-        self.hook = HookTestCase("UserPromptSubmit", "user_prompt_submit_uv.py")
+        self.hook = HookTestCase("UserPromptSubmit", "user_prompt_submit.py")
     
     def test_basic_prompt_submission(self, test_env):
         """Test basic prompt submission."""

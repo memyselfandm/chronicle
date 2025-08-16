@@ -353,25 +353,25 @@ async def send_event(event_data):
 
 ## Rollout Plan
 
-### Phase 1: MVP (Week 1-2)
+### Phase 1: MVP
 - Core server infrastructure
 - Event ingestion API
 - Basic database abstraction (Supabase + SQLite)
 - Simple batching
 
-### Phase 2: Reliability (Week 3-4)
+### Phase 2: Reliability
 - Retry and failover logic
 - Monitoring and observability
 - Security basics
 - Docker packaging
 
-### Phase 3: Performance (Week 5-6)
+### Phase 3: Performance
 - Intelligent batching optimization
 - Query API with caching
 - Real-time streaming
 - Load testing and optimization
 
-### Phase 4: Production (Week 7-8)
+### Phase 4: Production
 - Full security implementation
 - Deployment automation
 - Migration tools
@@ -382,7 +382,7 @@ async def send_event(event_data):
 - **Hook execution time**: Reduced by 50%
 - **Database failure impact**: Zero hook failures due to DB issues
 - **Event loss**: < 0.01% under normal conditions
-- **User adoption**: 80% of users migrate within 3 months
+- **User adoption**: 80% of users migrate to new architecture
 - **Support tickets**: 50% reduction in database-related issues
 
 ## Future Enhancements
