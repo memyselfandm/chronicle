@@ -44,14 +44,9 @@ This document defines the installation structure for Chronicle hooks using a ded
 ## Directory Purposes
 
 ### `/hooks/` - Hook Executable Files
-- Contains the main Python hook files for traditional installations
+- Contains UV single-file scripts (self-contained with embedded dependencies)
 - Files are executable and ready for Claude Code integration
-- Used when UV is not available or preferred
-
-### `/uv_scripts/` - UV Single-File Scripts  
-- Contains UV single-file scripts for modern installations
-- Self-contained with embedded dependencies
-- Preferred installation method for better isolation
+- All hooks are self-contained and run with UV
 
 ### `/config/` - Configuration Files
 - `settings.json`: Hook-specific configuration overrides

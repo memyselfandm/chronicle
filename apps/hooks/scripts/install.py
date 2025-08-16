@@ -117,14 +117,11 @@ class HookInstaller:
             "pre_compact.py"
         ]
         
-        # Helper modules that hooks depend on
-        self.helper_files = [
-            "database_manager.py",
-            "env_loader.py"
-        ]
+        # No helper files needed - hooks are self-contained
+        self.helper_files = []
         
-        # Update hooks source directory to point to UV scripts
-        self.hooks_source_dir = self.hooks_source_dir / "src" / "hooks" / "uv_scripts"
+        # Update hooks source directory to point to hooks directory
+        self.hooks_source_dir = self.hooks_source_dir / "src" / "hooks"
         
         logger.info(f"HookInstaller initialized:")
         logger.info(f"  Hooks source: {self.hooks_source_dir}")
@@ -239,21 +236,7 @@ class HookInstaller:
                 errors.append(error_msg)
                 logger.error(error_msg)
         
-        # Copy helper files
-        for helper_file in self.helper_files:
-            source_path = self.hooks_source_dir / helper_file
-            dest_path = hooks_dest_dir / helper_file
-            
-            if not source_path.exists():
-                logger.warning(f"Helper file not found, skipping: {helper_file}")
-                continue
-                
-            try:
-                shutil.copy2(source_path, dest_path)
-                self._make_executable(dest_path)
-                logger.info(f"Copied helper file: {helper_file}")
-            except Exception as e:
-                logger.warning(f"Failed to copy helper {helper_file}: {e}")
+        # No helper files to copy - hooks are self-contained
         
         if errors and not copied_files:
             raise InstallationError(f"Failed to copy any hook files: {'; '.join(errors)}")
