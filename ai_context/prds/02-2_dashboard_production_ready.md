@@ -90,56 +90,56 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - [x] Update any other database queries in the codebase
 - [x] Test database connectivity with new table names
 
-### Feature 3: Align Event Type System
+### Feature 3: Align Event Type System ✅ COMPLETED
 **Description**: Update event types throughout the dashboard to match new hook-based system.
 
 **Acceptance Criteria**:
-- EventType type definition includes all new event types
-- Old event types are mapped or removed
-- Event filtering works with new types
-- Event icons and colors work for new types
+- EventType type definition includes all new event types ✅
+- Old event types are mapped or removed ✅
+- Event filtering works with new types ✅
+- Event icons and colors work for new types ✅
 
 **Tasks**:
-- [ ] Update EventType in types/filters.ts with new event types
-- [ ] Create mapping function for old->new event types for backwards compatibility
-- [ ] Update getEventIcon() functions to handle new event types
-- [ ] Update getEventTypeColor() functions for new types
-- [ ] Update event type filtering logic
-- [ ] Add display names for new event types (e.g., "pre_tool_use" -> "Pre-Tool Use")
+- [x] Update EventType in types/filters.ts with new event types
+- [x] ~~Create mapping function for old->new event types for backwards compatibility~~ (No backwards compatibility needed)
+- [x] Update getEventIcon() functions to handle new event types
+- [x] Update getEventTypeColor() functions for new types
+- [x] Update event type filtering logic
+- [x] Add display names for new event types (e.g., "pre_tool_use" -> "Pre-Tool Use")
 
-### Feature 4: Fix Type Definitions and Interfaces
+### Feature 4: Fix Type Definitions and Interfaces ✅ COMPLETED
 **Description**: Update all TypeScript interfaces to match actual database schema.
 
 **Acceptance Criteria**:
-- Event interface matches database schema exactly
-- Session interface matches database schema
-- No TypeScript errors in dashboard
-- All fields properly typed (UUIDs, timestamps, etc.)
+- Event interface matches database schema exactly ✅
+- Session interface matches database schema ✅
+- No TypeScript errors in dashboard ✅
+- All fields properly typed (UUIDs, timestamps, etc.) ✅
 
 **Tasks**:
-- [ ] Update Event interface in types/events.ts to match schema
-- [ ] Change all `sessionId` references to `session_id`
-- [ ] Add `tool_name` and `duration_ms` fields to Event interface
-- [ ] Update Session interface to use UUID type for id
-- [ ] Update timestamp fields to proper types
-- [ ] Add metadata field with proper JSONB typing
+- [x] Update Event interface in types/events.ts to match schema
+- [x] Change all `sessionId` references to `session_id`
+- [x] Add `tool_name` and `duration_ms` fields to Event interface
+- [x] Update Session interface to use UUID type for id
+- [x] Update timestamp fields to proper types
+- [x] Add metadata field with proper JSONB typing
 
-### Feature 5: Update Mock Data Generators
+### Feature 5: Update Mock Data Generators ✅ COMPLETED
 **Description**: Update mock data generation to create data matching new schema.
 
 **Acceptance Criteria**:
-- Mock events use new event types
-- Mock data has correct field names (session_id not sessionId)
-- Mock data includes new fields (tool_name, duration_ms)
-- Mock sessions use UUID format
+- Mock events use new event types ✅
+- Mock data has correct field names (session_id not sessionId) ✅
+- Mock data includes new fields (tool_name, duration_ms) ✅
+- Mock sessions use UUID format ✅
 
 **Tasks**:
-- [ ] Update generateMockEvent() to use new event types
-- [ ] Fix session_id field name in mock data
-- [ ] Add tool_name generation for tool events
-- [ ] Add duration_ms for appropriate events
-- [ ] Update mock session generation to use UUIDs
-- [ ] Update EVENT_SUMMARIES for new event types
+- [x] Update generateMockEvent() to use new event types
+- [x] Fix session_id field name in mock data
+- [x] Add tool_name generation for tool events
+- [x] Add duration_ms for appropriate events
+- [x] Update mock session generation to use UUIDs
+- [x] Update EVENT_SUMMARIES for new event types
 
 ### Feature 6: Update Event Display Components
 **Description**: Update how events are displayed to handle new event structure.
@@ -312,9 +312,10 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - **Agent 2**: Update database table names in hooks (Feature 2) ✅
 - **No dependencies**: Both can work simultaneously without conflicts
 
-### Sprint 2: Type System & Mock Data
+### Sprint 2: Type System & Mock Data ✅ COMPLETED
 **Features**: Feature 3, Feature 4, Feature 5
 **Goal**: Align type system with new schema and update mock data
+**Status**: COMPLETED - Aug 16, 2025
 
 **Parallelization Strategy**:
 - **Agent 1**: Update EventType definitions and type mappings (Feature 3)
