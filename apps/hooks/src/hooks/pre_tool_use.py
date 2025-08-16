@@ -24,109 +24,17 @@ import os
 import re
 import sys
 import time
-import sqlite3
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# ===========================================
-# Database Manager (Inline Implementation)
-# ===========================================
+# Add src directory to path for lib imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-class DatabaseError(Exception):
-    """Base exception for database operations."""
-    pass
-
-class DatabaseManager:
-    """Simplified inline database manager for pre-tool tracking."""
-    
-    def __init__(self):
-        self.sqlite_path = os.path.expanduser("~/.claude/hooks/chronicle/data/chronicle.db")
-        self._ensure_sqlite_tables()
-    
-    def _ensure_sqlite_tables(self):
-        """Ensure SQLite tables exist."""
-        try:
-            os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
-            
-            with sqlite3.connect(self.sqlite_path, timeout=30) as conn:
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS sessions (
-                        id TEXT PRIMARY KEY,
-                        claude_session_id TEXT UNIQUE,
-                        start_time TIMESTAMP,
-                        project_path TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                
-                conn.execute('''
-                    CREATE TABLE IF NOT EXISTS events (
-                        id TEXT PRIMARY KEY,
-                        session_id TEXT,
-                        event_type TEXT,
-                        hook_event_name TEXT,
-                        timestamp TIMESTAMP,
-                        data TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                conn.commit()
-        except Exception as e:
-            logger.debug(f"SQLite setup failed: {e}")
-    
-    def save_session(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
-        """Save session and return success, session_uuid."""
-        try:
-            session_uuid = str(uuid.uuid4())
-            
-            with sqlite3.connect(self.sqlite_path, timeout=30) as conn:
-                conn.execute('''
-                    INSERT OR REPLACE INTO sessions 
-                    (id, claude_session_id, start_time, project_path)
-                    VALUES (?, ?, ?, ?)
-                ''', (
-                    session_uuid,
-                    session_data.get("claude_session_id"),
-                    session_data.get("start_time", datetime.now().isoformat()),
-                    session_data.get("project_path", os.getcwd())
-                ))
-                conn.commit()
-            
-            return True, session_uuid
-        except Exception as e:
-            logger.debug(f"Session save failed: {e}")
-            return False, None
-    
-    def save_event(self, event_data: Dict[str, Any]) -> bool:
-        """Save event data."""
-        try:
-            with sqlite3.connect(self.sqlite_path, timeout=30) as conn:
-                conn.execute('''
-                    INSERT INTO events 
-                    (id, session_id, event_type, hook_event_name, timestamp, data)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (
-                    event_data.get("event_id", str(uuid.uuid4())),
-                    event_data.get("session_id"),
-                    event_data.get("event_type"),
-                    event_data.get("hook_event_name"),
-                    event_data.get("timestamp"),
-                    json_impl.dumps(event_data.get("data", {}))
-                ))
-                conn.commit()
-            return True
-        except Exception as e:
-            logger.debug(f"Event save failed: {e}")
-            return False
-
-# Load environment variables
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+# Import shared library modules
+from lib.database import DatabaseManager
+from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
+from lib.utils import load_chronicle_env
 
 # UJSON for fast JSON processing
 try:
@@ -134,23 +42,9 @@ try:
 except ImportError:
     import json as json_impl
 
-# Configure logging with file output
-
-# Set up chronicle-specific logging
-chronicle_log_dir = Path.home() / ".claude" / "hooks" / "chronicle" / "logs"
-chronicle_log_dir.mkdir(parents=True, exist_ok=True)
-chronicle_log_file = chronicle_log_dir / "chronicle.log"
-
-# Configure logger
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(chronicle_log_file),
-        logging.StreamHandler()  # Also log to stderr for UV scripts
-    ]
-)
-logger = logging.getLogger(__name__)
+# Initialize environment and logging
+load_chronicle_env()
+logger = setup_hook_logging("pre_tool_use")
 
 # ===========================================
 # Permission Patterns and Rules
@@ -275,29 +169,18 @@ def check_sensitive_parameters(tool_input: Dict[str, Any]) -> List[str]:
     
     return list(set(sensitive_types))
 
-# ===========================================
-# Database Manager (Simplified)
-# ===========================================
 
-class PreToolUseHook:
+class PreToolUseHook(BaseHook):
     """Hook for pre-tool execution with permission controls."""
     
     def __init__(self):
-        self.db_manager = DatabaseManager()
-        self.claude_session_id: Optional[str] = None
-        self.session_uuid: Optional[str] = None
-    
-    def get_claude_session_id(self, input_data: Dict[str, Any]) -> Optional[str]:
-        """Extract Claude session ID as per Claude Code spec."""
-        if "session_id" in input_data:
-            return input_data["session_id"]
-        return os.getenv("CLAUDE_SESSION_ID")
+        super().__init__()
     
     def process_hook(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process pre-tool use hook with permission evaluation."""
         try:
-            # Extract session ID
-            self.claude_session_id = self.get_claude_session_id(input_data)
+            # Process input data using base hook functionality
+            processed_data = self.process_hook_data(input_data, "PreToolUse")
             
             # Extract tool information as per Claude Code spec
             tool_name = input_data.get('tool_name', 'unknown')
@@ -307,11 +190,10 @@ class PreToolUseHook:
             permission_result = self.evaluate_permission_decision(input_data)
             
             # Create event data for logging
-            event_data = {
-                "event_type": "pre_tool_use",
-                "hook_event_name": "PreToolUse",
-                "timestamp": datetime.now().isoformat(),
-                "data": {
+            event_data = create_event_data(
+                event_type="pre_tool_use",
+                hook_event_name="PreToolUse",
+                data={
                     "tool_name": tool_name,
                     "tool_input": self._sanitize_tool_input(tool_input),
                     "permission_decision": permission_result["permissionDecision"],
@@ -322,32 +204,29 @@ class PreToolUseHook:
                         "sensitive_params": check_sensitive_parameters(tool_input)
                     }
                 }
-            }
+            )
             
-            # Save event (create session if needed)
-            self._ensure_session_exists()
-            if self.session_uuid:
-                event_data["session_id"] = self.session_uuid
-                self.db_manager.save_event(event_data)
+            # Save event
+            save_success = self.save_event(event_data)
+            logger.debug(f"Event save result: {save_success}")
             
             # Create response based on permission decision
-            return self._create_permission_response(tool_name, permission_result, event_data)
+            return self._create_permission_response(tool_name, permission_result, save_success)
             
         except Exception as e:
             logger.debug(f"Hook processing error: {e}")
             
             # Default to ask for safety
-            return {
-                "continue": False,
-                "suppressOutput": False,
-                "stopReason": "Permission evaluation failed - please review manually",
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "ask",
-                    "permissionDecisionReason": "Error in permission evaluation",
-                    "toolName": input_data.get('tool_name', 'unknown')
-                }
-            }
+            return self.create_response(
+                continue_execution=False,
+                suppress_output=False,
+                hook_specific_data=self.create_hook_specific_output(
+                    hook_event_name="PreToolUse",
+                    permission_decision="ask",
+                    permission_decision_reason="Error in permission evaluation",
+                    tool_name=input_data.get('tool_name', 'unknown')
+                )
+            )
     
     def evaluate_permission_decision(self, hook_input: Dict[str, Any]) -> Dict[str, str]:
         """Evaluate permission decision for tool execution."""
@@ -493,56 +372,43 @@ class PreToolUseHook:
         
         return sanitized
     
-    def _ensure_session_exists(self):
-        """Ensure session exists for event logging."""
-        if not self.session_uuid and self.claude_session_id:
-            session_data = {
-                "claude_session_id": self.claude_session_id,
-                "start_time": datetime.now().isoformat(),
-                "project_path": os.getcwd()
-            }
-            success, session_uuid = self.db_manager.save_session(session_data)
-            if success:
-                self.session_uuid = session_uuid
-    
     def _create_permission_response(self, tool_name: str, permission_result: Dict[str, str], 
-                                   event_data: Dict[str, Any]) -> Dict[str, Any]:
+                                   event_saved: bool) -> Dict[str, Any]:
         """Create response based on permission decision."""
         decision = permission_result["permissionDecision"]
         reason = permission_result["permissionDecisionReason"]
         
-        hook_output = {
-            "hookEventName": "PreToolUse",
-            "toolName": tool_name,
-            "permissionDecision": decision,
-            "permissionDecisionReason": reason,
-            "eventSaved": self.session_uuid is not None
-        }
+        hook_output = self.create_hook_specific_output(
+            hook_event_name="PreToolUse",
+            tool_name=tool_name,
+            permission_decision=decision,
+            permission_decision_reason=reason,
+            event_saved=event_saved
+        )
         
         if decision == "allow":
-            return {
-                "continue": True,
-                "suppressOutput": True,  # Don't show permission grants
-                "hookSpecificOutput": hook_output
-            }
+            return self.create_response(
+                continue_execution=True,
+                suppress_output=True,  # Don't show permission grants
+                hook_specific_data=hook_output
+            )
         elif decision == "deny":
-            return {
-                "continue": False,
-                "suppressOutput": False,
-                "stopReason": reason,
-                "hookSpecificOutput": hook_output
-            }
+            response = self.create_response(
+                continue_execution=False,
+                suppress_output=False,
+                hook_specific_data=hook_output
+            )
+            response["stopReason"] = reason
+            return response
         else:  # ask
-            return {
-                "continue": True,
-                "suppressOutput": False,
-                "stopReason": reason,
-                "hookSpecificOutput": hook_output
-            }
+            response = self.create_response(
+                continue_execution=True,
+                suppress_output=False,
+                hook_specific_data=hook_output
+            )
+            response["stopReason"] = reason
+            return response
 
-# ===========================================
-# Main Entry Point
-# ===========================================
 
 def main():
     """Main entry point for pre-tool use hook."""
@@ -627,6 +493,7 @@ def main():
         }
         print(json_impl.dumps(safe_response))
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

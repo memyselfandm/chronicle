@@ -141,16 +141,12 @@ class DatabaseManager:
             )
         ''')
         
-        # Events table with UPDATED event type constraints
+        # Events table - removed CHECK constraint to allow all event types
         conn.execute('''
             CREATE TABLE IF NOT EXISTS events (
                 id TEXT PRIMARY KEY,
                 session_id TEXT,
-                event_type TEXT NOT NULL CHECK (event_type IN (
-                    'prompt', 'tool_use', 'session_start', 'session_end', 'notification', 'error',
-                    'pre_tool_use', 'post_tool_use', 'user_prompt_submit', 'stop', 'subagent_stop',
-                    'pre_compact', 'subagent_termination', 'pre_compaction'
-                )),
+                event_type TEXT NOT NULL,
                 timestamp TIMESTAMP,
                 metadata TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -169,7 +165,7 @@ class DatabaseManager:
             if "claude_session_id" not in session_data:
                 return False, None
             
-            claude_session_id = session_data.get("claude_session_id")
+            claude_session_id = validate_and_fix_session_id(session_data.get("claude_session_id"))
             
             # Try Supabase first
             if self.supabase_client:
@@ -178,7 +174,7 @@ class DatabaseManager:
                     existing = self.supabase_client.table(self.SESSIONS_TABLE).select("id").eq("claude_session_id", claude_session_id).execute()
                     
                     if existing.data:
-                        session_uuid = existing.data[0]["id"]
+                        session_uuid = ensure_valid_uuid(existing.data[0]["id"])
                     else:
                         session_uuid = str(uuid.uuid4())
                     
@@ -191,7 +187,7 @@ class DatabaseManager:
                     
                     supabase_data = {
                         "id": session_uuid,
-                        "claude_session_id": session_data.get("claude_session_id"),
+                        "claude_session_id": claude_session_id,
                         "start_time": session_data.get("start_time"),
                         "end_time": session_data.get("end_time"),
                         "project_path": session_data.get("project_path"),
@@ -200,9 +196,11 @@ class DatabaseManager:
                     }
                     
                     self.supabase_client.table(self.SESSIONS_TABLE).upsert(supabase_data, on_conflict="claude_session_id").execute()
+                    logger.debug(f"Supabase session saved successfully: {session_uuid}")
                     return True, session_uuid
                     
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Supabase session save failed: {e}")
                     pass
             
             # SQLite fallback
@@ -225,7 +223,7 @@ class DatabaseManager:
                     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ''', (
                     session_uuid,
-                    session_data.get("claude_session_id"),
+                    claude_session_id,
                     session_data.get("start_time"),
                     session_data.get("end_time"),
                     session_data.get("project_path"),
@@ -235,7 +233,8 @@ class DatabaseManager:
             
             return True, session_uuid
             
-        except Exception:
+        except Exception as e:
+            logger.error(f"Session save failed: {e}")
             return False, None
     
     def save_event(self, event_data: Dict[str, Any]) -> bool:
@@ -244,7 +243,11 @@ class DatabaseManager:
             event_id = str(uuid.uuid4())
             
             if "session_id" not in event_data:
+                logger.error("Event data missing required session_id")
                 return False
+            
+            # Ensure session_id is a valid UUID
+            session_id = ensure_valid_uuid(event_data.get("session_id"))
             
             # Try Supabase first
             if self.supabase_client:
@@ -269,16 +272,18 @@ class DatabaseManager:
                     
                     supabase_data = {
                         "id": event_id,
-                        "session_id": event_data.get("session_id"),
+                        "session_id": session_id,
                         "event_type": event_type,
                         "timestamp": event_data.get("timestamp"),
                         "metadata": metadata_jsonb,
                     }
                     
                     self.supabase_client.table(self.EVENTS_TABLE).insert(supabase_data).execute()
+                    logger.debug(f"Supabase event saved successfully: {event_data.get('event_type')}")
                     return True
                     
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Supabase event save failed: {e}")
                     pass
             
             # SQLite fallback
@@ -297,7 +302,7 @@ class DatabaseManager:
                     VALUES (?, ?, ?, ?, ?)
                 ''', (
                     event_id,
-                    event_data.get("session_id"),
+                    session_id,
                     event_data.get("event_type"),
                     event_data.get("timestamp"),
                     json.dumps(metadata_jsonb),
@@ -306,35 +311,46 @@ class DatabaseManager:
             
             return True
             
-        except Exception:
+        except Exception as e:
+            logger.error(f"Event save failed: {e}")
             return False
     
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve session by ID from database."""
         try:
+            # Validate and fix session ID format
+            validated_session_id = validate_and_fix_session_id(session_id)
+            
             # Try Supabase first
             if self.supabase_client:
                 try:
-                    result = self.supabase_client.table(self.SESSIONS_TABLE).select("*").eq("claude_session_id", session_id).execute()
-                    if result.data:
-                        return result.data[0]
-                except Exception:
+                    # Try both the original and validated session ID
+                    for sid in [session_id, validated_session_id]:
+                        result = self.supabase_client.table(self.SESSIONS_TABLE).select("*").eq("claude_session_id", sid).execute()
+                        if result.data:
+                            return result.data[0]
+                except Exception as e:
+                    logger.debug(f"Supabase session retrieval failed: {e}")
                     pass
             
             # SQLite fallback
             with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.execute(
-                    "SELECT * FROM sessions WHERE claude_session_id = ?",
-                    (session_id,)
-                )
-                row = cursor.fetchone()
-                if row:
-                    return dict(row)
+                # Try both the original and validated session ID
+                for sid in [session_id, validated_session_id]:
+                    cursor = conn.execute(
+                        "SELECT * FROM sessions WHERE claude_session_id = ?",
+                        (sid,)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        return dict(row)
             
+            logger.debug(f"Session not found for ID: {session_id} (validated: {validated_session_id})")
             return None
             
-        except Exception:
+        except Exception as e:
+            logger.error(f"Session retrieval failed: {e}")
             return None
     
     def test_connection(self) -> bool:
@@ -349,7 +365,8 @@ class DatabaseManager:
                 with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
                     conn.execute("SELECT 1")
                 return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Connection test failed: {e}")
             return False
     
     def get_status(self) -> Dict[str, Any]:
@@ -409,3 +426,49 @@ def validate_event_type(event_type: str) -> bool:
         True if valid, False otherwise
     """
     return event_type in get_valid_event_types()
+
+
+def validate_and_fix_session_id(session_id: str) -> str:
+    """
+    Validate and fix session ID format for database compatibility.
+    
+    Args:
+        session_id: The session ID to validate
+        
+    Returns:
+        A properly formatted session ID
+    """
+    if not session_id:
+        return str(uuid.uuid4())
+    
+    # If it's already a valid UUID, return as is
+    try:
+        uuid.UUID(session_id)
+        return session_id
+    except ValueError:
+        pass
+    
+    # If it's not a UUID but is a valid string, create a deterministic UUID
+    import hashlib
+    namespace = uuid.UUID('12345678-1234-5678-1234-123456789012')
+    return str(uuid.uuid5(namespace, session_id))
+
+
+def ensure_valid_uuid(value: str) -> str:
+    """
+    Ensure a value is a valid UUID string.
+    
+    Args:
+        value: The value to check/convert
+        
+    Returns:
+        A valid UUID string
+    """
+    if not value:
+        return str(uuid.uuid4())
+    
+    try:
+        uuid.UUID(value)
+        return value
+    except ValueError:
+        return str(uuid.uuid4())

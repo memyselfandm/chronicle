@@ -32,46 +32,30 @@ import os
 import sys
 import time
 import logging
-import sqlite3
 import subprocess
-import threading
-import uuid
-import re
 from contextlib import contextmanager
-
-@contextmanager
-def measure_performance(operation_name):
-    """Simple performance measurement context manager."""
-    start_time = time.perf_counter()
-    metrics = {}
-    yield metrics
-    end_time = time.perf_counter()
-    metrics['duration_ms'] = (end_time - start_time) * 1000
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Tuple, Union, Callable, Generator
-from collections import defaultdict, deque
+from typing import Any, Dict, Optional
 
-# Load environment variables with chronicle-aware loading
-# (Database manager and env loader are inlined below)
-class DatabaseError(Exception):
-    """Base exception for database operations."""
-    pass
+# Import from shared library modules
+try:
+    from lib.database import DatabaseManager
+    from lib.base_hook import BaseHook
+    from lib.utils import sanitize_data, get_project_path, extract_session_id
+except ImportError:
+    # For UV script compatibility, try relative imports
+    sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+    from database import DatabaseManager
+    from base_hook import BaseHook
+    from utils import sanitize_data, get_project_path, extract_session_id
 
-# Fallback to standard dotenv if needed
+# Load environment variables
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
-
-# Supabase client
-try:
-    from supabase import create_client, Client
-    SUPABASE_AVAILABLE = True
-except ImportError:
-    SUPABASE_AVAILABLE = False
-    Client = None
 
 # UJSON for fast JSON processing
 try:
@@ -83,97 +67,14 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ===========================================
-# Inline Security Module
-# ===========================================
-
-# Security exceptions
-class SecurityError(Exception):
-    """Base class for security-related errors."""
-    pass
-
-class PathTraversalError(SecurityError):
-    """Raised when path traversal attack is detected."""
-    pass
-
-class InputSizeError(SecurityError):
-    """Raised when input exceeds size limits."""
-    pass
-
-# Enhanced patterns for sensitive data detection
-SENSITIVE_PATTERNS = {
-    "api_keys": [
-        r'sk-[a-zA-Z0-9]{20,}',  # OpenAI API keys
-        r'sk-ant-api03-[a-zA-Z0-9_-]{95}',  # Anthropic API keys
-        r'api[_-]?key["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{16,}',  # Generic API keys
-    ],
-    "passwords": [
-        r'"password"\s*:\s*"[^"]*"',
-        r"'password'\s*:\s*'[^']*'",
-        r'"secret"\s*:\s*"[^"]*"',
-        r"'secret'\s*:\s*'[^']*'",
-    ],
-    "user_paths": [
-        r'/Users/[^/\s,}]+',  # macOS user paths
-        r'/home/[^/\s,}]+',   # Linux user paths
-        r'C:\\Users\\[^\\s,}]+',  # Windows user paths
-    ]
-}
-
-DEFAULT_MAX_INPUT_SIZE_MB = 10.0
-MAX_INPUT_SIZE_MB = float(os.getenv("CHRONICLE_MAX_INPUT_SIZE_MB", DEFAULT_MAX_INPUT_SIZE_MB))
-
-def sanitize_data(data: Any) -> Any:
-    """Remove sensitive information from data structures."""
-    if data is None:
-        return None
-    
-    data_str = json_impl.dumps(data) if not isinstance(data, str) else data
-    sanitized_str = data_str
-    
-    # Remove sensitive patterns
-    for category, patterns in SENSITIVE_PATTERNS.items():
-        for pattern in patterns:
-            sanitized_str = re.sub(pattern, '[REDACTED]', sanitized_str, flags=re.IGNORECASE)
-    
-    try:
-        if isinstance(data, dict):
-            return json_impl.loads(sanitized_str)
-        elif isinstance(data, str):
-            return sanitized_str
-        else:
-            return json_impl.loads(sanitized_str)
-    except:
-        return sanitized_str
-
-# ===========================================
-# Inline Utils Module
-# ===========================================
-
-def validate_json(data: Any, max_size_mb: Optional[float] = None) -> bool:
-    """Validate JSON data for safety and size constraints."""
-    if data is None:
-        return False
-    
-    try:
-        json_str = json_impl.dumps(data, default=str)
-        
-        if max_size_mb is None:
-            size_limit_bytes = int(MAX_INPUT_SIZE_MB * 1024 * 1024)
-        else:
-            size_limit_bytes = int(max_size_mb * 1024 * 1024)
-        
-        data_size_bytes = len(json_str.encode('utf-8'))
-        if data_size_bytes > size_limit_bytes:
-            logger.warning(f"Data size {data_size_bytes / (1024 * 1024):.2f}MB exceeds limit")
-            return False
-        
-        json_impl.loads(json_str)
-        return True
-        
-    except Exception as e:
-        logger.warning(f"Invalid JSON data: {e}")
-        return False
+@contextmanager
+def measure_performance(operation_name):
+    """Simple performance measurement context manager."""
+    start_time = time.perf_counter()
+    metrics = {}
+    yield metrics
+    end_time = time.perf_counter()
+    metrics['duration_ms'] = (end_time - start_time) * 1000
 
 def get_git_info(cwd: Optional[str] = None) -> Dict[str, Any]:
     """Safely extract git branch and commit information."""
@@ -265,16 +166,6 @@ def resolve_project_path(fallback_path: Optional[str] = None) -> str:
     
     return os.getcwd()
 
-def get_cached_session_id() -> Optional[str]:
-    """Get session ID from cache if available."""
-    try:
-        session_cache_file = Path.home() / ".claude" / "hooks" / "chronicle" / "tmp" / "current_session_id"
-        if session_cache_file.exists():
-            return session_cache_file.read_text().strip()
-    except Exception:
-        pass
-    return None
-
 def get_project_context_with_env_support(cwd: Optional[str] = None) -> Dict[str, Any]:
     """Capture project information with environment variable support."""
     resolved_cwd = resolve_project_path(cwd)
@@ -323,612 +214,6 @@ def get_project_context_with_env_support(cwd: Optional[str] = None) -> Dict[str,
     
     return context
 
-def format_error_message(error: Exception, context: Optional[str] = None) -> str:
-    """Format error message for logging."""
-    error_msg = f"{type(error).__name__}: {str(error)}"
-    if context:
-        error_msg = f"[{context}] {error_msg}"
-    return error_msg
-
-# ===========================================
-# Inline Environment Loader (Minimal)
-# ===========================================
-
-def load_chronicle_env() -> Dict[str, str]:
-    """Load environment variables for Chronicle with fallback support."""
-    loaded_vars = {}
-    
-    try:
-        from dotenv import load_dotenv, dotenv_values
-        
-        # Search for .env file in common locations
-        search_paths = [
-            Path.cwd() / '.env',
-            Path(__file__).parent / '.env',
-            Path.home() / '.claude' / 'hooks' / 'chronicle' / '.env',
-            Path(__file__).parent.parent / '.env',
-        ]
-        
-        env_path = None
-        for path in search_paths:
-            if path.exists() and path.is_file():
-                env_path = path
-                break
-        
-        if env_path:
-            loaded_vars = dotenv_values(env_path)
-            load_dotenv(env_path, override=True)
-        
-        # Apply critical defaults
-        defaults = {
-            'CLAUDE_HOOKS_DB_PATH': str(Path.home() / '.claude' / 'hooks' / 'chronicle' / 'data' / 'chronicle.db'),
-            'CLAUDE_HOOKS_LOG_LEVEL': 'INFO',
-            'CLAUDE_HOOKS_ENABLED': 'true',
-        }
-        
-        for key, default_value in defaults.items():
-            if not os.getenv(key):
-                os.environ[key] = default_value
-                loaded_vars[key] = default_value
-                
-    except ImportError:
-        pass
-        
-    return loaded_vars
-
-def get_database_config() -> Dict[str, Any]:
-    """Get database configuration with proper paths."""
-    load_chronicle_env()
-    
-    # Determine database path based on installation
-    script_path = Path(__file__).resolve()
-    if '.claude/hooks/chronicle' in str(script_path):
-        # Installed location
-        data_dir = Path.home() / '.claude' / 'hooks' / 'chronicle' / 'data'
-        data_dir.mkdir(parents=True, exist_ok=True)
-        default_db_path = str(data_dir / 'chronicle.db')
-    else:
-        # Development mode
-        default_db_path = str(Path.cwd() / 'data' / 'chronicle.db')
-    
-    config = {
-        'supabase_url': os.getenv('SUPABASE_URL'),
-        'supabase_key': os.getenv('SUPABASE_ANON_KEY'),
-        'sqlite_path': os.getenv('CLAUDE_HOOKS_DB_PATH', default_db_path),
-        'db_timeout': int(os.getenv('CLAUDE_HOOKS_DB_TIMEOUT', '30')),
-        'retry_attempts': int(os.getenv('CLAUDE_HOOKS_DB_RETRY_ATTEMPTS', '3')),
-        'retry_delay': float(os.getenv('CLAUDE_HOOKS_DB_RETRY_DELAY', '1.0')),
-    }
-    
-    # Ensure SQLite directory exists
-    sqlite_path = Path(config['sqlite_path'])
-    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    return config
-
-# ===========================================
-# Inline Database Manager (Essential)
-# ===========================================
-
-class DatabaseManager:
-    """Unified database interface with Supabase/SQLite fallback."""
-    
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """Initialize database manager with configuration."""
-        load_chronicle_env()
-        self.config = config or get_database_config()
-        
-        # Initialize clients
-        self.supabase_client = None
-        self.sqlite_path = Path(self.config['sqlite_path']).expanduser().resolve()
-        self.timeout = self.config.get('db_timeout', 30)
-        
-        # Initialize Supabase if available
-        if SUPABASE_AVAILABLE:
-            supabase_url = self.config.get('supabase_url')
-            supabase_key = self.config.get('supabase_key')
-            
-            if supabase_url and supabase_key:
-                try:
-                    self.supabase_client = create_client(supabase_url, supabase_key)
-                except Exception:
-                    pass
-        
-        # Ensure SQLite database exists
-        self._ensure_sqlite_database()
-        
-        # Set table names
-        if self.supabase_client:
-            self.SESSIONS_TABLE = "chronicle_sessions"
-            self.EVENTS_TABLE = "chronicle_events"
-        else:
-            self.SESSIONS_TABLE = "sessions"
-            self.EVENTS_TABLE = "events"
-    
-    def _ensure_sqlite_database(self):
-        """Ensure SQLite database and directory structure exist."""
-        try:
-            self.sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                self._create_sqlite_schema(conn)
-                conn.commit()
-                
-        except Exception as e:
-            raise DatabaseError(f"Cannot initialize SQLite at {self.sqlite_path}: {e}")
-    
-    def _create_sqlite_schema(self, conn: sqlite3.Connection):
-        """Create SQLite schema matching Supabase structure."""
-        conn.execute("PRAGMA foreign_keys = ON")
-        
-        # Sessions table
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS sessions (
-                id TEXT PRIMARY KEY,
-                claude_session_id TEXT UNIQUE,
-                start_time TIMESTAMP,
-                end_time TIMESTAMP,
-                project_path TEXT,
-                git_branch TEXT,
-                metadata TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Events table
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS events (
-                id TEXT PRIMARY KEY,
-                session_id TEXT,
-                event_type TEXT NOT NULL,
-                timestamp TIMESTAMP,
-                metadata TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(session_id) REFERENCES sessions(id)
-            )
-        ''')
-        
-        # Create indexes
-        conn.execute('CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)')
-        conn.execute('CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type)')
-    
-    def save_session(self, session_data: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
-        """Save session data to database."""
-        try:
-            if "claude_session_id" not in session_data:
-                return False, None
-            
-            claude_session_id = session_data.get("claude_session_id")
-            
-            # Try Supabase first
-            if self.supabase_client:
-                try:
-                    # Check for existing session
-                    existing = self.supabase_client.table(self.SESSIONS_TABLE).select("id").eq("claude_session_id", claude_session_id).execute()
-                    
-                    if existing.data:
-                        session_uuid = existing.data[0]["id"]
-                    else:
-                        session_uuid = str(uuid.uuid4())
-                    
-                    # Build metadata
-                    metadata = {}
-                    if "git_commit" in session_data:
-                        metadata["git_commit"] = session_data.get("git_commit")
-                    if "source" in session_data:
-                        metadata["source"] = session_data.get("source")
-                    
-                    supabase_data = {
-                        "id": session_uuid,
-                        "claude_session_id": session_data.get("claude_session_id"),
-                        "start_time": session_data.get("start_time"),
-                        "end_time": session_data.get("end_time"),
-                        "project_path": session_data.get("project_path"),
-                        "git_branch": session_data.get("git_branch"),
-                        "metadata": metadata,
-                    }
-                    
-                    self.supabase_client.table(self.SESSIONS_TABLE).upsert(supabase_data, on_conflict="claude_session_id").execute()
-                    return True, session_uuid
-                    
-                except Exception:
-                    pass
-            
-            # SQLite fallback
-            session_uuid = session_data.get("id")
-            if not session_uuid:
-                with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM sessions WHERE claude_session_id = ?", (claude_session_id,))
-                    row = cursor.fetchone()
-                    if row:
-                        session_uuid = row[0]
-                    else:
-                        session_uuid = str(uuid.uuid4())
-            
-            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                conn.execute('''
-                    INSERT OR REPLACE INTO sessions 
-                    (id, claude_session_id, start_time, end_time, project_path, 
-                     git_branch, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (
-                    session_uuid,
-                    session_data.get("claude_session_id"),
-                    session_data.get("start_time"),
-                    session_data.get("end_time"),
-                    session_data.get("project_path"),
-                    session_data.get("git_branch"),
-                ))
-                conn.commit()
-            
-            return True, session_uuid
-            
-        except Exception:
-            return False, None
-    
-    def save_event(self, event_data: Dict[str, Any]) -> bool:
-        """Save event data to database."""
-        try:
-            event_id = str(uuid.uuid4())
-            
-            if "session_id" not in event_data:
-                return False
-            
-            # Try Supabase first
-            if self.supabase_client:
-                try:
-                    metadata_jsonb = event_data.get("data", {})
-                    
-                    if "hook_event_name" in event_data:
-                        metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
-                    
-                    if "metadata" in event_data:
-                        metadata_jsonb.update(event_data.get("metadata", {}))
-                    
-                    # Ensure valid event_type
-                    event_type = event_data.get("event_type")
-                    valid_types = ["prompt", "tool_use", "session_start", "session_end", "notification", "error"]
-                    if event_type not in valid_types:
-                        event_type = "notification"
-                    
-                    supabase_data = {
-                        "id": event_id,
-                        "session_id": event_data.get("session_id"),
-                        "event_type": event_type,
-                        "timestamp": event_data.get("timestamp"),
-                        "metadata": metadata_jsonb,
-                    }
-                    
-                    self.supabase_client.table(self.EVENTS_TABLE).insert(supabase_data).execute()
-                    return True
-                    
-                except Exception:
-                    pass
-            
-            # SQLite fallback
-            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                metadata_jsonb = event_data.get("data", {})
-                
-                if "hook_event_name" in event_data:
-                    metadata_jsonb["hook_event_name"] = event_data.get("hook_event_name")
-                
-                if "metadata" in event_data:
-                    metadata_jsonb.update(event_data.get("metadata", {}))
-                
-                conn.execute('''
-                    INSERT INTO events 
-                    (id, session_id, event_type, timestamp, metadata)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (
-                    event_id,
-                    event_data.get("session_id"),
-                    event_data.get("event_type"),
-                    event_data.get("timestamp"),
-                    json.dumps(metadata_jsonb),
-                ))
-                conn.commit()
-            
-            return True
-            
-        except Exception:
-            return False
-    
-    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve session by ID from database."""
-        try:
-            # Try Supabase first
-            if self.supabase_client:
-                try:
-                    result = self.supabase_client.table(self.SESSIONS_TABLE).select("*").eq("claude_session_id", session_id).execute()
-                    if result.data:
-                        return result.data[0]
-                except Exception:
-                    pass
-            
-            # SQLite fallback
-            with sqlite3.connect(str(self.sqlite_path), timeout=self.timeout) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.execute(
-                    "SELECT * FROM sessions WHERE claude_session_id = ?",
-                    (session_id,)
-                )
-                row = cursor.fetchone()
-                if row:
-                    return dict(row)
-            
-            return None
-            
-        except Exception:
-            return None
-
-# ===========================================
-# Inline Database Module
-# ===========================================
-
-class SimpleCache:
-    """Simple in-memory cache for hook operations."""
-    
-    def __init__(self, max_size: int = 100):
-        self.cache: Dict[str, Any] = {}
-        self.max_size = max_size
-    
-    def get(self, key: str) -> Any:
-        return self.cache.get(key)
-    
-    def set(self, key: str, value: Any) -> None:
-        if len(self.cache) >= self.max_size:
-            # Remove oldest item
-            oldest_key = next(iter(self.cache))
-            del self.cache[oldest_key]
-        self.cache[key] = value
-    
-    def clear(self) -> None:
-        self.cache.clear()
-
-# ===========================================
-# Base Hook Implementation (Inlined)
-# ===========================================
-
-class BaseHook:
-    """Base class for Claude Code observability hooks."""
-    
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        self.config = config or {}
-        self.db_manager = DatabaseManager(self.config.get("database"))
-        self.claude_session_id: Optional[str] = None
-        self.session_uuid: Optional[str] = None
-        self.hook_cache = SimpleCache()
-        
-        # Legacy log file for backward compatibility
-        self.log_file = os.path.expanduser("~/.claude/hooks_debug.log")
-        os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
-    
-    def get_claude_session_id(self, input_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
-        """Extract Claude session ID from input data or environment."""
-        if input_data and "session_id" in input_data:
-            session_id = input_data["session_id"]
-            logger.debug(f"Claude session ID from input: {session_id}")
-            # Store session ID for other hooks to use
-            self._store_session_id(session_id)
-            return session_id
-        
-        session_id = os.getenv("CLAUDE_SESSION_ID")
-        if session_id:
-            logger.debug(f"Claude session ID from environment: {session_id}")
-            # Store even valid session IDs for other hooks to use
-            self._store_session_id(session_id)
-            return session_id
-        
-        # Generate fallback session ID when Claude Code doesn't provide one
-        fallback_id = f"chronicle-fallback-{uuid.uuid4()}"
-        logger.warning(f"No Claude session ID found, generated fallback: {fallback_id}")
-        
-        # Store fallback session ID for other hooks to use
-        self._store_session_id(fallback_id)
-        return fallback_id
-    
-    def _store_session_id(self, session_id: str):
-        """Store session ID in a temporary file for other hooks to access."""
-        try:
-            session_cache_dir = Path.home() / ".claude" / "hooks" / "chronicle" / "tmp"
-            session_cache_dir.mkdir(parents=True, exist_ok=True)
-            session_cache_file = session_cache_dir / "current_session_id"
-            with open(session_cache_file, 'w') as f:
-                f.write(session_id)
-            logger.debug(f"Stored session ID to cache: {session_id}")
-        except Exception as e:
-            logger.warning(f"Failed to store session ID: {e}")
-    
-    def load_project_context(self, cwd: Optional[str] = None) -> Dict[str, Any]:
-        """Load project context with environment support."""
-        context = get_project_context_with_env_support(cwd)
-        context["timestamp"] = datetime.now().isoformat()
-        return context
-    
-    def process_hook_data(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process and validate hook input data."""
-        # Fast validation
-        if not isinstance(input_data, dict):
-            return {
-                "hook_event_name": "Unknown",
-                "error": "Invalid input data",
-                "early_return": True
-            }
-        
-        # Extract session ID
-        self.claude_session_id = self.get_claude_session_id(input_data)
-        
-        # Sanitize input
-        sanitized_input = sanitize_data(input_data)
-        
-        raw_hook_event_name = sanitized_input.get("hookEventName", "unknown")
-        normalized_hook_event_name = self._normalize_hook_event_name(raw_hook_event_name)
-        
-        return {
-            "hook_event_name": normalized_hook_event_name,
-            "claude_session_id": self.claude_session_id,
-            "transcript_path": sanitized_input.get("transcriptPath"),
-            "cwd": sanitized_input.get("cwd", os.getcwd()),
-            "raw_input": sanitized_input,
-            "timestamp": datetime.now().isoformat(),
-        }
-    
-    def _normalize_hook_event_name(self, hook_event_name: str) -> str:
-        """Normalize hook event name to PascalCase format."""
-        if not hook_event_name:
-            return "Unknown"
-        
-        event_name_mapping = {
-            "session_start": "SessionStart",
-            "pre_tool_use": "PreToolUse",
-            "post_tool_use": "PostToolUse", 
-            "user_prompt_submit": "UserPromptSubmit",
-            "pre_compact": "PreCompact",
-            "notification": "Notification",
-            "stop": "Stop",
-            "subagent_stop": "SubagentStop"
-        }
-        
-        if hook_event_name.lower() in event_name_mapping:
-            return event_name_mapping[hook_event_name.lower()]
-        
-        if hook_event_name in event_name_mapping.values():
-            return hook_event_name
-        
-        if "_" in hook_event_name:
-            words = hook_event_name.split("_")
-            return "".join(word.capitalize() for word in words)
-        
-        return hook_event_name
-    
-    def save_session(self, session_data: Dict[str, Any]) -> bool:
-        """Save session data to database."""
-        try:
-            if "claude_session_id" not in session_data and self.claude_session_id:
-                session_data["claude_session_id"] = self.claude_session_id
-            
-            if "claude_session_id" not in session_data:
-                logger.error("Cannot save session: no claude_session_id available")
-                return False
-            
-            if "start_time" not in session_data:
-                session_data["start_time"] = datetime.now().isoformat()
-            
-            if "id" not in session_data:
-                session_data["id"] = str(uuid.uuid4())
-            
-            sanitized_data = sanitize_data(session_data)
-            success, session_uuid = self.db_manager.save_session(sanitized_data)
-            
-            if success and session_uuid:
-                self.session_uuid = session_uuid
-                logger.debug(f"Session saved successfully with UUID: {session_uuid}")
-                return True
-            else:
-                logger.error("Failed to save session")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Exception saving session: {format_error_message(e, 'save_session')}")
-            return False
-    
-    def save_event(self, event_data: Dict[str, Any]) -> bool:
-        """Save event data to database."""
-        try:
-            # Ensure session exists
-            if not self.session_uuid and self.claude_session_id:
-                session_data = {
-                    "claude_session_id": self.claude_session_id,
-                    "start_time": datetime.now().isoformat(),
-                    "project_path": os.getcwd(),
-                }
-                success, session_uuid = self.db_manager.save_session(session_data)
-                if success and session_uuid:
-                    self.session_uuid = session_uuid
-                else:
-                    raise DatabaseError("Failed to create session for event")
-            
-            if not self.session_uuid:
-                raise DatabaseError("Cannot save event: no session UUID available")
-            
-            if "session_id" not in event_data:
-                event_data["session_id"] = self.session_uuid
-            
-            if "timestamp" not in event_data:
-                event_data["timestamp"] = datetime.now().isoformat()
-            
-            if "event_id" not in event_data:
-                event_data["event_id"] = str(uuid.uuid4())
-            
-            sanitized_data = sanitize_data(event_data)
-            success = self.db_manager.save_event(sanitized_data)
-            
-            if success:
-                logger.debug(f"Event saved successfully: {event_data.get('hook_event_name', 'unknown')}")
-                return True
-            else:
-                raise DatabaseError(f"Failed to save event: {event_data.get('hook_event_name', 'unknown')}")
-                
-        except Exception as e:
-            logger.error(f"Exception saving event: {format_error_message(e, 'save_event')}")
-            return False
-    
-    def create_response(self, continue_execution: bool = True, 
-                       suppress_output: bool = False,
-                       hook_specific_data: Optional[Dict[str, Any]] = None,
-                       stop_reason: Optional[str] = None) -> Dict[str, Any]:
-        """Create standardized hook response."""
-        response = {
-            "continue": continue_execution,
-            "suppressOutput": suppress_output,
-        }
-        
-        if not continue_execution and stop_reason:
-            response["stopReason"] = stop_reason
-        
-        if hook_specific_data:
-            response["hookSpecificOutput"] = hook_specific_data
-        
-        return response
-    
-    def create_hook_specific_output(self, hook_event_name: str, **kwargs) -> Dict[str, Any]:
-        """Create hookSpecificOutput dictionary with camelCase field names."""
-        output = {"hookEventName": hook_event_name}
-        
-        for key, value in kwargs.items():
-            if value is not None:
-                camel_key = self._snake_to_camel(key)
-                output[camel_key] = value
-        
-        return output
-    
-    def _snake_to_camel(self, snake_str: str) -> str:
-        """Convert snake_case string to camelCase."""
-        if not snake_str:
-            return snake_str
-        
-        components = snake_str.split('_')
-        return components[0] + ''.join(word.capitalize() for word in components[1:])
-    
-    def log_error(self, error: Exception, context: Optional[str] = None) -> None:
-        """Log error to local file for debugging."""
-        try:
-            timestamp = datetime.now().isoformat()
-            error_msg = format_error_message(error, context)
-            
-            log_entry = f"[{timestamp}] {error_msg}\n"
-            
-            with open(self.log_file, 'a') as f:
-                f.write(log_entry)
-        except:
-            pass  # Don't let logging errors break the hook
-
-# ===========================================
-# Session Start Hook Implementation
-# ===========================================
-
 class SessionStartHook(BaseHook):
     """Hook for processing Claude Code session start events."""
     
@@ -940,20 +225,15 @@ class SessionStartHook(BaseHook):
         """Process session start hook data with performance optimization."""
         try:
             with measure_performance("session_start.data_processing") as metrics:
-                processed_data = self.process_hook_data(input_data)
+                processed_data = self.process_hook_data(input_data, "SessionStart")
                 
-                if processed_data.get("early_return"):
+                if processed_data.get("error"):
                     return (False, {}, {"error": processed_data.get("error", "Processing failed")})
             
-            # Get project context with caching
+            # Get project context
             with measure_performance("session_start.project_context") as metrics:
                 cwd = processed_data.get("cwd")
-                cache_key = f"project_context:{cwd}" if cwd else "project_context:default"
-                
-                project_context = self.hook_cache.get(cache_key)
-                if not project_context:
-                    project_context = self.load_project_context(cwd)
-                    self.hook_cache.set(cache_key, project_context)
+                project_context = get_project_context_with_env_support(cwd)
             
             # Extract session start specific data
             trigger_source = input_data.get("source", "unknown")
@@ -983,13 +263,13 @@ class SessionStartHook(BaseHook):
             
             # Save session and event
             with measure_performance("session_start.database_operations"):
-                session_success = self.save_session(session_data)
-                event_success = False
-                
-                if session_success and self.session_uuid:
+                # Use the new save_session method from BaseHook which auto-creates sessions
+                session_success = True
+                if self.claude_session_id:
                     event_success = self.save_event(event_data)
                 else:
-                    logger.warning("Cannot save event: session save failed")
+                    logger.warning("Cannot save event: no session ID")
+                    event_success = False
             
             return (session_success and event_success, session_data, event_data)
             
@@ -1073,10 +353,6 @@ class SessionStartHook(BaseHook):
             pass
         
         return None
-
-# ===========================================
-# Main Entry Point
-# ===========================================
 
 def main():
     """Main entry point for session start hook."""
