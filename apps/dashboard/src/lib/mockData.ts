@@ -3,11 +3,12 @@
 export interface EventData {
   id: string;
   timestamp: Date;
-  type: 'success' | 'tool_use' | 'file_op' | 'error' | 'lifecycle';
+  type: 'session_start' | 'pre_tool_use' | 'post_tool_use' | 'user_prompt_submit' | 'stop' | 'subagent_stop' | 'pre_compact' | 'notification' | 'error';
   session_id: string;
   summary: string;
   details?: Record<string, any>;
-  toolName?: string;
+  tool_name?: string;
+  duration_ms?: number;
   success?: boolean;
 }
 
@@ -46,26 +47,61 @@ const PROJECT_NAMES = [
 
 // Event summaries for different types
 const EVENT_SUMMARIES = {
-  success: [
-    'File operation completed successfully',
-    'Tool execution finished',
-    'Data query returned results',
-    'API request completed',
-    'Validation passed'
+  session_start: [
+    'Session started for chronicle-dashboard',
+    'New development session initiated',
+    'Project session began',
+    'Development environment ready',
+    'Claude Code session active'
   ],
-  tool_use: [
-    'Reading configuration file',
-    'Editing component source',
-    'Running shell command',
-    'Searching codebase',
-    'Listing directory contents'
+  pre_tool_use: [
+    'Preparing to read configuration file',
+    'About to edit component source',
+    'Ready to run shell command',
+    'Starting codebase search',
+    'Preparing file operation'
   ],
-  file_op: [
-    'Created new component file',
-    'Updated package.json',
-    'Modified configuration',
-    'Deleted temporary files',
-    'Renamed source file'
+  post_tool_use: [
+    'File read operation completed',
+    'Component edit finished successfully',
+    'Shell command executed',
+    'Search operation completed',
+    'File write operation finished'
+  ],
+  user_prompt_submit: [
+    'User submitted new request',
+    'Prompt received from user',
+    'New instruction provided',
+    'User input processed',
+    'Request submitted for processing'
+  ],
+  stop: [
+    'Main agent execution completed',
+    'Request processing finished',
+    'Task execution stopped',
+    'Agent reached completion',
+    'Response generation finished'
+  ],
+  subagent_stop: [
+    'Subagent task completed',
+    'Background process finished',
+    'Subtask execution stopped',
+    'Worker agent completed',
+    'Parallel task finished'
+  ],
+  pre_compact: [
+    'Preparing context compaction',
+    'Ready to compact conversation',
+    'Context optimization starting',
+    'Memory management initiated',
+    'Conversation summarization ready'
+  ],
+  notification: [
+    'Permission required for tool execution',
+    'Waiting for user input',
+    'Action confirmation needed',
+    'User attention required',
+    'Interactive prompt displayed'
   ],
   error: [
     'Failed to read file',
@@ -73,13 +109,6 @@ const EVENT_SUMMARIES = {
     'Network request timeout',
     'Validation error',
     'Permission denied'
-  ],
-  lifecycle: [
-    'Session started',
-    'New project initialized',
-    'User connected',
-    'Session ended',
-    'Context switched'
   ]
 };
 
@@ -99,11 +128,13 @@ function getRandomItem<T>(array: T[]): T {
 }
 
 function generateSessionId(): string {
-  return `session-${Math.random().toString(36).substring(2, 9)}`;
+  // Generate UUID format session ID to match backend
+  return crypto.randomUUID();
 }
 
 function generateEventId(): string {
-  return `event-${Math.random().toString(36).substring(2, 11)}`;
+  // Generate UUID format event ID to match backend
+  return crypto.randomUUID();
 }
 
 export function generateMockSession(): SessionData {
@@ -118,7 +149,7 @@ export function generateMockSession(): SessionData {
 }
 
 export function generateMockEvent(sessionId?: string): EventData {
-  const eventType = getRandomItem(['success', 'tool_use', 'file_op', 'error', 'lifecycle'] as const);
+  const eventType = getRandomItem(['session_start', 'pre_tool_use', 'post_tool_use', 'user_prompt_submit', 'stop', 'subagent_stop', 'pre_compact', 'notification', 'error'] as const);
   const session = sessionId || generateSessionId();
   
   const baseEvent: EventData = {
@@ -127,44 +158,109 @@ export function generateMockEvent(sessionId?: string): EventData {
     type: eventType,
     session_id: session,
     summary: getRandomItem(EVENT_SUMMARIES[eventType]),
-    success: eventType === 'success' || (eventType !== 'error' && Math.random() > 0.2)
+    success: eventType !== 'error' && Math.random() > 0.1 // Most events succeed unless they're errors
   };
 
-  // Add type-specific details
+  // Add type-specific details and fields
   switch (eventType) {
-    case 'tool_use':
-      baseEvent.toolName = getRandomItem(TOOL_NAMES);
+    case 'session_start':
       baseEvent.details = {
-        tool_name: baseEvent.toolName,
-        parameters: { file_path: '/src/components/Example.tsx' },
-        duration_ms: Math.floor(Math.random() * 1000) + 100
-      };
-      break;
-    case 'file_op':
-      baseEvent.details = {
-        operation: getRandomItem(['create', 'update', 'delete', 'rename']),
-        file_path: `/src/${getRandomItem(['components', 'lib', 'hooks'])}/${getRandomItem(['Example', 'Utils', 'Helper'])}.${getRandomItem(['tsx', 'ts', 'js'])}`,
-        size_bytes: Math.floor(Math.random() * 10000) + 100
-      };
-      break;
-    case 'error':
-      baseEvent.details = {
-        error_code: getRandomItem(['ENOENT', 'EACCES', 'TIMEOUT', 'VALIDATION_ERROR']),
-        message: getRandomItem(['File not found', 'Permission denied', 'Request timeout', 'Invalid input']),
-        stack_trace: 'Error: Sample error\n  at Function.example\n  at process.nextTick'
-      };
-      break;
-    case 'lifecycle':
-      baseEvent.details = {
-        event: getRandomItem(['session_start', 'session_end', 'context_switch', 'user_connect']),
+        source: getRandomItem(['startup', 'resume', 'clear']),
+        project_path: `/Users/dev/${getRandomItem(PROJECT_NAMES)}`,
+        git_branch: getRandomItem(['main', 'dev', 'feature/new-dashboard', 'bugfix/event-types']),
         metadata: { user_agent: 'Claude Code v1.0', platform: 'darwin' }
       };
       break;
-    default:
+    case 'pre_tool_use':
+      baseEvent.tool_name = getRandomItem(TOOL_NAMES);
       baseEvent.details = {
-        result: 'Operation completed',
-        metadata: { timestamp: baseEvent.timestamp.toISOString() }
+        tool_name: baseEvent.tool_name,
+        tool_input: {
+          file_path: `/src/${getRandomItem(['components', 'lib', 'hooks'])}/${getRandomItem(['Example', 'Utils', 'Helper'])}.${getRandomItem(['tsx', 'ts', 'js'])}`,
+          parameters: { content: 'example content' }
+        },
+        session_id: session,
+        transcript_path: `~/.claude/projects/chronicle/${session}.jsonl`,
+        cwd: `/Users/dev/${getRandomItem(PROJECT_NAMES)}`
       };
+      break;
+    case 'post_tool_use':
+      baseEvent.tool_name = getRandomItem(TOOL_NAMES);
+      baseEvent.duration_ms = Math.floor(Math.random() * 2000) + 50; // 50-2050ms
+      baseEvent.details = {
+        tool_name: baseEvent.tool_name,
+        tool_input: {
+          file_path: `/src/${getRandomItem(['components', 'lib', 'hooks'])}/${getRandomItem(['Example', 'Utils', 'Helper'])}.${getRandomItem(['tsx', 'ts', 'js'])}`,
+          parameters: { content: 'example content' }
+        },
+        tool_response: {
+          success: baseEvent.success,
+          result: baseEvent.success ? 'Operation completed successfully' : 'Operation failed',
+          file_path: `/src/${getRandomItem(['components', 'lib', 'hooks'])}/${getRandomItem(['Example', 'Utils', 'Helper'])}.${getRandomItem(['tsx', 'ts', 'js'])}`
+        },
+        duration_ms: baseEvent.duration_ms,
+        session_id: session
+      };
+      break;
+    case 'user_prompt_submit':
+      baseEvent.details = {
+        prompt: getRandomItem([
+          'Update the dashboard to show real-time events',
+          'Fix the event filtering bug',
+          'Add dark mode to the interface',
+          'Implement session analytics',
+          'Create a performance monitoring dashboard'
+        ]),
+        session_id: session,
+        transcript_path: `~/.claude/projects/chronicle/${session}.jsonl`,
+        cwd: `/Users/dev/${getRandomItem(PROJECT_NAMES)}`
+      };
+      break;
+    case 'stop':
+      baseEvent.details = {
+        stop_reason: getRandomItem(['completion', 'user_interrupt', 'timeout', 'error']),
+        session_id: session,
+        final_status: baseEvent.success ? 'completed' : 'error'
+      };
+      break;
+    case 'subagent_stop':
+      baseEvent.details = {
+        subagent_task: getRandomItem(['file_analysis', 'code_review', 'testing', 'documentation']),
+        stop_reason: 'task_completed',
+        session_id: session,
+        task_result: baseEvent.success ? 'success' : 'failed'
+      };
+      break;
+    case 'pre_compact':
+      baseEvent.details = {
+        trigger: getRandomItem(['manual', 'auto']),
+        context_size: Math.floor(Math.random() * 50000) + 10000, // 10k-60k tokens
+        session_id: session,
+        custom_instructions: ''
+      };
+      break;
+    case 'notification':
+      baseEvent.details = {
+        message: getRandomItem([
+          'Claude needs your permission to use Bash',
+          'Claude is waiting for your input',
+          'Tool execution requires confirmation',
+          'Session has been idle for 60 seconds'
+        ]),
+        notification_type: getRandomItem(['permission_request', 'idle_warning', 'confirmation']),
+        session_id: session
+      };
+      break;
+    case 'error':
+      baseEvent.success = false;
+      baseEvent.details = {
+        error_code: getRandomItem(['ENOENT', 'EACCES', 'TIMEOUT', 'VALIDATION_ERROR', 'NETWORK_ERROR']),
+        error_message: getRandomItem(['File not found', 'Permission denied', 'Request timeout', 'Invalid input', 'Network connection failed']),
+        stack_trace: 'Error: Sample error\n  at Function.example\n  at process.nextTick',
+        session_id: session,
+        context: { tool_name: getRandomItem(TOOL_NAMES), timestamp: baseEvent.timestamp.toISOString() }
+      };
+      break;
   }
 
   return baseEvent;
@@ -227,8 +323,12 @@ export function getMockErrorEvents(): EventData[] {
   return MOCK_EVENTS_MEDIUM.filter(event => event.type === 'error');
 }
 
-export function getMockSuccessEvents(): EventData[] {
-  return MOCK_EVENTS_MEDIUM.filter(event => event.type === 'success');
+export function getMockToolEvents(): EventData[] {
+  return MOCK_EVENTS_MEDIUM.filter(event => event.type === 'pre_tool_use' || event.type === 'post_tool_use');
+}
+
+export function getMockSessionEvents(): EventData[] {
+  return MOCK_EVENTS_MEDIUM.filter(event => event.type === 'session_start');
 }
 
 export function getMockEventsForSession(sessionId: string): EventData[] {
