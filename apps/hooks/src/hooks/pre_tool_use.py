@@ -416,9 +416,7 @@ class PreToolUseHook(BaseHook):
 def main():
     """Main entry point for pre-tool use hook."""
     try:
-        logger.info("=" * 60)
-        logger.info("PRE TOOL USE HOOK STARTED")
-        logger.info("=" * 60)
+        logger.debug("PRE TOOL USE HOOK STARTED")
         
         # Read input from stdin
         try:

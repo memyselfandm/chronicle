@@ -189,7 +189,7 @@ def create_event_data(event_type: str, hook_event_name: str,
 
 def setup_hook_logging(hook_name: str, log_level: str = "INFO") -> logging.Logger:
     """
-    Set up consistent logging for hooks.
+    Set up consistent logging for hooks with configurable options.
     
     Args:
         hook_name: Name of the hook for logger identification
@@ -197,23 +197,60 @@ def setup_hook_logging(hook_name: str, log_level: str = "INFO") -> logging.Logge
         
     Returns:
         Configured logger instance
+        
+    Environment Variables:
+        CLAUDE_HOOKS_LOG_LEVEL: Override log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        CLAUDE_HOOKS_SILENT_MODE: Set to 'true' to suppress all non-error output
+        CLAUDE_HOOKS_LOG_TO_FILE: Set to 'false' to disable file logging
     """
-    # Set up chronicle-specific logging
-    chronicle_log_dir = Path.home() / ".claude" / "hooks" / "chronicle" / "logs"
-    chronicle_log_dir.mkdir(parents=True, exist_ok=True)
-    chronicle_log_file = chronicle_log_dir / "chronicle.log"
+    # Get configuration from environment
+    env_log_level = os.getenv("CLAUDE_HOOKS_LOG_LEVEL", log_level).upper()
+    silent_mode = os.getenv("CLAUDE_HOOKS_SILENT_MODE", "false").lower() == "true"
+    log_to_file = os.getenv("CLAUDE_HOOKS_LOG_TO_FILE", "true").lower() == "true"
+    
+    # Validate log level
+    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    if env_log_level not in valid_levels:
+        env_log_level = "INFO"
+    
+    # In silent mode, only show errors
+    if silent_mode:
+        env_log_level = "ERROR"
+    
+    # Set up handlers
+    handlers = []
+    
+    # File handler (optional)
+    if log_to_file:
+        chronicle_log_dir = Path.home() / ".claude" / "hooks" / "chronicle" / "logs"
+        chronicle_log_dir.mkdir(parents=True, exist_ok=True)
+        chronicle_log_file = chronicle_log_dir / "chronicle.log"
+        file_handler = logging.FileHandler(chronicle_log_file)
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        handlers.append(file_handler)
+    
+    # Console handler (stderr for UV scripts)
+    if not silent_mode:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(name)s - %(levelname)s - %(message)s'
+        ))
+        handlers.append(console_handler)
     
     # Configure logger
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper(), logging.INFO),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(chronicle_log_file),
-            logging.StreamHandler()  # Also log to stderr for UV scripts
-        ]
-    )
+    logger = logging.getLogger(hook_name)
+    logger.setLevel(getattr(logging, env_log_level, logging.INFO))
     
-    return logging.getLogger(hook_name)
+    # Clear existing handlers to avoid duplicates
+    logger.handlers.clear()
+    
+    # Add configured handlers
+    for handler in handlers:
+        logger.addHandler(handler)
+    
+    return logger
 
 
 # Compatibility imports for backward compatibility

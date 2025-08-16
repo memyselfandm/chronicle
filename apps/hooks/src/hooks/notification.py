@@ -116,9 +116,7 @@ class NotificationHook(BaseHook):
 def main():
     """Main entry point for notification hook."""
     try:
-        logger.info("=" * 60)
-        logger.info("NOTIFICATION HOOK STARTED")
-        logger.info("=" * 60)
+        logger.debug("NOTIFICATION HOOK STARTED")
         
         # Read input from stdin
         try:

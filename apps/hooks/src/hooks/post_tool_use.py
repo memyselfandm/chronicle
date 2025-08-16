@@ -282,9 +282,7 @@ class PostToolUseHook(BaseHook):
 def main():
     """Main entry point for the hook script."""
     try:
-        logger.info("=" * 60)
-        logger.info("POST TOOL USE HOOK STARTED")
-        logger.info("=" * 60)
+        logger.debug("POST TOOL USE HOOK STARTED")
         
         # Read input from stdin
         try:

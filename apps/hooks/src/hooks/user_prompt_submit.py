@@ -271,18 +271,13 @@ class UserPromptSubmitHook(BaseHook):
 def main():
     """Main entry point for user prompt submit hook."""
     try:
-        logger.info("=" * 60)
-        logger.info("USER PROMPT SUBMIT HOOK STARTED")
-        logger.info("=" * 60)
+        logger.debug("USER PROMPT SUBMIT HOOK STARTED")
         
         # Read input from stdin
         try:
             input_data = json_impl.load(sys.stdin)
             logger.info(f"Parsed input data keys: {list(input_data.keys())}")
-            logger.info("=" * 40)
-            logger.info("FULL INPUT PAYLOAD DUMP:")
-            logger.info(json_impl.dumps(input_data, indent=2))
-            logger.info("=" * 40)
+            logger.debug(f"Input data: {json_impl.dumps(input_data, indent=2)[:500]}...")  # Debug only, truncated
         except json.JSONDecodeError as e:
             logger.warning(f"No input data received or invalid JSON: {e}")
             input_data = {}

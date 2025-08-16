@@ -24,3 +24,10 @@ Thumbs.db
 # Logs
 *.log
 tmp/worklog/
+
+# Throwaway test/debug files in root (prevent future commits)
+/test_*.py
+/debug_*.py
+/check_*.py
+/fix_*.py
+/validate_*.py

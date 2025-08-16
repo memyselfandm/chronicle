@@ -41,13 +41,13 @@ from typing import Any, Dict, Optional
 # Import from shared library modules
 try:
     from lib.database import DatabaseManager
-    from lib.base_hook import BaseHook
+    from lib.base_hook import BaseHook, setup_hook_logging
     from lib.utils import sanitize_data, get_project_path, extract_session_id
 except ImportError:
     # For UV script compatibility, try relative imports
     sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
     from database import DatabaseManager
-    from base_hook import BaseHook
+    from base_hook import BaseHook, setup_hook_logging
     from utils import sanitize_data, get_project_path, extract_session_id
 
 # Load environment variables
@@ -64,8 +64,7 @@ except ImportError:
     import json as json_impl
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_hook_logging("session_start")
 
 @contextmanager
 def measure_performance(operation_name):

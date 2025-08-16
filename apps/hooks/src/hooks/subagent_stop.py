@@ -157,9 +157,7 @@ class SubagentStopHook(BaseHook):
 def main():
     """Main entry point for subagent stop hook."""
     try:
-        logger.info("=" * 60)
-        logger.info("SUBAGENT STOP HOOK STARTED")
-        logger.info("=" * 60)
+        logger.debug("SUBAGENT STOP HOOK STARTED")
         
         # Read input from stdin
         try:
@@ -193,8 +191,7 @@ def main():
         if execution_time > 100:
             logger.warning(f"Hook exceeded 100ms requirement: {execution_time:.2f}ms")
         
-        logger.info(f"Subagent stop hook completed in {execution_time:.2f}ms")
-        logger.info("=" * 60)
+        logger.debug(f"Subagent stop hook completed in {execution_time:.2f}ms")
         
         # Output result
         print(json_impl.dumps(result, indent=2))

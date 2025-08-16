@@ -90,10 +90,23 @@ class StopHook(BaseHook):
             
             if not session:
                 self.log_warning(f"Session not found in database: {self.claude_session_id}")
-                return self._create_response(
-                    session_found=False,
-                    error="Session not found in database"
-                )
+                # Create a session for proper termination tracking
+                self.log_info("Creating session record for termination tracking")
+                session_data = {
+                    "claude_session_id": self.claude_session_id,
+                    "start_time": input_data.get("timestamp", datetime.now().isoformat()),
+                    "project_path": input_data.get("cwd", "unknown"),
+                }
+                success, session_uuid = self.db_manager.save_session(session_data)
+                if success:
+                    session = {"id": session_uuid}
+                    self.log_info(f"Created session with UUID: {session_uuid}")
+                else:
+                    self.log_error("Failed to create session for termination")
+                    return self._create_response(
+                        session_found=False,
+                        error="Could not create session for termination"
+                    )
             
             session_id = session["id"]
             self.log_info(f"Found session record with ID: {session_id}")
@@ -239,9 +252,7 @@ class StopHook(BaseHook):
 def main():
     """Main entry point for stop hook."""
     try:
-        logger.info("=" * 60)
-        logger.info("STOP HOOK STARTED - SESSION TERMINATION")
-        logger.info("=" * 60)
+        logger.debug("STOP HOOK STARTED - SESSION TERMINATION")
         
         # Read input from stdin
         try:
@@ -268,9 +279,7 @@ def main():
         if execution_time > 100:
             logger.warning(f"Hook exceeded 100ms requirement: {execution_time:.2f}ms")
         
-        logger.info("=" * 60)
-        logger.info("STOP HOOK COMPLETED - SESSION TERMINATED")
-        logger.info("=" * 60)
+        logger.debug("STOP HOOK COMPLETED - SESSION TERMINATED")
         
         # Output result
         print(json_impl.dumps(result, indent=2))

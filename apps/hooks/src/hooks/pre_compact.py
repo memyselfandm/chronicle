@@ -147,9 +147,7 @@ class PreCompactHook(BaseHook):
 def main():
     """Main entry point for pre-compact hook."""
     try:
-        logger.info("=" * 60)
-        logger.info("PRE-COMPACT HOOK STARTED")
-        logger.info("=" * 60)
+        logger.debug("PRE-COMPACT HOOK STARTED")
         
         # Read input from stdin
         try:
