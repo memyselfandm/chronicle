@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS chronicle_sessions (
 CREATE TABLE IF NOT EXISTS chronicle_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id UUID REFERENCES chronicle_sessions(id) ON DELETE CASCADE,
-    event_type TEXT NOT NULL CHECK (event_type IN ('prompt', 'tool_use', 'session_start', 'session_end', 'notification', 'error')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('session_start', 'notification', 'error', 'pre_tool_use', 'post_tool_use', 'user_prompt_submit', 'stop', 'subagent_stop', 'pre_compact')),
     timestamp TIMESTAMPTZ NOT NULL,
     metadata JSONB NOT NULL DEFAULT '{}',
     tool_name TEXT,
@@ -90,8 +90,8 @@ LANGUAGE SQL
 AS $$
     SELECT 
         COUNT(*) as event_count,
-        COUNT(*) FILTER (WHERE event_type = 'tool_use') as tool_events_count,
-        COUNT(*) FILTER (WHERE event_type = 'prompt') as prompt_events_count,
+        COUNT(*) FILTER (WHERE event_type IN ('pre_tool_use', 'post_tool_use')) as tool_events_count,
+        COUNT(*) FILTER (WHERE event_type = 'user_prompt_submit') as prompt_events_count,
         AVG(duration_ms) FILTER (WHERE duration_ms IS NOT NULL) as avg_tool_duration,
         EXTRACT(EPOCH FROM (
             COALESCE(
@@ -124,7 +124,7 @@ AS $$
     FROM chronicle_events e
     WHERE e.tool_name IS NOT NULL 
       AND e.created_at >= NOW() - INTERVAL '1 hour' * time_window_hours
-      AND e.event_type = 'tool_use'
+      AND e.event_type IN ('pre_tool_use', 'post_tool_use')
     GROUP BY e.tool_name
     ORDER BY usage_count DESC;
 $$;
@@ -149,8 +149,8 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- If this is a session_end event, update the session's end_time
-    IF NEW.event_type = 'session_end' THEN
+    -- If this is a stop event (session ends), update the session's end_time
+    IF NEW.event_type = 'stop' THEN
         UPDATE chronicle_sessions 
         SET end_time = NEW.timestamp 
         WHERE id = NEW.session_id 
@@ -178,7 +178,7 @@ BEGIN
     END IF;
     
     -- Validate tool events have tool_name
-    IF NEW.event_type = 'tool_use' AND NEW.tool_name IS NULL THEN
+    IF NEW.event_type IN ('pre_tool_use', 'post_tool_use') AND NEW.tool_name IS NULL THEN
         RAISE EXCEPTION 'Tool events must have a tool_name';
     END IF;
     
@@ -201,8 +201,8 @@ CREATE OR REPLACE VIEW chronicle_active_sessions AS
 SELECT 
     s.*,
     COUNT(e.id) as event_count,
-    COUNT(e.id) FILTER (WHERE e.event_type = 'tool_use') as tool_event_count,
-    COUNT(e.id) FILTER (WHERE e.event_type = 'prompt') as prompt_event_count,
+    COUNT(e.id) FILTER (WHERE e.event_type IN ('pre_tool_use', 'post_tool_use')) as tool_event_count,
+    COUNT(e.id) FILTER (WHERE e.event_type = 'user_prompt_submit') as prompt_event_count,
     MAX(e.timestamp) as last_activity
 FROM chronicle_sessions s
 LEFT JOIN chronicle_events e ON s.id = e.session_id

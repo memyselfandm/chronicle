@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
-    event_type TEXT NOT NULL CHECK (event_type IN ('prompt', 'tool_use', 'session_start', 'session_end', 'notification', 'error')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('session_start', 'notification', 'error', 'pre_tool_use', 'post_tool_use', 'user_prompt_submit', 'stop', 'subagent_stop', 'pre_compact')),
     timestamp TEXT NOT NULL,
     data TEXT NOT NULL DEFAULT '{}',
     tool_name TEXT,
@@ -63,8 +63,8 @@ CREATE VIEW IF NOT EXISTS active_sessions AS
 SELECT 
     s.*,
     COUNT(e.id) as event_count,
-    COUNT(CASE WHEN e.event_type = 'tool_use' THEN 1 END) as tool_event_count,
-    COUNT(CASE WHEN e.event_type = 'prompt' THEN 1 END) as prompt_event_count,
+    COUNT(CASE WHEN e.event_type IN ('pre_tool_use', 'post_tool_use') THEN 1 END) as tool_event_count,
+    COUNT(CASE WHEN e.event_type = 'user_prompt_submit' THEN 1 END) as prompt_event_count,
     MAX(e.timestamp) as last_activity
 FROM sessions s
 LEFT JOIN events e ON s.id = e.session_id
@@ -88,7 +88,7 @@ ORDER BY e.timestamp DESC;
 CREATE TRIGGER IF NOT EXISTS trigger_update_session_end_time
 AFTER INSERT ON events
 FOR EACH ROW
-WHEN NEW.event_type = 'session_end'
+WHEN NEW.event_type = 'stop'
 BEGIN
     UPDATE sessions 
     SET end_time = NEW.timestamp 
@@ -109,7 +109,7 @@ BEGIN
     
     -- Validate tool events have tool_name
     SELECT CASE 
-        WHEN NEW.event_type = 'tool_use' AND NEW.tool_name IS NULL 
+        WHEN NEW.event_type IN ('pre_tool_use', 'post_tool_use') AND NEW.tool_name IS NULL 
         THEN RAISE(ABORT, 'Tool events must have a tool_name')
     END;
     

@@ -248,6 +248,38 @@ This epic focuses on refactoring the Claude Code hooks system to use UV single-f
 - [x] Test with various auto-approve configurations ✅ **COMPLETED**
 - [x] Validate that observability data is still captured correctly ✅ **COMPLETED**
 
+### Feature 14: Implement 1:1 Event Type Mapping
+
+**Description**: Establish a 1:1 mapping between hook event names and database event types to enable clear differentiation between different hook events, particularly pre and post tool use events. Remove legacy event types and update all systems to use the new consistent mapping.
+
+**Acceptance Criteria**:
+- Each hook event maps to a unique event_type in the database
+- PreToolUse and PostToolUse events are clearly differentiated
+- All event types use snake_case convention consistently
+- Legacy event types (prompt, tool_use, session_end) are removed
+- Migration path exists for converting existing data
+- Both Supabase and SQLite schemas support new event types
+
+**Tasks**:
+- [x] Define 1:1 mapping between hook events and event types ✅ **COMPLETED**
+- [x] Update all hook scripts to use correct event_type values ✅ **COMPLETED**
+- [x] Update database_manager.py to remove event type remapping logic ✅ **COMPLETED**
+- [x] Update Supabase schema with new event types ✅ **COMPLETED**
+- [x] Update SQLite schema with new event types ✅ **COMPLETED**
+- [x] Update views and functions to use new event types ✅ **COMPLETED**
+- [x] Create migration script to convert existing data ✅ **COMPLETED**
+- [x] Test event differentiation with real hook executions ✅ **COMPLETED**
+
+**Event Type Mapping**:
+- PreToolUse → pre_tool_use
+- PostToolUse → post_tool_use
+- UserPromptSubmit → user_prompt_submit
+- SessionStart → session_start
+- Stop → stop (not session_end)
+- SubagentStop → subagent_stop
+- Notification → notification
+- PreCompact → pre_compact
+
 ## Sprint Plan
 
 ### ✅ Sprint 1: Core Script Conversion **COMPLETED**
@@ -280,7 +312,12 @@ This epic focuses on refactoring the Claude Code hooks system to use UV single-f
 **Rationale**: These structural changes depend on Sprint 5's code extraction being complete. Both features can proceed in parallel as they involve file movements and renames that don't conflict.
 **Status**: Successfully consolidated all hooks to src/hooks/ directory. Removed duplicate traditional implementations. Renamed all scripts to remove _uv suffix. Updated all references throughout codebase. Clean flat structure achieved.
 
-### Sprint 7: Infrastructure and Documentation Updates
+### Sprint 7: Event Type 1:1 Mapping Implementation
+**Features**: Feature 14 (Implement 1:1 Event Type Mapping)
+**Rationale**: Establish clear differentiation between pre and post tool events by implementing 1:1 mapping between hook event names and database event types.
+**Status**: ✅ **COMPLETED** - Successfully implemented 1:1 mapping with snake_case convention. All hooks updated to use correct event types. Database schemas updated for both Supabase and SQLite. Migration scripts created to convert existing data.
+
+### Sprint 8: Infrastructure and Documentation Updates
 **Features**: Feature 11 (Update Installation Script), Feature 7 (Documentation Updates), Feature 12 (Update Documentation for Clean Structure)
 **Rationale**: All documentation and installation updates consolidated into one sprint. These changes depend on the structure simplification from Sprint 6 being complete. Multiple documentation tasks can proceed in parallel.
 
