@@ -102,7 +102,7 @@ function EventCard({ event, onClick }: EventCardProps) {
               {formatEventType(event.type)}
             </Badge>
             <span className="text-xs text-text-muted truncate">
-              Session: {truncateSessionId(event.sessionId)}
+              Session: {truncateSessionId(event.session_id)}
             </span>
           </div>
           <time 

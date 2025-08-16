@@ -52,7 +52,7 @@ export const useSessions = (): UseSessionsState => {
 
       for (const sessionId of sessionIds) {
         const { data: events, error: eventsError } = await supabase
-          .from('events')
+          .from('chronicle_events')
           .select('type, data, timestamp')
           .eq('session_id', sessionId);
 
@@ -103,7 +103,7 @@ export const useSessions = (): UseSessionsState => {
 
       // Fetch all sessions, excluding any that might be test data
       const { data: sessionsData, error: sessionsError } = await supabase
-        .from('sessions')
+        .from('chronicle_sessions')
         .select('*')
         .neq('project_path', 'test') // Exclude test sessions
         .order('start_time', { ascending: false });

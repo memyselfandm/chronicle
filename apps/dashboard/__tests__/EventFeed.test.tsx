@@ -25,7 +25,7 @@ describe('EventFeed Component', () => {
       id: 'event-1',
       type: 'tool_use',
       summary: 'Reading configuration file',
-      sessionId: 'session-123',
+      session_id: 'session-123',
       toolName: 'Read',
       timestamp: new Date('2024-01-01T12:00:00Z'),
       details: {
@@ -37,14 +37,14 @@ describe('EventFeed Component', () => {
       id: 'event-2',
       type: 'success',
       summary: 'File operation completed',
-      sessionId: 'session-456',
+      session_id: 'session-456',
       timestamp: new Date('2024-01-01T11:59:00Z')
     }),
     createMockEventWithProps({
       id: 'event-3',
       type: 'error',
       summary: 'Failed to read file',
-      sessionId: 'session-123',
+      session_id: 'session-123',
       timestamp: new Date('2024-01-01T11:58:00Z')
     })
   ];
@@ -137,7 +137,7 @@ describe('EventFeed Component', () => {
         id: 'minimal-1',
         type: 'lifecycle',
         summary: 'Session started',
-        sessionId: 'session-789',
+        session_id: 'session-789',
         timestamp: new Date(),
         toolName: undefined,
         details: undefined
@@ -298,7 +298,7 @@ describe('EventFeed Component', () => {
           // @ts-ignore - Testing malformed data
           type: 'invalid-type',
           summary: 'Test event',
-          sessionId: 'test-session',
+          session_id: 'test-session',
           timestamp: new Date()
         })
       ];

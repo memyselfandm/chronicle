@@ -560,7 +560,7 @@ describe('Error Handling and Edge Cases', () => {
 
       expect(() => {
         const processed = processEvents([{
-          session_id: recursiveEvent.sessionId,
+          session_id: recursiveEvent.session_id,
           hook_event_name: 'PreToolUse',
           timestamp: recursiveEvent.timestamp.toISOString(),
           raw_input: recursiveEvent.details

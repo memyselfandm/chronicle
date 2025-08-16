@@ -6,7 +6,7 @@ interface Event {
   id: string;
   timestamp: string;
   type: 'prompt' | 'tool_use' | 'session';
-  sessionId: string;
+  session_id: string;
   data: {
     tool_name?: string;
     status?: 'success' | 'error' | 'pending';
@@ -18,7 +18,7 @@ const mockEvent: Event = {
   id: 'event-123',
   timestamp: '2024-01-15T14:30:45.123Z',
   type: 'tool_use',
-  sessionId: 'session-abc123def456',
+  session_id: 'session-abc123def456',
   data: {
     tool_name: 'Read',
     status: 'success',
@@ -31,7 +31,7 @@ const mockPromptEvent: Event = {
   id: 'event-456', 
   timestamp: '2024-01-15T14:32:15.456Z',
   type: 'prompt',
-  sessionId: 'session-xyz789',
+  session_id: 'session-xyz789',
   data: {
     status: 'success',
     content: 'User submitted a prompt'
@@ -42,7 +42,7 @@ const mockSessionEvent: Event = {
   id: 'event-789',
   timestamp: '2024-01-15T14:35:22.789Z', 
   type: 'session',
-  sessionId: 'session-new456',
+  session_id: 'session-new456',
   data: {
     status: 'success',
     action: 'session_start'
@@ -121,7 +121,7 @@ describe('EventCard Component', () => {
   it('truncates long session IDs correctly', () => {
     const longSessionEvent = {
       ...mockEvent,
-      sessionId: 'session-verylongsessionidentifier1234567890'
+      session_id: 'session-verylongsessionidentifier1234567890'
     };
     
     render(<EventCard event={longSessionEvent} />);

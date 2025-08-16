@@ -48,12 +48,12 @@ export interface Event {
 export interface Database {
   public: {
     Tables: {
-      sessions: {
+      chronicle_sessions: {
         Row: Session;
         Insert: Omit<Session, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<Session, 'id' | 'created_at'>>;
       };
-      events: {
+      chronicle_events: {
         Row: Event;
         Insert: Omit<Event, 'id' | 'created_at'>;
         Update: Partial<Omit<Event, 'id' | 'created_at'>>;

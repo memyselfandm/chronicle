@@ -95,7 +95,7 @@ describe('useEvents Hook', () => {
     expect(mockSupabase.channel).toHaveBeenCalledWith('events-realtime');
     expect(mockChannel.on).toHaveBeenCalledWith(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'events' },
+      { event: 'INSERT', schema: 'public', table: 'chronicle_events' },
       expect.any(Function)
     );
     expect(mockChannel.subscribe).toHaveBeenCalled();

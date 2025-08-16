@@ -4,7 +4,7 @@ export interface EventData {
   id: string;
   timestamp: Date;
   type: 'success' | 'tool_use' | 'file_op' | 'error' | 'lifecycle';
-  sessionId: string;
+  session_id: string;
   summary: string;
   details?: Record<string, any>;
   toolName?: string;
@@ -125,7 +125,7 @@ export function generateMockEvent(sessionId?: string): EventData {
     id: generateEventId(),
     timestamp: new Date(Date.now() - Math.random() * 3600000), // Within last hour
     type: eventType,
-    sessionId: session,
+    session_id: session,
     summary: getRandomItem(EVENT_SUMMARIES[eventType]),
     success: eventType === 'success' || (eventType !== 'error' && Math.random() > 0.2)
   };
@@ -232,5 +232,5 @@ export function getMockSuccessEvents(): EventData[] {
 }
 
 export function getMockEventsForSession(sessionId: string): EventData[] {
-  return MOCK_EVENTS_MEDIUM.filter(event => event.sessionId === sessionId);
+  return MOCK_EVENTS_MEDIUM.filter(event => event.session_id === sessionId);
 }

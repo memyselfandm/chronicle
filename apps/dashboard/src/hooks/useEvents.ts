@@ -52,7 +52,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       setError(null);
 
       let query = supabase
-        .from('events')
+        .from('chronicle_events')
         .select('*')
         .order('timestamp', { ascending: false })
         .range(loadOffset, loadOffset + limit - 1);
@@ -162,7 +162,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'events',
+          table: 'chronicle_events',
         },
         handleRealtimeEvent
       )

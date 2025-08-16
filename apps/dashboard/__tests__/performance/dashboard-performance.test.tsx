@@ -151,7 +151,7 @@ describe('Dashboard Performance Tests', () => {
 
       const startProcessing = performance.now();
       const processedEvents = processEvents(complexEvents.map(e => ({
-        session_id: e.sessionId,
+        session_id: e.session_id,
         hook_event_name: 'PreToolUse',
         timestamp: e.timestamp.toISOString(),
         success: true,
@@ -255,7 +255,7 @@ describe('Dashboard Performance Tests', () => {
   describe('Filtering and Search Performance', () => {
     it('measures filter application performance on large datasets', async () => {
       const largeDataset = generateMockEvents(300);
-      const sessions = [...new Set(largeDataset.map(e => e.sessionId))];
+      const sessions = [...new Set(largeDataset.map(e => e.session_id))];
       const eventTypes = [...new Set(largeDataset.map(e => e.type))];
 
       let filteredEvents = largeDataset;
@@ -268,7 +268,7 @@ describe('Dashboard Performance Tests', () => {
           if (filters.eventTypes.length > 0 && !filters.eventTypes.includes(event.type)) {
             return false;
           }
-          if (filters.sessionIds.length > 0 && !filters.sessionIds.includes(event.sessionId)) {
+          if (filters.sessionIds.length > 0 && !filters.sessionIds.includes(event.session_id)) {
             return false;
           }
           if (filters.searchQuery && !event.summary.toLowerCase().includes(filters.searchQuery.toLowerCase())) {
@@ -376,7 +376,7 @@ describe('Dashboard Performance Tests', () => {
   describe('Component Integration Performance', () => {
     it('measures full dashboard performance with all components', async () => {
       const testEvents = generateMockEvents(100);
-      const testSessions = Array.from(new Set(testEvents.map(e => e.sessionId)));
+      const testSessions = Array.from(new Set(testEvents.map(e => e.session_id)));
 
       const metrics = await measureAsyncPerformance('Full Dashboard', async () => {
         render(

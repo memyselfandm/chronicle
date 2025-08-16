@@ -133,7 +133,7 @@ describe('Chronicle Dashboard Integration Tests', () => {
           eventType: 'INSERT',
           new: {
             event_id: newEvent.id,
-            session_id: newEvent.sessionId,
+            session_id: newEvent.session_id,
             hook_event_name: 'PostToolUse',
             timestamp: newEvent.timestamp.toISOString(),
             success: true,
@@ -228,7 +228,7 @@ describe('Chronicle Dashboard Integration Tests', () => {
           if (filters.eventTypes.length > 0 && !filters.eventTypes.includes(event.type)) {
             return false;
           }
-          if (filters.sessionIds.length > 0 && !filters.sessionIds.includes(event.sessionId)) {
+          if (filters.sessionIds.length > 0 && !filters.sessionIds.includes(event.session_id)) {
             return false;
           }
           return true;
@@ -283,7 +283,7 @@ describe('Chronicle Dashboard Integration Tests', () => {
 
       // Update filtered events for session filter
       filteredEvents = testEvents.filter(event => 
-        event.sessionId === 'session-filter-1'
+        event.session_id === 'session-filter-1'
       );
 
       rerender(

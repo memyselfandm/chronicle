@@ -10,7 +10,7 @@ interface Event {
   id: string;
   timestamp: string;
   type: 'prompt' | 'tool_use' | 'session' | 'lifecycle' | 'error' | 'file_op' | 'system' | 'notification';
-  sessionId: string;
+  session_id: string;
   data: {
     tool_name?: string;
     status?: 'success' | 'error' | 'pending' | 'warning';
@@ -135,7 +135,7 @@ const AnimatedEventCard = forwardRef<HTMLButtonElement, AnimatedEventCardProps>(
       return `${sessionId.slice(0, maxLength)}...`;
     };
 
-    const truncatedSessionId = truncateSessionId(event.sessionId, 16);
+    const truncatedSessionId = truncateSessionId(event.session_id, 16);
     const relativeTime = formatTimestamp(event.timestamp);
     const absoluteTime = formatAbsoluteTimestamp(event.timestamp);
 

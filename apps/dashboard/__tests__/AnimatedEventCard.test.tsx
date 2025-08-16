@@ -7,7 +7,7 @@ const mockEvent: Event = {
   id: 'event-123',
   timestamp: '2024-01-15T14:30:45.123Z',
   type: 'tool_use',
-  sessionId: 'session-abc123def456',
+  session_id: 'session-abc123def456',
   data: {
     tool_name: 'Read',
     status: 'success',
@@ -18,7 +18,7 @@ const mockPromptEvent: Event = {
   id: 'event-456',
   timestamp: '2024-01-15T14:32:15.456Z',
   type: 'prompt',
-  sessionId: 'session-xyz789',
+  session_id: 'session-xyz789',
   data: {
     status: 'success',
   }
@@ -105,7 +105,7 @@ describe('AnimatedEventCard Component', () => {
   it('truncates long session IDs correctly', () => {
     const longSessionEvent = {
       ...mockEvent,
-      sessionId: 'session-verylongsessionidentifier1234567890'
+      session_id: 'session-verylongsessionidentifier1234567890'
     };
     
     render(<AnimatedEventCard event={longSessionEvent} />);
@@ -284,7 +284,7 @@ describe('AnimatedEventCard Component', () => {
       id: 'event-error',
       timestamp: '2024-01-15T14:30:45.123Z',
       type: 'error',
-      sessionId: 'session-123',
+      session_id: 'session-123',
       data: { status: 'error' }
     };
 
@@ -292,7 +292,7 @@ describe('AnimatedEventCard Component', () => {
       id: 'event-session',
       timestamp: '2024-01-15T14:30:45.123Z',
       type: 'session',
-      sessionId: 'session-123',
+      session_id: 'session-123',
       data: { status: 'success' }
     };
 
