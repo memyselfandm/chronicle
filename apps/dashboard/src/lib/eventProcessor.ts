@@ -1,4 +1,5 @@
-import { Event, EventType, isValidEventType } from './types';
+import { Event } from '@/types/events';
+import { EventType, isValidEventType } from '@/types/filters';
 
 /**
  * Sensitive data keys that should be redacted
@@ -120,7 +121,7 @@ export const validateEventData = (event: any): event is Event => {
     return false;
   }
 
-  if (!isValidEventType(event.type)) {
+  if (!isValidEventType(event.event_type)) {
     return false;
   }
 

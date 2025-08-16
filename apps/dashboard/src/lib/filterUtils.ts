@@ -10,7 +10,7 @@ import { Event } from '@/types/events';
  */
 export function formatEventType(eventType: EventType): string {
   return eventType
-    .replace('_', ' ')
+    .replace(/_/g, ' ')
     .replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
@@ -29,7 +29,7 @@ export function eventMatchesFilter(event: Event, filters: FilterState): boolean 
   }
 
   // Check if the event type is in the selected filter types
-  return filters.eventTypes.includes(event.type);
+  return filters.eventTypes.includes(event.event_type);
 }
 
 /**
@@ -50,7 +50,7 @@ export function getUniqueEventTypes(events: Event[]): EventType[] {
   const uniqueTypes = new Set<EventType>();
   
   events.forEach(event => {
-    uniqueTypes.add(event.type);
+    uniqueTypes.add(event.event_type);
   });
 
   return Array.from(uniqueTypes).sort();
@@ -63,7 +63,7 @@ export function countEventsByType(events: Event[]): Record<EventType, number> {
   const counts: Partial<Record<EventType, number>> = {};
 
   events.forEach(event => {
-    counts[event.type] = (counts[event.type] || 0) + 1;
+    counts[event.event_type] = (counts[event.event_type] || 0) + 1;
   });
 
   return counts as Record<EventType, number>;

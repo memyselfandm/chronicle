@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, REALTIME_CONFIG } from '../lib/supabase';
-import { Event, FilterState } from '../lib/types';
+import { Event } from '@/types/events';
+import { FilterState } from '@/types/filters';
 
 interface UseEventsState {
   events: Event[];

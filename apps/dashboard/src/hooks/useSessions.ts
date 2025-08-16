@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Session } from '../lib/types';
+import { Session } from '@/types/events';
 
 interface SessionSummary {
   session_id: string;
