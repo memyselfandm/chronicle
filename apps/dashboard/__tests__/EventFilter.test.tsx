@@ -5,10 +5,10 @@ import { FilterState } from '@/types/filters';
 
 // Mock event types for testing
 const mockEventTypes: Array<import('@/types/filters').EventType> = [
-  'tool_use',
-  'prompt',
-  'session',
-  'lifecycle',
+  'post_tool_use',
+  'user_prompt_submit',
+  'session_start',
+  'pre_tool_use',
   'error'
 ];
 
@@ -95,11 +95,11 @@ describe('EventFilter', () => {
       />
     );
 
-    const toolUseCheckbox = screen.getByLabelText(/tool use/i);
+    const toolUseCheckbox = screen.getByLabelText(/post tool use/i);
     await user.click(toolUseCheckbox);
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({
-      eventTypes: ['tool_use'],
+      eventTypes: ['post_tool_use'],
       showAll: false
     });
   });
@@ -109,17 +109,17 @@ describe('EventFilter', () => {
     
     render(
       <EventFilter
-        filters={{ eventTypes: ['tool_use'], showAll: false }}
+        filters={{ eventTypes: ['post_tool_use'], showAll: false }}
         onFilterChange={mockOnFilterChange}
         availableEventTypes={mockEventTypes}
       />
     );
 
-    const promptCheckbox = screen.getByLabelText(/prompt/i);
+    const promptCheckbox = screen.getByLabelText(/user prompt submit/i);
     await user.click(promptCheckbox);
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({
-      eventTypes: ['tool_use', 'prompt'],
+      eventTypes: ['post_tool_use', 'user_prompt_submit'],
       showAll: false
     });
   });
@@ -129,17 +129,17 @@ describe('EventFilter', () => {
     
     render(
       <EventFilter
-        filters={{ eventTypes: ['tool_use', 'prompt'], showAll: false }}
+        filters={{ eventTypes: ['post_tool_use', 'user_prompt_submit'], showAll: false }}
         onFilterChange={mockOnFilterChange}
         availableEventTypes={mockEventTypes}
       />
     );
 
-    const toolUseCheckbox = screen.getByLabelText(/tool use/i);
+    const toolUseCheckbox = screen.getByLabelText(/post tool use/i);
     await user.click(toolUseCheckbox);
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({
-      eventTypes: ['prompt'],
+      eventTypes: ['user_prompt_submit'],
       showAll: false
     });
   });
@@ -153,7 +153,7 @@ describe('EventFilter', () => {
       />
     );
 
-    const toolUseCheckbox = screen.getByLabelText(/tool use/i);
+    const toolUseCheckbox = screen.getByLabelText(/post tool use/i);
     expect(toolUseCheckbox).toBeDisabled();
   });
 
@@ -190,11 +190,11 @@ describe('EventFilter', () => {
       />
     );
 
-    const toolUseCheckbox = screen.getByLabelText(/tool use/i);
+    const toolUseCheckbox = screen.getByLabelText(/post tool use/i);
     await user.click(toolUseCheckbox);
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({
-      eventTypes: ['tool_use'],
+      eventTypes: ['post_tool_use'],
       showAll: false
     });
   });
@@ -204,13 +204,13 @@ describe('EventFilter', () => {
     
     render(
       <EventFilter
-        filters={{ eventTypes: ['tool_use'], showAll: false }}
+        filters={{ eventTypes: ['post_tool_use'], showAll: false }}
         onFilterChange={mockOnFilterChange}
         availableEventTypes={mockEventTypes}
       />
     );
 
-    const toolUseCheckbox = screen.getByLabelText(/tool use/i);
+    const toolUseCheckbox = screen.getByLabelText(/post tool use/i);
     await user.click(toolUseCheckbox);
 
     expect(mockOnFilterChange).toHaveBeenCalledWith({
@@ -265,12 +265,12 @@ describe('EventFilter', () => {
     );
 
     expect(screen.getByLabelText(/show all/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/tool use/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/post tool use/i)).not.toBeInTheDocument();
   });
 
   it('reflects current filter state correctly', () => {
     const filtersWithSelection: FilterState = {
-      eventTypes: ['tool_use', 'error'],
+      eventTypes: ['post_tool_use', 'error'],
       showAll: false
     };
 
@@ -283,9 +283,9 @@ describe('EventFilter', () => {
     );
 
     expect(screen.getByLabelText(/show all/i)).not.toBeChecked();
-    expect(screen.getByLabelText(/tool use/i)).toBeChecked();
+    expect(screen.getByLabelText(/post tool use/i)).toBeChecked();
     expect(screen.getByLabelText(/error/i)).toBeChecked();
-    expect(screen.getByLabelText(/prompt/i)).not.toBeChecked();
+    expect(screen.getByLabelText(/user prompt submit/i)).not.toBeChecked();
   });
 
   it('formats event type labels correctly', () => {
@@ -293,11 +293,11 @@ describe('EventFilter', () => {
       <EventFilter
         filters={mockInitialFilters}
         onFilterChange={mockOnFilterChange}
-        availableEventTypes={['tool_use', 'prompt']}
+        availableEventTypes={['post_tool_use', 'user_prompt_submit']}
       />
     );
 
-    expect(screen.getByLabelText(/tool use/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/prompt/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/post tool use/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/user prompt submit/i)).toBeInTheDocument();
   });
 });

@@ -15,47 +15,50 @@ Object.assign(navigator, {
 const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
 const mockToolUseEvent: Event = {
-  id: 'event-123',
-  type: 'tool_use',
+  id: crypto.randomUUID(),
+  event_type: 'post_tool_use',
   timestamp: '2024-01-15T14:30:45.123Z',
-  session_id: 'session-abc123',
-  status: 'success',
-  data: {
-    tool_name: 'Read',
+  session_id: crypto.randomUUID(),
+  tool_name: 'Read',
+  duration_ms: 150,
+  metadata: {
+    status: 'success',
     parameters: { 
       file_path: '/path/to/file.ts' 
     },
-    result: 'File content loaded successfully',
-    duration_ms: 150
-  }
+    result: 'File content loaded successfully'
+  },
+  created_at: '2024-01-15T14:30:45.123Z'
 };
 
 const mockPromptEvent: Event = {
-  id: 'event-456',
-  type: 'prompt',
+  id: crypto.randomUUID(),
+  event_type: 'user_prompt_submit',
   timestamp: '2024-01-15T14:32:15.456Z',
-  session_id: 'session-abc123',
-  status: 'success',
-  data: {
+  session_id: crypto.randomUUID(),
+  metadata: {
+    status: 'success',
     prompt_type: 'user',
     content: 'Please help me debug this code',
     token_count: 42,
     model: 'claude-3-opus'
-  }
+  },
+  created_at: '2024-01-15T14:32:15.456Z'
 };
 
 const mockErrorEvent: Event = {
-  id: 'event-789',
-  type: 'error',
+  id: crypto.randomUUID(),
+  event_type: 'error',
   timestamp: '2024-01-15T14:35:22.789Z',
-  session_id: 'session-abc123',
-  status: 'error',
-  data: {
+  session_id: crypto.randomUUID(),
+  metadata: {
+    status: 'error',
     error_type: 'FileNotFoundError',
     error_message: 'File not found: /missing/file.ts',
     stack_trace: 'FileNotFoundError: File not found\n  at readFile (line 10)',
     context: { attempted_path: '/missing/file.ts' }
-  }
+  },
+  created_at: '2024-01-15T14:35:22.789Z'
 };
 
 const mockSessionContext = {
@@ -68,16 +71,17 @@ const mockRelatedEvents: Event[] = [
   mockToolUseEvent,
   mockPromptEvent,
   {
-    id: 'event-999',
-    type: 'session',
+    id: crypto.randomUUID(),
+    event_type: 'session_start',
     timestamp: '2024-01-15T14:28:00.000Z',
-    session_id: 'session-abc123',
-    status: 'success',
-    data: {
+    session_id: crypto.randomUUID(),
+    metadata: {
+      status: 'success',
       action: 'start',
       project_name: 'test-project',
       project_path: '/Users/test/my-project'
-    }
+    },
+    created_at: '2024-01-15T14:28:00.000Z'
   }
 ];
 
@@ -107,7 +111,7 @@ describe('EventDetailModal Component', () => {
     );
 
     expect(screen.getByText('Event Details')).toBeInTheDocument();
-    expect(screen.getByText('tool use')).toBeInTheDocument();
+    expect(screen.getByText('post tool use')).toBeInTheDocument();
     expect(screen.getByText('success')).toBeInTheDocument();
     expect(screen.getByText(mockToolUseEvent.id)).toBeInTheDocument();
     expect(screen.getByText(mockToolUseEvent.session_id)).toBeInTheDocument();
@@ -160,11 +164,11 @@ describe('EventDetailModal Component', () => {
       />
     );
 
-    // tool_use should be green (success)
-    let badge = screen.getByText('tool use');
+    // post_tool_use should be green (success)
+    let badge = screen.getByText('post tool use');
     expect(badge).toBeInTheDocument();
 
-    // prompt should be blue (info)
+    // user_prompt_submit should be blue (info)
     rerender(
       <EventDetailModal
         event={mockPromptEvent}
@@ -172,7 +176,7 @@ describe('EventDetailModal Component', () => {
         onClose={jest.fn()}
       />
     );
-    badge = screen.getByText('prompt');
+    badge = screen.getByText('user prompt submit');
     expect(badge).toBeInTheDocument();
 
     // error should be red (destructive)
@@ -254,7 +258,7 @@ describe('EventDetailModal Component', () => {
 
     expect(screen.getByText('Full Event')).toBeInTheDocument();
     expect(screen.getByText('"id"')).toBeInTheDocument();
-    expect(screen.getByText('"type"')).toBeInTheDocument();
+    expect(screen.getByText('"event_type"')).toBeInTheDocument();
     expect(screen.getByText('"timestamp"')).toBeInTheDocument();
   });
 
@@ -274,7 +278,7 @@ describe('EventDetailModal Component', () => {
     await user.click(copyButton);
 
     expect(mockClipboard.writeText).toHaveBeenCalledWith(
-      JSON.stringify(mockToolUseEvent.data, null, 2)
+      JSON.stringify(mockToolUseEvent.metadata, null, 2)
     );
 
     // Check for "Copied!" feedback
@@ -360,9 +364,9 @@ describe('EventDetailModal Component', () => {
     expect(screen.getByText('Other events from the same session')).toBeInTheDocument();
     
     // Check that related events are displayed
-    expect(screen.getByText('tool_use')).toBeInTheDocument();
-    expect(screen.getByText('prompt')).toBeInTheDocument();
-    expect(screen.getByText('session')).toBeInTheDocument();
+    expect(screen.getByText('post_tool_use')).toBeInTheDocument();
+    expect(screen.getByText('user_prompt_submit')).toBeInTheDocument();
+    expect(screen.getByText('session_start')).toBeInTheDocument();
   });
 
   it('highlights current event in related events list', () => {
@@ -472,8 +476,8 @@ describe('EventDetailModal Component', () => {
   it('handles complex nested objects in JSON viewer', () => {
     const complexEvent: Event = {
       ...mockToolUseEvent,
-      data: {
-        tool_name: 'ComplexTool',
+      tool_name: 'ComplexTool',
+      metadata: {
         parameters: {
           nested: {
             deep: {
@@ -507,8 +511,8 @@ describe('EventDetailModal Component', () => {
     
     const nestedEvent: Event = {
       ...mockToolUseEvent,
-      data: {
-        tool_name: 'Test',
+      tool_name: 'Test',
+      metadata: {
         nested_object: {
           key1: 'value1',
           key2: 'value2'
@@ -544,7 +548,7 @@ describe('EventDetailModal Component', () => {
   it('formats timestamp strings with human-readable dates', () => {
     const timestampEvent: Event = {
       ...mockToolUseEvent,
-      data: {
+      metadata: {
         created_at: '2024-01-15T14:30:45.123Z',
         updated_at: '2024-01-15T15:45:30.456Z'
       }
@@ -608,8 +612,8 @@ describe('EventDetailModal Component', () => {
   it('handles events with array data types', () => {
     const arrayEvent: Event = {
       ...mockToolUseEvent,
-      data: {
-        tool_name: 'ArrayTool',
+      tool_name: 'ArrayTool',
+      metadata: {
         items: ['item1', 'item2', 'item3'],
         numbers: [1, 2, 3, 4, 5]
       }

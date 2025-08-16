@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useEvents } from '../src/hooks/useEvents';
 import { supabase } from '../src/lib/supabase';
-import { EventType } from '../src/lib/types';
+import { EventType } from '../src/types/filters';
 
 // Mock Supabase
 jest.mock('../src/lib/supabase', () => ({
@@ -52,11 +52,11 @@ describe('useEvents Hook', () => {
   it('should fetch initial events on mount', async () => {
     const mockEvents = [
       {
-        id: '1',
-        session_id: 'session-1',
-        type: EventType.PROMPT,
+        id: crypto.randomUUID(),
+        session_id: crypto.randomUUID(),
+        event_type: 'user_prompt_submit',
         timestamp: new Date('2024-01-01T00:00:00Z'),
-        data: { message: 'test' },
+        metadata: { message: 'test' },
         created_at: new Date('2024-01-01T00:00:00Z'),
       },
     ];
@@ -104,11 +104,11 @@ describe('useEvents Hook', () => {
   it('should add new events from real-time subscription', async () => {
     const initialEvents = [
       {
-        id: '1',
-        session_id: 'session-1',
-        type: EventType.PROMPT,
+        id: crypto.randomUUID(),
+        session_id: crypto.randomUUID(),
+        event_type: 'user_prompt_submit',
         timestamp: new Date('2024-01-01T00:00:00Z'),
-        data: { message: 'initial' },
+        metadata: { message: 'initial' },
         created_at: new Date('2024-01-01T00:00:00Z'),
       },
     ];
@@ -123,11 +123,13 @@ describe('useEvents Hook', () => {
 
     // Simulate real-time event
     const newEvent = {
-      id: '2',
-      session_id: 'session-1',
-      type: EventType.TOOL_USE,
+      id: crypto.randomUUID(),
+      session_id: crypto.randomUUID(),
+      event_type: 'post_tool_use',
+      tool_name: 'read_file',
+      duration_ms: 150,
       timestamp: new Date('2024-01-01T01:00:00Z'),
-      data: { tool_name: 'read_file' },
+      metadata: { status: 'success' },
       created_at: new Date('2024-01-01T01:00:00Z'),
     };
 
@@ -145,11 +147,11 @@ describe('useEvents Hook', () => {
   it('should prevent duplicate events', async () => {
     const initialEvents = [
       {
-        id: '1',
-        session_id: 'session-1',
-        type: EventType.PROMPT,
+        id: crypto.randomUUID(),
+        session_id: crypto.randomUUID(),
+        event_type: 'user_prompt_submit',
         timestamp: new Date('2024-01-01T00:00:00Z'),
-        data: { message: 'test' },
+        metadata: { message: 'test' },
         created_at: new Date('2024-01-01T00:00:00Z'),
       },
     ];
@@ -214,19 +216,21 @@ describe('useEvents Hook', () => {
   it('should sort events by timestamp (newest first)', async () => {
     const mockEvents = [
       {
-        id: '1',
-        session_id: 'session-1',
-        type: EventType.PROMPT,
+        id: crypto.randomUUID(),
+        session_id: crypto.randomUUID(),
+        event_type: 'user_prompt_submit',
         timestamp: new Date('2024-01-01T00:00:00Z'),
-        data: { message: 'older' },
+        metadata: { message: 'older' },
         created_at: new Date('2024-01-01T00:00:00Z'),
       },
       {
-        id: '2',
-        session_id: 'session-1',
-        type: EventType.TOOL_USE,
+        id: crypto.randomUUID(),
+        session_id: crypto.randomUUID(),
+        event_type: 'post_tool_use',
+        tool_name: 'Edit',
+        duration_ms: 200,
         timestamp: new Date('2024-01-01T02:00:00Z'),
-        data: { message: 'newer' },
+        metadata: { message: 'newer' },
         created_at: new Date('2024-01-01T02:00:00Z'),
       },
     ];
@@ -239,7 +243,7 @@ describe('useEvents Hook', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.events[0].id).toBe('2'); // Newer event first
-    expect(result.current.events[1].id).toBe('1'); // Older event second
+    expect(result.current.events[0].event_type).toBe('post_tool_use'); // Newer event first
+    expect(result.current.events[1].event_type).toBe('user_prompt_submit'); // Older event second
   });
 });

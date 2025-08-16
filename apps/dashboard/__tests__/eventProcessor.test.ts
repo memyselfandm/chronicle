@@ -7,20 +7,21 @@ import {
   batchEvents,
   EventProcessor,
 } from '../src/lib/eventProcessor';
-import { Event, EventType } from '../src/lib/types';
+import { Event } from '../src/types/events';
 
 describe('Event Processor', () => {
   const mockEvent: Event = {
-    id: '1',
-    session_id: 'session-1',
-    type: EventType.TOOL_USE,
-    timestamp: new Date('2024-01-01T00:00:00Z'),
-    data: {
-      tool_name: 'read_file',
+    id: crypto.randomUUID(),
+    session_id: crypto.randomUUID(),
+    event_type: 'post_tool_use',
+    tool_name: 'read_file',
+    duration_ms: 150,
+    timestamp: '2024-01-01T00:00:00Z',
+    metadata: {
       parameters: { file_path: '/sensitive/path.txt' },
       result: { success: true, content: 'secret data' },
     },
-    created_at: new Date('2024-01-01T00:00:00Z'),
+    created_at: '2024-01-01T00:00:00Z',
   };
 
   describe('processEvent', () => {
@@ -28,12 +29,12 @@ describe('Event Processor', () => {
       const processed = processEvent(mockEvent);
 
       expect(processed.id).toBe(mockEvent.id);
-      expect(processed.type).toBe(mockEvent.type);
-      expect(processed.data).toBeDefined();
+      expect(processed.event_type).toBe(mockEvent.event_type);
+      expect(processed.metadata).toBeDefined();
     });
 
     it('should handle invalid events gracefully', () => {
-      const invalidEvent = { ...mockEvent, type: 'invalid_type' as any };
+      const invalidEvent = { ...mockEvent, event_type: 'invalid_type' as any };
       const processed = processEvent(invalidEvent);
 
       expect(processed).toBeNull();
@@ -105,7 +106,7 @@ describe('Event Processor', () => {
     });
 
     it('should reject events with invalid event types', () => {
-      const invalidEvent = { ...mockEvent, type: 'invalid_type' as any };
+      const invalidEvent = { ...mockEvent, event_type: 'invalid_type' as any };
 
       expect(validateEventData(invalidEvent)).toBe(false);
     });
@@ -115,15 +116,15 @@ describe('Event Processor', () => {
     it('should group events by session_id', () => {
       const events: Event[] = [
         { ...mockEvent, session_id: 'session-1' },
-        { ...mockEvent, id: '2', session_id: 'session-2' },
-        { ...mockEvent, id: '3', session_id: 'session-1' },
+        { ...mockEvent, id: crypto.randomUUID(), session_id: crypto.randomUUID() },
+        { ...mockEvent, id: crypto.randomUUID(), session_id: mockEvent.session_id },
       ];
 
       const grouped = groupEventsBySession(events);
 
       expect(grouped.size).toBe(2);
-      expect(grouped.get('session-1')).toHaveLength(2);
-      expect(grouped.get('session-2')).toHaveLength(1);
+      expect(grouped.get(mockEvent.session_id)).toHaveLength(2);
+      expect(grouped.has(mockEvent.session_id)).toBe(true);
     });
 
     it('should handle empty events array', () => {
@@ -137,14 +138,14 @@ describe('Event Processor', () => {
     it('should remove duplicate events by id', () => {
       const events: Event[] = [
         mockEvent,
-        { ...mockEvent, data: { different: 'data' } }, // Same ID
-        { ...mockEvent, id: '2' },
+        { ...mockEvent, metadata: { different: 'data' } }, // Same ID
+        { ...mockEvent, id: crypto.randomUUID() },
       ];
 
       const deduplicated = deduplicateEvents(events);
 
       expect(deduplicated).toHaveLength(2);
-      expect(deduplicated.find(e => e.id === '1')).toBe(mockEvent); // First occurrence kept
+      expect(deduplicated.find(e => e.id === mockEvent.id)).toBe(mockEvent); // First occurrence kept
     });
 
     it('should handle empty array', () => {
@@ -184,7 +185,7 @@ describe('Event Processor', () => {
 
       expect(batchProcessor).toHaveBeenCalledWith([
         mockEvent,
-        { ...mockEvent, id: '2' },
+        { ...mockEvent, id: crypto.randomUUID() },
       ]);
     });
 
@@ -208,8 +209,8 @@ describe('Event Processor', () => {
     it('should process events with transformation and sanitization', () => {
       const rawEvent = {
         ...mockEvent,
-        data: {
-          tool_name: 'write_file',
+        tool_name: 'write_file',
+        metadata: {
           parameters: { content: 'test', password: 'secret' },
         },
       };
@@ -217,7 +218,7 @@ describe('Event Processor', () => {
       const processed = processor.process(rawEvent);
 
       expect(processed).toBeDefined();
-      expect(processed!.data.parameters.password).toBe('[REDACTED]');
+      expect(processed!.metadata.parameters.password).toBe('[REDACTED]');
     });
 
     it('should reject invalid events', () => {
@@ -242,8 +243,8 @@ describe('Event Processor', () => {
     it('should provide batch processing', () => {
       const events = [
         mockEvent,
-        { ...mockEvent, id: '2' },
-        { ...mockEvent, id: '3' },
+        { ...mockEvent, id: crypto.randomUUID() },
+        { ...mockEvent, id: crypto.randomUUID() },
       ];
 
       const processed = processor.processBatch(events);

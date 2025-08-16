@@ -23,7 +23,7 @@ describe('EventFeed Component', () => {
   const mockEvents: EventData[] = [
     createMockEventWithProps({
       id: 'event-1',
-      type: 'tool_use',
+      type: 'post_tool_use',
       summary: 'Reading configuration file',
       session_id: 'session-123',
       toolName: 'Read',
@@ -35,8 +35,8 @@ describe('EventFeed Component', () => {
     }),
     createMockEventWithProps({
       id: 'event-2',
-      type: 'success',
-      summary: 'File operation completed',
+      type: 'user_prompt_submit',
+      summary: 'User submitted prompt',
       session_id: 'session-456',
       timestamp: new Date('2024-01-01T11:59:00Z')
     }),
@@ -64,7 +64,7 @@ describe('EventFeed Component', () => {
       
       // Check events are rendered
       expect(screen.getByText('Reading configuration file')).toBeInTheDocument();
-      expect(screen.getByText('File operation completed')).toBeInTheDocument();
+      expect(screen.getByText('User submitted prompt')).toBeInTheDocument();
       expect(screen.getByText('Failed to read file')).toBeInTheDocument();
     });
 
@@ -111,13 +111,13 @@ describe('EventFeed Component', () => {
     it('displays different event types with correct badges', () => {
       render(<EventFeed events={mockEvents} />);
       
-      // Tool use event should have info badge
+      // Post tool use event should have success badge
       const toolEvent = screen.getByTestId('event-card-event-1');
-      expect(within(toolEvent).getByTestId('event-badge')).toHaveClass('bg-accent-blue');
+      expect(within(toolEvent).getByTestId('event-badge')).toHaveClass('bg-accent-green');
       
-      // Success event should have success badge
-      const successEvent = screen.getByTestId('event-card-event-2');
-      expect(within(successEvent).getByTestId('event-badge')).toHaveClass('bg-accent-green');
+      // User prompt submit event should have info badge
+      const promptEvent = screen.getByTestId('event-card-event-2');
+      expect(within(promptEvent).getByTestId('event-badge')).toHaveClass('bg-accent-blue');
       
       // Error event should have error badge
       const errorEvent = screen.getByTestId('event-card-event-3');
@@ -135,7 +135,7 @@ describe('EventFeed Component', () => {
     it('handles events without optional fields gracefully', () => {
       const minimalEvent = createMockEventWithProps({
         id: 'minimal-1',
-        type: 'lifecycle',
+        type: 'session_start',
         summary: 'Session started',
         session_id: 'session-789',
         timestamp: new Date(),

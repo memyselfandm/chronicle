@@ -5,48 +5,54 @@ import { EventCard } from '@/components/EventCard';
 interface Event {
   id: string;
   timestamp: string;
-  type: 'prompt' | 'tool_use' | 'session';
+  event_type: 'session_start' | 'pre_tool_use' | 'post_tool_use' | 'user_prompt_submit' | 'stop' | 'subagent_stop' | 'pre_compact' | 'notification' | 'error';
   session_id: string;
-  data: {
-    tool_name?: string;
+  tool_name?: string;
+  duration_ms?: number;
+  metadata: {
     status?: 'success' | 'error' | 'pending';
     [key: string]: any;
   };
+  created_at: string;
 }
 
 const mockEvent: Event = {
-  id: 'event-123',
+  id: crypto.randomUUID(),
   timestamp: '2024-01-15T14:30:45.123Z',
-  type: 'tool_use',
-  session_id: 'session-abc123def456',
-  data: {
-    tool_name: 'Read',
+  event_type: 'post_tool_use',
+  session_id: crypto.randomUUID(),
+  tool_name: 'Read',
+  duration_ms: 250,
+  metadata: {
     status: 'success',
     parameters: { file_path: '/path/to/file.ts' },
     result: 'File content loaded successfully'
-  }
+  },
+  created_at: '2024-01-15T14:30:45.123Z'
 };
 
 const mockPromptEvent: Event = {
-  id: 'event-456', 
+  id: crypto.randomUUID(), 
   timestamp: '2024-01-15T14:32:15.456Z',
-  type: 'prompt',
-  session_id: 'session-xyz789',
-  data: {
+  event_type: 'user_prompt_submit',
+  session_id: crypto.randomUUID(),
+  metadata: {
     status: 'success',
     content: 'User submitted a prompt'
-  }
+  },
+  created_at: '2024-01-15T14:32:15.456Z'
 };
 
 const mockSessionEvent: Event = {
-  id: 'event-789',
+  id: crypto.randomUUID(),
   timestamp: '2024-01-15T14:35:22.789Z', 
-  type: 'session',
-  session_id: 'session-new456',
-  data: {
+  event_type: 'session_start',
+  session_id: crypto.randomUUID(),
+  metadata: {
     status: 'success',
     action: 'session_start'
-  }
+  },
+  created_at: '2024-01-15T14:35:22.789Z'
 };
 
 describe('EventCard Component', () => {
@@ -67,13 +73,13 @@ describe('EventCard Component', () => {
     const card = screen.getByRole('button');
     expect(card).toBeInTheDocument();
     
-    // Check event type badge with correct color (tool_use = green)
-    const typeBadge = screen.getByText('tool_use');
+    // Check event type badge with correct color (post_tool_use = green)
+    const typeBadge = screen.getByText('post tool use');
     expect(typeBadge).toBeInTheDocument();
     expect(typeBadge.closest('div')).toHaveClass('bg-accent-green');
     
     // Check session ID is displayed and truncated
-    expect(screen.getByText(/session-abc123/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(mockEvent.session_id.substring(0, 8)))).toBeInTheDocument();
     
     // Check tool name is displayed when available
     expect(screen.getByText('Read')).toBeInTheDocument();
@@ -82,18 +88,18 @@ describe('EventCard Component', () => {
   it('displays correct badge colors for different event types', () => {
     const { rerender } = render(<EventCard event={mockEvent} />);
     
-    // tool_use should be green
-    let badge = screen.getByText('tool_use');
+    // post_tool_use should be green
+    let badge = screen.getByText('post tool use');
     expect(badge.closest('div')).toHaveClass('bg-accent-green');
     
-    // prompt should be blue
+    // user_prompt_submit should be blue
     rerender(<EventCard event={mockPromptEvent} />);
-    badge = screen.getByText('prompt');
+    badge = screen.getByText('user prompt submit');
     expect(badge.closest('div')).toHaveClass('bg-accent-blue');
     
-    // session should be purple
+    // session_start should be purple
     rerender(<EventCard event={mockSessionEvent} />);
-    badge = screen.getByText('session');
+    badge = screen.getByText('session start');
     expect(badge.closest('div')).toHaveClass('bg-accent-purple');
   });
 
@@ -156,7 +162,8 @@ describe('EventCard Component', () => {
   it('does not display tool name when not available', () => {
     const eventWithoutTool = {
       ...mockPromptEvent,
-      data: { status: 'success' }
+      tool_name: undefined,
+      metadata: { status: 'success' }
     };
     
     render(<EventCard event={eventWithoutTool} />);
@@ -167,7 +174,7 @@ describe('EventCard Component', () => {
   it('handles events with different statuses', () => {
     const errorEvent = {
       ...mockEvent,
-      data: { ...mockEvent.data, status: 'error' }
+      metadata: { ...mockEvent.metadata, status: 'error' }
     };
     
     render(<EventCard event={errorEvent} />);
@@ -184,10 +191,10 @@ describe('EventCard Component', () => {
     expect(card).toHaveClass('custom-class');
   });
 
-  it('handles events with missing or malformed data gracefully', () => {
+  it('handles events with missing or malformed metadata gracefully', () => {
     const malformedEvent = {
       ...mockEvent,
-      data: null as any
+      metadata: null as any
     };
     
     // Should not crash when rendering
@@ -199,14 +206,14 @@ describe('EventCard Component', () => {
   it('displays event type labels in human-readable format', () => {
     const { rerender } = render(<EventCard event={mockEvent} />);
     
-    // tool_use should be displayed as "tool_use" (keeping original for badge)
-    expect(screen.getByText('tool_use')).toBeInTheDocument();
+    // post_tool_use should be displayed as "post tool use"
+    expect(screen.getByText('post tool use')).toBeInTheDocument();
     
     // Test other event types maintain their format
     rerender(<EventCard event={mockPromptEvent} />);
-    expect(screen.getByText('prompt')).toBeInTheDocument();
+    expect(screen.getByText('user prompt submit')).toBeInTheDocument();
     
     rerender(<EventCard event={mockSessionEvent} />);
-    expect(screen.getByText('session')).toBeInTheDocument();
+    expect(screen.getByText('session start')).toBeInTheDocument();
   });
 });

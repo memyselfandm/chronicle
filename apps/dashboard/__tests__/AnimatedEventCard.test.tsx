@@ -4,24 +4,27 @@ import type { Event } from '@/components/AnimatedEventCard';
 
 // Mock event data
 const mockEvent: Event = {
-  id: 'event-123',
+  id: crypto.randomUUID(),
   timestamp: '2024-01-15T14:30:45.123Z',
-  type: 'tool_use',
-  session_id: 'session-abc123def456',
-  data: {
-    tool_name: 'Read',
+  event_type: 'post_tool_use',
+  session_id: crypto.randomUUID(),
+  tool_name: 'Read',
+  duration_ms: 150,
+  metadata: {
     status: 'success',
-  }
+  },
+  created_at: '2024-01-15T14:30:45.123Z'
 };
 
 const mockPromptEvent: Event = {
-  id: 'event-456',
+  id: crypto.randomUUID(),
   timestamp: '2024-01-15T14:32:15.456Z',
-  type: 'prompt',
-  session_id: 'session-xyz789',
-  data: {
+  event_type: 'user_prompt_submit',
+  session_id: crypto.randomUUID(),
+  metadata: {
     status: 'success',
-  }
+  },
+  created_at: '2024-01-15T14:32:15.456Z'
 };
 
 describe('AnimatedEventCard Component', () => {
@@ -41,10 +44,10 @@ describe('AnimatedEventCard Component', () => {
     expect(card).toBeInTheDocument();
     
     // Check event type badge
-    expect(screen.getByText('tool use')).toBeInTheDocument();
+    expect(screen.getByText('post tool use')).toBeInTheDocument();
     
     // Check session ID is displayed and truncated
-    expect(screen.getByText(/session-abc123/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(mockEvent.session_id.substring(0, 8)))).toBeInTheDocument();
     
     // Check tool name is displayed
     expect(screen.getByText('Read')).toBeInTheDocument();
@@ -53,24 +56,24 @@ describe('AnimatedEventCard Component', () => {
   it('displays correct event type icons', () => {
     const { rerender } = render(<AnimatedEventCard event={mockEvent} />);
     
-    // tool_use should show wrench icon
-    expect(screen.getByLabelText('tool_use event')).toHaveTextContent('🔧');
+    // post_tool_use should show wrench icon
+    expect(screen.getByLabelText('post_tool_use event')).toHaveTextContent('🔧');
     
-    // prompt should show speech bubble icon
+    // user_prompt_submit should show speech bubble icon
     rerender(<AnimatedEventCard event={mockPromptEvent} />);
-    expect(screen.getByLabelText('prompt event')).toHaveTextContent('💬');
+    expect(screen.getByLabelText('user_prompt_submit event')).toHaveTextContent('💬');
   });
 
   it('applies correct badge colors for different event types', () => {
     const { rerender } = render(<AnimatedEventCard event={mockEvent} />);
     
-    // tool_use should be green (success)
-    let badge = screen.getByText('tool use');
+    // post_tool_use should be green (success)
+    let badge = screen.getByText('post tool use');
     expect(badge.closest('div')).toHaveClass('bg-accent-green');
     
-    // prompt should be blue (info)
+    // user_prompt_submit should be blue (info)
     rerender(<AnimatedEventCard event={mockPromptEvent} />);
-    badge = screen.getByText('prompt');
+    badge = screen.getByText('user prompt submit');
     expect(badge.closest('div')).toHaveClass('bg-accent-blue');
   });
 
@@ -259,7 +262,8 @@ describe('AnimatedEventCard Component', () => {
   it('handles events without tool_name gracefully', () => {
     const eventWithoutTool = {
       ...mockEvent,
-      data: { status: 'success' }
+      tool_name: undefined,
+      metadata: { status: 'success' }
     };
     
     render(<AnimatedEventCard event={eventWithoutTool} />);
@@ -268,10 +272,10 @@ describe('AnimatedEventCard Component', () => {
     expect(screen.queryByText('Read')).not.toBeInTheDocument();
   });
 
-  it('handles events with null data gracefully', () => {
+  it('handles events with null metadata gracefully', () => {
     const eventWithNullData = {
       ...mockEvent,
-      data: null
+      metadata: null
     };
     
     expect(() => {
@@ -281,19 +285,21 @@ describe('AnimatedEventCard Component', () => {
 
   it('handles different event types correctly', () => {
     const errorEvent: Event = {
-      id: 'event-error',
+      id: crypto.randomUUID(),
       timestamp: '2024-01-15T14:30:45.123Z',
-      type: 'error',
-      session_id: 'session-123',
-      data: { status: 'error' }
+      event_type: 'error',
+      session_id: crypto.randomUUID(),
+      metadata: { status: 'error' },
+      created_at: '2024-01-15T14:30:45.123Z'
     };
 
     const sessionEvent: Event = {
-      id: 'event-session',
+      id: crypto.randomUUID(),
       timestamp: '2024-01-15T14:30:45.123Z',
-      type: 'session',
-      session_id: 'session-123',
-      data: { status: 'success' }
+      event_type: 'session_start',
+      session_id: crypto.randomUUID(),
+      metadata: { status: 'success' },
+      created_at: '2024-01-15T14:30:45.123Z'
     };
 
     const { rerender } = render(<AnimatedEventCard event={errorEvent} />);
@@ -304,7 +310,7 @@ describe('AnimatedEventCard Component', () => {
     
     // Session event should have purple badge
     rerender(<AnimatedEventCard event={sessionEvent} />);
-    badge = screen.getByText('session');
+    badge = screen.getByText('session start');
     expect(badge.closest('div')).toHaveClass('bg-accent-purple');
   });
 
