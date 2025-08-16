@@ -1,5 +1,23 @@
 {
-  "version": "2.0",
+  "version": "2.1",
+  "description": "Advanced configuration for Chronicle hooks. Environment variables (.env) take precedence over these settings.",
+  "database": {
+    "type": "sqlite",
+    "sqlite": {
+      "path": "~/.claude/hooks_data.db",
+      "timeout": 30
+    },
+    "retry_attempts": 3,
+    "retry_delay": 1.0,
+    "connection_timeout": 10
+  },
+  "logging": {
+    "level": "warning",
+    "file": "~/.claude/hooks.log",
+    "max_file_size_mb": 10,
+    "backup_count": 3,
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
   "features": {
     "enable_metrics": true,
     "enable_validation": true,
@@ -9,7 +27,9 @@
   "performance": {
     "timeout_ms": 100,
     "batch_size": 10,
-    "max_retries": 3
+    "max_retries": 3,
+    "async_operations": true,
+    "connection_pool_size": 4
   },
   "hooks": {
     "session_start": {

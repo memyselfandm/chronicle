@@ -96,7 +96,11 @@ class HookInstaller:
         self.claude_dir = Path(claude_dir)
         self.project_root = Path(project_root) if project_root else Path.cwd()
         
-        # Validate directories
+        # Store source directories for both hooks and lib
+        self.hooks_source_dir = self.hooks_source_dir / "src" / "hooks"
+        self.lib_source_dir = self.hooks_source_dir.parent / "lib"
+        
+        # Validate directories (after path setup)
         self._validate_directories()
         
         # Check UV availability
@@ -120,11 +124,9 @@ class HookInstaller:
         # No helper files needed - hooks are self-contained
         self.helper_files = []
         
-        # Update hooks source directory to point to hooks directory
-        self.hooks_source_dir = self.hooks_source_dir / "src" / "hooks"
-        
         logger.info(f"HookInstaller initialized:")
         logger.info(f"  Hooks source: {self.hooks_source_dir}")
+        logger.info(f"  Lib source: {self.lib_source_dir}")
         logger.info(f"  Claude directory: {self.claude_dir}")
         logger.info(f"  Project root: {self.project_root}")
     
@@ -140,6 +142,13 @@ class HookInstaller:
         
         if not self.hooks_source_dir.is_dir():
             raise InstallationError(f"Hooks source path is not a directory: {self.hooks_source_dir}")
+        
+        # Validate lib directory exists
+        if not self.lib_source_dir.exists():
+            raise InstallationError(f"Lib source directory does not exist: {self.lib_source_dir}")
+        
+        if not self.lib_source_dir.is_dir():
+            raise InstallationError(f"Lib source path is not a directory: {self.lib_source_dir}")
         
         # Create Claude directory if it doesn't exist
         try:
@@ -168,12 +177,14 @@ class HookInstaller:
         # Create chronicle subfolder structure
         chronicle_dir = self.claude_dir / "hooks" / "chronicle"
         hooks_dest_dir = chronicle_dir / "hooks"
+        lib_dest_dir = chronicle_dir / "lib"
         data_dir = chronicle_dir / "data"
         logs_dir = chronicle_dir / "logs"
         
         # Create all necessary directories
         chronicle_dir.mkdir(parents=True, exist_ok=True)
         hooks_dest_dir.mkdir(exist_ok=True)
+        lib_dest_dir.mkdir(exist_ok=True)
         data_dir.mkdir(exist_ok=True)
         logs_dir.mkdir(exist_ok=True)
         
@@ -208,6 +219,11 @@ class HookInstaller:
                 logger.info("Created .env file from template (please update with your values)")
             except Exception as e:
                 logger.warning(f"Failed to create .env file: {e}")
+        
+        # Copy lib directory and all its contents
+        lib_copy_result = self._copy_lib_directory(lib_dest_dir)
+        if not lib_copy_result["success"]:
+            logger.warning(f"Failed to copy lib directory: {lib_copy_result['error']}")
         
         copied_files = []
         errors = []
@@ -346,6 +362,137 @@ CHRONICLE_TIMEOUT_MS=100
             current_mode = file_path.stat().st_mode
             file_path.chmod(current_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
         # On Windows, files are executable by default if they have appropriate extensions
+    
+    def _copy_lib_directory(self, lib_dest_dir: Path) -> Dict[str, Any]:
+        """
+        Copy lib directory and all its contents to the destination.
+        
+        Args:
+            lib_dest_dir: Destination directory for lib files
+            
+        Returns:
+            Dictionary containing copy results
+        """
+        copy_result = {
+            "success": False,
+            "files_copied": 0,
+            "error": None
+        }
+        
+        try:
+            logger.info(f"Copying lib directory from {self.lib_source_dir} to {lib_dest_dir}")
+            
+            # Check if lib source directory exists
+            if not self.lib_source_dir.exists():
+                copy_result["error"] = f"Lib source directory does not exist: {self.lib_source_dir}"
+                return copy_result
+            
+            # Copy all Python files in lib directory
+            lib_files = list(self.lib_source_dir.glob("*.py"))
+            
+            for lib_file in lib_files:
+                dest_file = lib_dest_dir / lib_file.name
+                
+                try:
+                    # Copy file with metadata
+                    shutil.copy2(lib_file, dest_file)
+                    
+                    # Ensure executable permissions for .py files
+                    self._make_executable(dest_file)
+                    
+                    copy_result["files_copied"] += 1
+                    logger.info(f"Copied lib file: {lib_file.name}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to copy lib file {lib_file.name}: {e}")
+                    # Continue with other files rather than failing completely
+            
+            if copy_result["files_copied"] > 0:
+                copy_result["success"] = True
+                logger.info(f"Successfully copied {copy_result['files_copied']} lib files")
+            else:
+                copy_result["error"] = "No lib files found to copy"
+                
+        except Exception as e:
+            copy_result["error"] = f"Failed to copy lib directory: {e}"
+            logger.error(copy_result["error"])
+        
+        return copy_result
+    
+    def _test_lib_imports(self, chronicle_dir: Path) -> Dict[str, Any]:
+        """
+        Test that lib modules can be imported correctly by simulating hook execution environment.
+        
+        Args:
+            chronicle_dir: Path to the chronicle installation directory
+            
+        Returns:
+            Dictionary containing test results
+        """
+        test_result = {
+            "success": False,
+            "modules_tested": 0,
+            "errors": []
+        }
+        
+        try:
+            # Test by creating a simple script that mimics hook import behavior
+            hooks_dir = chronicle_dir / "hooks"
+            lib_dir = chronicle_dir / "lib"
+            
+            if not lib_dir.exists():
+                test_result["errors"].append("Lib directory does not exist")
+                return test_result
+            
+            # Test each expected lib module
+            expected_modules = ["database", "base_hook", "utils"]
+            
+            for module_name in expected_modules:
+                module_file = lib_dir / f"{module_name}.py"
+                if not module_file.exists():
+                    test_result["errors"].append(f"Module file missing: {module_name}.py")
+                    continue
+                
+                # Test basic syntax by attempting to compile the module
+                try:
+                    with open(module_file, 'r') as f:
+                        module_code = f.read()
+                    
+                    # Check if the module can be compiled (basic syntax check)
+                    compile(module_code, str(module_file), 'exec')
+                    test_result["modules_tested"] += 1
+                    logger.debug(f"Lib module syntax check passed: {module_name}")
+                    
+                except SyntaxError as e:
+                    test_result["errors"].append(f"Syntax error in {module_name}.py: {e}")
+                except Exception as e:
+                    test_result["errors"].append(f"Error testing {module_name}.py: {e}")
+            
+            # Test that __init__.py exists and is valid
+            init_file = lib_dir / "__init__.py"
+            if init_file.exists():
+                try:
+                    with open(init_file, 'r') as f:
+                        init_code = f.read()
+                    compile(init_code, str(init_file), 'exec')
+                    logger.debug("Lib __init__.py syntax check passed")
+                except Exception as e:
+                    test_result["errors"].append(f"Error in __init__.py: {e}")
+            else:
+                test_result["errors"].append("Missing __init__.py in lib directory")
+            
+            # If we tested all expected modules without errors, mark as success
+            if test_result["modules_tested"] == len(expected_modules) and not test_result["errors"]:
+                test_result["success"] = True
+                logger.info(f"Lib import test passed: {test_result['modules_tested']} modules validated")
+            else:
+                logger.warning(f"Lib import test had issues: {len(test_result['errors'])} errors")
+                
+        except Exception as e:
+            test_result["errors"].append(f"Failed to test lib imports: {e}")
+            logger.error(f"Lib import testing failed: {e}")
+        
+        return test_result
     
     def update_settings_file(self) -> None:
         """
@@ -579,13 +726,16 @@ CHRONICLE_TIMEOUT_MS=100
         # Check chronicle subfolder structure
         chronicle_dir = self.claude_dir / "hooks" / "chronicle"
         hooks_dir = chronicle_dir / "hooks"
+        lib_dir = chronicle_dir / "lib"
         settings_path = self.claude_dir / "settings.json"
         
         validation_result = {
             "success": True,
             "hooks_copied": 0,
+            "lib_files_copied": 0,
             "settings_updated": False,
             "executable_hooks": 0,
+            "lib_import_test_passed": False,
             "errors": []
         }
         
@@ -617,6 +767,25 @@ CHRONICLE_TIMEOUT_MS=100
                         validation_result["errors"].append(f"UV execution test failed for {hook_file}: {e}")
                 else:
                     validation_result["errors"].append(f"Hook not executable: {hook_file}")
+        
+        # Check lib files
+        expected_lib_files = ["__init__.py", "base_hook.py", "database.py", "utils.py"]
+        for lib_file in expected_lib_files:
+            lib_path = lib_dir / lib_file
+            if lib_path.exists():
+                validation_result["lib_files_copied"] += 1
+                
+                # Check if file is readable
+                if not validate_hook_permissions(str(lib_path)):
+                    validation_result["errors"].append(f"Lib file not accessible: {lib_file}")
+            else:
+                validation_result["errors"].append(f"Missing lib file: {lib_file}")
+        
+        # Test lib import functionality (critical test)
+        lib_import_result = self._test_lib_imports(chronicle_dir)
+        validation_result["lib_import_test_passed"] = lib_import_result["success"]
+        if not lib_import_result["success"]:
+            validation_result["errors"].extend(lib_import_result["errors"])
             
         # Check settings file
         if settings_path.exists():
