@@ -19,6 +19,8 @@ interface UseSessionsState {
   retry: () => Promise<void>;
   getSessionDuration: (session: Session) => number | null;
   getSessionSuccessRate: (sessionId: string) => number | null;
+  isSessionActive: (sessionId: string) => Promise<boolean>;
+  updateSessionEndTimes: () => Promise<void>;
 }
 
 /**
@@ -53,7 +55,7 @@ export const useSessions = (): UseSessionsState => {
       for (const sessionId of sessionIds) {
         const { data: events, error: eventsError } = await supabase
           .from('chronicle_events')
-          .select('type, data, timestamp')
+          .select('event_type, metadata, timestamp, duration_ms')
           .eq('session_id', sessionId);
 
         if (eventsError) {
@@ -62,18 +64,20 @@ export const useSessions = (): UseSessionsState => {
         }
 
         const totalEvents = events?.length || 0;
-        const toolUsageCount = events?.filter(e => e.type === 'tool_use').length || 0;
+        const toolUsageCount = events?.filter(e => 
+          e.event_type === 'pre_tool_use' || e.event_type === 'post_tool_use'
+        ).length || 0;
         const errorCount = events?.filter(e => 
-          e.data?.success === false || e.data?.error
+          e.event_type === 'error' || e.metadata?.success === false || e.metadata?.error
         ).length || 0;
 
-        // Calculate average response time from tool_use events
+        // Calculate average response time from post_tool_use events
         const toolEvents = events?.filter(e => 
-          e.type === 'tool_use' && e.data?.duration_ms
+          e.event_type === 'post_tool_use' && (e.duration_ms || e.metadata?.duration_ms)
         ) || [];
         
         const avgResponseTime = toolEvents.length > 0
-          ? toolEvents.reduce((sum, e) => sum + (e.data.duration_ms || 0), 0) / toolEvents.length
+          ? toolEvents.reduce((sum, e) => sum + (e.duration_ms || e.metadata?.duration_ms || 0), 0) / toolEvents.length
           : null;
 
         summaries.push({
@@ -165,17 +169,84 @@ export const useSessions = (): UseSessionsState => {
   /**
    * Retry function for error recovery
    */
+  /**
+   * Updates session end times based on stop events
+   */
+  const updateSessionEndTimes = useCallback(async (): Promise<void> => {
+    try {
+      // Find sessions without end_time that might have stop events
+      const openSessions = sessions.filter(s => !s.end_time);
+      
+      for (const session of openSessions) {
+        const { data: stopEvents, error: stopError } = await supabase
+          .from('chronicle_events')
+          .select('timestamp, event_type')
+          .eq('session_id', session.id)
+          .in('event_type', ['stop', 'subagent_stop'])
+          .order('timestamp', { ascending: false })
+          .limit(1);
+
+        if (!stopError && stopEvents && stopEvents.length > 0) {
+          // Update session with end_time from stop event
+          const { error: updateError } = await supabase
+            .from('chronicle_sessions')
+            .update({ end_time: stopEvents[0].timestamp })
+            .eq('id', session.id);
+
+          if (updateError) {
+            console.warn(`Failed to update end_time for session ${session.id}:`, updateError);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error updating session end times:', err);
+    }
+  }, [sessions]);
+
   const retry = useCallback(async (): Promise<void> => {
     await fetchSessions();
-  }, [fetchSessions]);
+    await updateSessionEndTimes();
+  }, [fetchSessions, updateSessionEndTimes]);
 
-  // Computed values
-  const activeSessions = sessions.filter(session => session.status === 'active');
+  /**
+   * Determines if a session is active based on events
+   */
+  const isSessionActive = useCallback(async (sessionId: string): Promise<boolean> => {
+    try {
+      // Check for stop events
+      const { data: stopEvents, error: stopError } = await supabase
+        .from('chronicle_events')
+        .select('event_type')
+        .eq('session_id', sessionId)
+        .in('event_type', ['stop', 'subagent_stop'])
+        .limit(1);
 
-  // Initial data fetch
+      if (stopError) {
+        console.warn(`Failed to check stop events for session ${sessionId}:`, stopError);
+        return false;
+      }
+
+      // If there are stop events, session is not active
+      return !stopEvents || stopEvents.length === 0;
+    } catch (err) {
+      console.warn(`Error checking session status for ${sessionId}:`, err);
+      return false;
+    }
+  }, []);
+
+  // Computed values - filter sessions based on event lifecycle
+  const activeSessions = sessions.filter(session => {
+    // For now, consider sessions active if they don't have an end_time
+    // This is more efficient than checking events for each session individually
+    return !session.end_time;
+  });
+
+  // Initial data fetch and session end time updates
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+    fetchSessions().then(() => {
+      updateSessionEndTimes();
+    });
+  }, [fetchSessions, updateSessionEndTimes]);
 
   return {
     sessions,
@@ -186,5 +257,7 @@ export const useSessions = (): UseSessionsState => {
     retry,
     getSessionDuration,
     getSessionSuccessRate,
+    isSessionActive,
+    updateSessionEndTimes,
   };
 };
