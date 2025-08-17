@@ -26,8 +26,6 @@ const nextConfig: NextConfig = {
   experimental: {
     // Enable optimization for production
     optimizeCss: isProduction,
-    // Disable in development for faster builds
-    esmExternals: isProduction,
   },
   
   // Security headers
