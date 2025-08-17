@@ -6,6 +6,8 @@ import { EventDetailModal } from './EventDetailModal';
 import { ConnectionStatus } from './ConnectionStatus';
 import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader } from './ui/Card';
+import { StatsGridSkeleton, EventFeedSkeleton } from './ui/Skeleton';
+import { EventFeedErrorBoundary } from './ErrorBoundary';
 import { useEvents } from '@/hooks/useEvents';
 import { useSessions } from '@/hooks/useSessions';
 import type { Event } from '@/types/events';
@@ -123,7 +125,7 @@ export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> =
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-text-primary">
-                Chronicle Dashboard
+                Chronicle Observability
               </h1>
               <p className="text-text-muted">
                 Real-time monitoring of Claude Code tool usage and events
@@ -143,24 +145,28 @@ export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> =
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-text-primary">{stats.totalEvents}</div>
-              <div className="text-sm text-text-muted">Total Events</div>
+          {(eventsLoading && events.length === 0) || (sessionsLoading && sessions.length === 0) ? (
+            <StatsGridSkeleton className="mb-4" />
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-text-primary">{stats.totalEvents}</div>
+                <div className="text-sm text-text-muted">Total Events</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-accent-green">{stats.activeSessionsCount}</div>
+                <div className="text-sm text-text-muted">Active Sessions</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-text-primary">{stats.totalSessions}</div>
+                <div className="text-sm text-text-muted">Total Sessions</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-accent-red">{stats.recentErrors}</div>
+                <div className="text-sm text-text-muted">Recent Errors (24h)</div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-accent-green">{stats.activeSessionsCount}</div>
-              <div className="text-sm text-text-muted">Active Sessions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-text-primary">{stats.totalSessions}</div>
-              <div className="text-sm text-text-muted">Total Sessions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-accent-red">{stats.recentErrors}</div>
-              <div className="text-sm text-text-muted">Recent Errors (24h)</div>
-            </div>
-          </div>
+          )}
           
           <div className="flex gap-3 flex-wrap">
             <Button
@@ -200,65 +206,64 @@ export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> =
           </div>
         </CardHeader>
         <CardContent className="max-h-96 overflow-y-auto space-y-2">
-          {/* Error States */}
-          {eventsError && (
-            <div className="text-center py-8 text-accent-red">
-              <div className="text-4xl mb-2">⚠️</div>
-              <p className="mb-2">Failed to load events</p>
-              <p className="text-sm text-text-muted mb-4">{eventsError.message}</p>
-              <Button onClick={handleRetry} variant="outline" size="sm">
-                Retry
-              </Button>
-            </div>
-          )}
+          <EventFeedErrorBoundary>
+            {/* Error States */}
+            {eventsError && (
+              <div className="text-center py-8 text-accent-red">
+                <div className="text-4xl mb-2">⚠️</div>
+                <p className="mb-2">Failed to load events</p>
+                <p className="text-sm text-text-muted mb-4">{eventsError.message}</p>
+                <Button onClick={handleRetry} variant="outline" size="sm">
+                  Retry
+                </Button>
+              </div>
+            )}
 
-          {/* Loading State */}
-          {eventsLoading && events.length === 0 && (
-            <div className="text-center py-8 text-text-muted">
-              <div className="text-4xl mb-2">⏳</div>
-              <p>Loading events...</p>
-            </div>
-          )}
+            {/* Loading State */}
+            {eventsLoading && events.length === 0 && (
+              <EventFeedSkeleton count={5} />
+            )}
 
-          {/* Empty State */}
-          {!eventsLoading && !eventsError && events.length === 0 && (
-            <div className="text-center py-8 text-text-muted">
-              <div className="text-4xl mb-2">📭</div>
-              <p className="mb-2">No events found</p>
-              <p className="text-sm">
-                Events will appear here when Claude Code tools are used.
-              </p>
-            </div>
-          )}
+            {/* Empty State */}
+            {!eventsLoading && !eventsError && events.length === 0 && (
+              <div className="text-center py-8 text-text-muted">
+                <div className="text-4xl mb-2">📭</div>
+                <p className="mb-2">No events found</p>
+                <p className="text-sm">
+                  Events will appear here when Claude Code tools are used.
+                </p>
+              </div>
+            )}
 
-          {/* Events List */}
-          {events.length > 0 && (
-            <>
-              {events.map((event, index) => (
-                <AnimatedEventCard
-                  key={event.id}
-                  event={event}
-                  onClick={handleEventClick}
-                  isNew={false} // Real-time events don't need artificial "new" highlighting
-                  animateIn={index < 3} // Animate first 3 events for smooth loading
-                />
-              ))}
+            {/* Events List */}
+            {events.length > 0 && (
+              <>
+                {events.map((event, index) => (
+                  <AnimatedEventCard
+                    key={event.id}
+                    event={event}
+                    onClick={handleEventClick}
+                    isNew={false} // Real-time events don't need artificial "new" highlighting
+                    animateIn={index < 3} // Animate first 3 events for smooth loading
+                  />
+                ))}
 
-              {/* Load More Button */}
-              {hasMore && (
-                <div className="text-center pt-4">
-                  <Button
-                    onClick={handleLoadMore}
-                    variant="outline"
-                    size="sm"
-                    disabled={eventsLoading}
-                  >
-                    {eventsLoading ? 'Loading...' : 'Load More Events'}
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
+                {/* Load More Button */}
+                {hasMore && (
+                  <div className="text-center pt-4">
+                    <Button
+                      onClick={handleLoadMore}
+                      variant="outline"
+                      size="sm"
+                      disabled={eventsLoading}
+                    >
+                      {eventsLoading ? 'Loading...' : 'Load More Events'}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </EventFeedErrorBoundary>
         </CardContent>
       </Card>
 

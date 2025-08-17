@@ -17,7 +17,7 @@ export function Header() {
                   Chronicle
                 </h1>
                 <p className="text-sm text-text-muted">
-                  Multi-Agent Observability
+                  Observability Platform
                 </p>
               </div>
             </div>
