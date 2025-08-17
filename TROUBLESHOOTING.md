@@ -95,9 +95,8 @@ dm = DatabaseManager()
 print('Tables:', dm.list_tables())
 "
 
-# Enable mock data for testing
-# In .env.local:
-NEXT_PUBLIC_MOCK_DATA=true
+# For testing without Supabase, use the demo dashboard component
+# Check that your Supabase configuration is correct in .env.local
 ```
 
 #### 3. Real-time Updates Not Working

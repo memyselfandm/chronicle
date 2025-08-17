@@ -8,7 +8,15 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "build:analyze": "ANALYZE=true npm run build",
+    "build:production": "NODE_ENV=production NEXT_PUBLIC_ENVIRONMENT=production npm run build",
+    "build:staging": "NODE_ENV=production NEXT_PUBLIC_ENVIRONMENT=staging npm run build",
+    "validate:env": "node scripts/validate-environment.js",
+    "validate:config": "npm run validate:env && npm run lint && npm run test",
+    "security:check": "npm audit && npm run validate:env",
+    "health:check": "node scripts/health-check.js",
+    "deployment:verify": "npm run validate:config && npm run build && npm run health:check"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.55.0",

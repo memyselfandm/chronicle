@@ -36,7 +36,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-dev-anon-key
 # Development Settings
 NEXT_PUBLIC_ENVIRONMENT=development
 NEXT_PUBLIC_DEBUG=true
-NEXT_PUBLIC_MOCK_DATA=false
 
 # Feature Flags
 NEXT_PUBLIC_ENABLE_REALTIME=true
@@ -76,7 +75,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-test-anon-key
 # Testing Settings
 NEXT_PUBLIC_ENVIRONMENT=testing
 NEXT_PUBLIC_DEBUG=false
-NEXT_PUBLIC_MOCK_DATA=true
 ```
 
 **Hooks Configuration**:

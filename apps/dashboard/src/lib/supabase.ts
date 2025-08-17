@@ -1,25 +1,31 @@
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { config, configUtils } from './config';
 
-// Validate environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing required Supabase environment variables. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
-}
-
-// Create Supabase client with optimized real-time configuration
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
-  realtime: {
-    params: {
-      eventsPerSecond: 10, // Limit to prevent flooding
+// Create Supabase client with environment-aware configuration
+export const supabase = createClient<Database>(
+  config.supabase.url,
+  config.supabase.anonKey,
+  {
+    realtime: {
+      params: {
+        eventsPerSecond: configUtils.isProduction() ? 5 : 10, // Lower rate in production
+        heartbeatIntervalMs: config.performance.realtimeHeartbeat,
+        timeoutMs: config.performance.realtimeTimeout,
+      },
     },
-  },
-  auth: {
-    persistSession: false, // We're not using auth for MVP
-  },
-});
+    auth: {
+      persistSession: false, // We're not using auth for MVP
+      detectSessionInUrl: false, // Disable for performance
+    },
+    global: {
+      headers: {
+        'X-Chronicle-Environment': config.environment,
+        'X-Chronicle-Version': '1.0.0',
+      },
+    },
+  }
+);
 
 /**
  * Creates a real-time channel with consistent configuration
@@ -40,12 +46,14 @@ export const createRealtimeChannel = (
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 /**
- * Default configuration for real-time subscriptions
+ * Real-time configuration based on environment settings
  */
 export const REALTIME_CONFIG = {
-  EVENTS_PER_SECOND: 10,
+  EVENTS_PER_SECOND: configUtils.isProduction() ? 5 : 10,
   RECONNECT_ATTEMPTS: 5,
-  BATCH_SIZE: 50,
+  BATCH_SIZE: config.performance.batchSize,
   BATCH_DELAY: 100, // ms
-  MAX_CACHED_EVENTS: 1000,
+  MAX_CACHED_EVENTS: config.performance.maxEventsDisplay,
+  HEARTBEAT_INTERVAL: config.performance.realtimeHeartbeat,
+  TIMEOUT: config.performance.realtimeTimeout,
 } as const;
