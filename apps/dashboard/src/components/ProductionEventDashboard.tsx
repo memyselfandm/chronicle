@@ -10,11 +10,11 @@ import { useEvents } from '@/hooks/useEvents';
 import { useSessions } from '@/hooks/useSessions';
 import type { Event } from '@/types/events';
 
-interface EventDashboardProps {
+interface ProductionEventDashboardProps {
   className?: string;
 }
 
-export const EventDashboard: React.FC<EventDashboardProps> = ({ 
+export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> = ({ 
   className 
 }) => {
   // Real data hooks
@@ -23,8 +23,6 @@ export const EventDashboard: React.FC<EventDashboardProps> = ({
     loading: eventsLoading, 
     error: eventsError, 
     hasMore, 
-    connectionStatus, 
-    connectionQuality,
     retry: retryEvents, 
     loadMore 
   } = useEvents({ 
@@ -46,6 +44,13 @@ export const EventDashboard: React.FC<EventDashboardProps> = ({
   // Local state for UI interactions
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Determine overall connection status based on data state
+  const connectionStatus = useMemo(() => {
+    if (eventsLoading || sessionsLoading) return 'connecting';
+    if (eventsError || sessionsError) return 'error';
+    return 'connected';
+  }, [eventsLoading, sessionsLoading, eventsError, sessionsError]);
 
   // Get session context for selected event
   const getSessionContext = useCallback((sessionId: string) => {
@@ -130,14 +135,8 @@ export const EventDashboard: React.FC<EventDashboardProps> = ({
               </p>
             </div>
             <ConnectionStatus 
-              status={connectionStatus.state}
-              lastUpdate={connectionStatus.lastUpdate}
-              lastEventReceived={connectionStatus.lastEventReceived}
-              subscriptions={connectionStatus.subscriptions}
-              reconnectAttempts={connectionStatus.reconnectAttempts}
-              error={connectionStatus.error}
-              isHealthy={connectionStatus.isHealthy}
-              connectionQuality={connectionQuality}
+              status={connectionStatus}
+              lastUpdate={new Date()}
               onRetry={handleRetry}
             />
           </div>
