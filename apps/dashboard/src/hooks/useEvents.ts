@@ -3,12 +3,15 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, REALTIME_CONFIG } from '../lib/supabase';
 import { Event } from '@/types/events';
 import { FilterState } from '@/types/filters';
+import { useSupabaseConnection, ConnectionStatus } from './useSupabaseConnection';
 
 interface UseEventsState {
   events: Event[];
   loading: boolean;
   error: Error | null;
   hasMore: boolean;
+  connectionStatus: ConnectionStatus;
+  connectionQuality: 'excellent' | 'good' | 'poor' | 'unknown';
   retry: () => void;
   loadMore: () => Promise<void>;
 }
@@ -36,6 +39,19 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+
+  // Connection monitoring
+  const {
+    status: connectionStatus,
+    registerChannel,
+    unregisterChannel,
+    recordEventReceived,
+    retry: retryConnection,
+    getConnectionQuality,
+  } = useSupabaseConnection({
+    enableHealthCheck: true,
+    healthCheckInterval: 30000,
+  });
 
   // Refs for cleanup and deduplication
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -120,8 +136,11 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
   /**
    * Handles new events from real-time subscription
    */
-  const handleRealtimeEvent = useCallback((payload: any) => {
+  const handleRealtimeEvent = useCallback((payload: { new: Event }) => {
     const newEvent: Event = payload.new;
+    
+    // Record that we received an event (for connection health monitoring)
+    recordEventReceived();
     
     // Prevent duplicates
     if (eventIdsRef.current.has(newEvent.id)) {
@@ -142,7 +161,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       
       return updatedEvents;
     });
-  }, []);
+  }, [recordEventReceived]);
 
   /**
    * Sets up real-time subscription
@@ -152,6 +171,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
 
     // Cleanup existing subscription
     if (channelRef.current) {
+      unregisterChannel(channelRef.current);
       channelRef.current.unsubscribe();
     }
 
@@ -169,7 +189,12 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       )
       .subscribe();
 
-  }, [enableRealtime, handleRealtimeEvent]);
+    // Register channel with connection monitoring
+    if (channelRef.current) {
+      registerChannel(channelRef.current);
+    }
+
+  }, [enableRealtime, handleRealtimeEvent, registerChannel, unregisterChannel]);
 
   /**
    * Retry function for error recovery
@@ -178,7 +203,9 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     setError(null);
     eventIdsRef.current.clear();
     fetchEvents(0, false);
-  }, [fetchEvents]);
+    // Also retry the connection
+    retryConnection();
+  }, [fetchEvents, retryConnection]);
 
   /**
    * Load more events (pagination)
@@ -202,23 +229,26 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     // Cleanup on unmount
     return () => {
       if (channelRef.current) {
+        unregisterChannel(channelRef.current);
         channelRef.current.unsubscribe();
       }
     };
-  }, [setupRealtimeSubscription]);
+  }, [setupRealtimeSubscription, unregisterChannel]);
 
   // Update subscription when filters change
   useEffect(() => {
     if (enableRealtime) {
       setupRealtimeSubscription();
     }
-  }, [filters, setupRealtimeSubscription]);
+  }, [filters, enableRealtime, setupRealtimeSubscription]);
 
   return {
     events,
     loading,
     error,
     hasMore,
+    connectionStatus,
+    connectionQuality: getConnectionQuality,
     retry,
     loadMore,
   };

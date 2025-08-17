@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +9,12 @@ export type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'err
 interface ConnectionStatusProps {
   status: ConnectionState;
   lastUpdate?: Date | string | null;
+  lastEventReceived?: Date | string | null;
+  subscriptions?: number;
+  reconnectAttempts?: number;
+  error?: string | null;
+  isHealthy?: boolean;
+  connectionQuality?: 'excellent' | 'good' | 'poor' | 'unknown';
   className?: string;
   showText?: boolean;
   onRetry?: () => void;
@@ -17,6 +23,12 @@ interface ConnectionStatusProps {
 const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   status,
   lastUpdate,
+  lastEventReceived,
+  subscriptions = 0,
+  reconnectAttempts = 0,
+  error,
+  isHealthy = false,
+  connectionQuality = 'unknown',
   className,
   showText = true,
   onRetry,
@@ -24,42 +36,68 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   const [showDetails, setShowDetails] = useState(false);
 
   const getStatusConfig = (status: ConnectionState) => {
-    switch (status) {
-      case 'connected':
-        return {
-          color: 'bg-accent-green',
-          text: 'Connected',
-          icon: '●',
-          description: 'Receiving real-time updates'
-        };
-      case 'connecting':
-        return {
-          color: 'bg-accent-yellow',
-          text: 'Connecting',
-          icon: '●',
-          description: 'Establishing connection...'
-        };
-      case 'disconnected':
-        return {
-          color: 'bg-text-muted',
-          text: 'Disconnected',
-          icon: '●',
-          description: 'Connection lost - attempting to reconnect'
-        };
-      case 'error':
-        return {
-          color: 'bg-accent-red',
-          text: 'Error',
-          icon: '●',
-          description: 'Connection error occurred'
-        };
-      default:
-        return {
-          color: 'bg-text-muted',
-          text: 'Unknown',
-          icon: '●',
-          description: 'Unknown connection state'
-        };
+    const baseConfig = (() => {
+      switch (status) {
+        case 'connected':
+          return {
+            color: isHealthy ? 'bg-accent-green' : 'bg-accent-yellow',
+            text: isHealthy ? 'Connected' : 'Connected (No Activity)',
+            icon: '●',
+            description: isHealthy 
+              ? `Receiving real-time updates (${subscriptions} subscriptions)`
+              : 'Connected but no recent activity detected'
+          };
+        case 'connecting':
+          return {
+            color: 'bg-accent-yellow',
+            text: reconnectAttempts > 0 ? `Reconnecting (${reconnectAttempts})` : 'Connecting',
+            icon: '●',
+            description: reconnectAttempts > 0 
+              ? `Attempting to reconnect... (attempt ${reconnectAttempts})`
+              : 'Establishing connection...'
+          };
+        case 'disconnected':
+          return {
+            color: 'bg-text-muted',
+            text: 'Disconnected',
+            icon: '●',
+            description: 'Connection lost - will attempt to reconnect'
+          };
+        case 'error':
+          return {
+            color: 'bg-accent-red',
+            text: 'Error',
+            icon: '●',
+            description: error || 'Connection error occurred'
+          };
+        default:
+          return {
+            color: 'bg-text-muted',
+            text: 'Unknown',
+            icon: '●',
+            description: 'Unknown connection state'
+          };
+      }
+    })();
+
+    return baseConfig;
+  };
+
+  const getQualityColor = (quality: string) => {
+    switch (quality) {
+      case 'excellent': return 'text-accent-green';
+      case 'good': return 'text-accent-blue';
+      case 'poor': return 'text-accent-yellow';
+      default: return 'text-text-muted';
+    }
+  };
+
+  const getQualityIcon = (quality: string) => {
+    switch (quality) {
+      case 'excellent': return '●●●';
+      case 'good': return '●●○';
+      case 'poor': return '●○○';
+      default: return '○○○';
     }
   };
 
@@ -166,11 +204,12 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           className={cn(
             'absolute top-full left-0 mt-2 z-20',
             'bg-bg-tertiary border border-border rounded-lg shadow-lg',
-            'p-3 min-w-64 text-xs'
+            'p-3 min-w-80 text-xs'
           )}
           data-testid="status-details"
         >
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {/* Primary Status */}
             <div className="flex items-center justify-between">
               <span className="text-text-muted">Status:</span>
               <span className="text-text-primary font-medium">{config.text}</span>
@@ -178,25 +217,77 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             
             <div className="text-text-muted">{config.description}</div>
             
-            {lastUpdate && (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-text-muted">Last Update:</span>
-                  <span className="text-text-primary font-mono">
-                    {formatLastUpdate(lastUpdate)}
+            {/* Connection Quality */}
+            {status === 'connected' && (
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Connection Quality:</span>
+                <div className="flex items-center gap-2">
+                  <span className={cn('font-mono text-xs', getQualityColor(connectionQuality))}>
+                    {getQualityIcon(connectionQuality)}
                   </span>
+                  <span className="text-text-primary capitalize">{connectionQuality}</span>
                 </div>
-                <div className="text-text-muted text-xs">
-                  {formatAbsoluteTime(lastUpdate)}
-                </div>
-              </>
+              </div>
             )}
+
+            {/* Subscriptions */}
+            <div className="flex items-center justify-between">
+              <span className="text-text-muted">Active Subscriptions:</span>
+              <span className="text-text-primary font-medium">{subscriptions}</span>
+            </div>
+
+            {/* Reconnect Attempts */}
+            {reconnectAttempts > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Reconnect Attempts:</span>
+                <span className="text-accent-yellow font-medium">{reconnectAttempts}</span>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="pt-2 border-t border-border">
+                <span className="text-text-muted">Error:</span>
+                <div className="text-accent-red text-xs mt-1 break-words">{error}</div>
+              </div>
+            )}
+            
+            {/* Timestamps */}
+            <div className="pt-2 border-t border-border space-y-2">
+              {lastUpdate && (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-muted">Connection Updated:</span>
+                    <span className="text-text-primary font-mono">
+                      {formatLastUpdate(lastUpdate)}
+                    </span>
+                  </div>
+                  <div className="text-text-muted text-xs">
+                    {formatAbsoluteTime(lastUpdate)}
+                  </div>
+                </div>
+              )}
+
+              {lastEventReceived && (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-muted">Last Event:</span>
+                    <span className="text-text-primary font-mono">
+                      {formatLastUpdate(lastEventReceived)}
+                    </span>
+                  </div>
+                  <div className="text-text-muted text-xs">
+                    {formatAbsoluteTime(lastEventReceived)}
+                  </div>
+                </div>
+              )}
+            </div>
             
             <div className="pt-2 border-t border-border">
               <div className="flex items-center gap-1">
                 <div className={cn('w-1.5 h-1.5 rounded-full', config.color)} />
                 <span className="text-text-secondary">
-                  Real-time {status === 'connected' ? 'active' : 'inactive'}
+                  Real-time {status === 'connected' && isHealthy ? 'active' : 'inactive'}
                 </span>
               </div>
             </div>
