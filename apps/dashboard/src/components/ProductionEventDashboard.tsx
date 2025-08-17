@@ -22,7 +22,9 @@ export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> =
     events, 
     loading: eventsLoading, 
     error: eventsError, 
-    hasMore, 
+    hasMore,
+    connectionStatus,
+    connectionQuality,
     retry: retryEvents, 
     loadMore 
   } = useEvents({ 
@@ -44,13 +46,6 @@ export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> =
   // Local state for UI interactions
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Determine overall connection status based on data state
-  const connectionStatus = useMemo(() => {
-    if (eventsLoading || sessionsLoading) return 'connecting';
-    if (eventsError || sessionsError) return 'error';
-    return 'connected';
-  }, [eventsLoading, sessionsLoading, eventsError, sessionsError]);
 
   // Get session context for selected event
   const getSessionContext = useCallback((sessionId: string) => {
@@ -135,8 +130,14 @@ export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> =
               </p>
             </div>
             <ConnectionStatus 
-              status={connectionStatus}
-              lastUpdate={new Date()}
+              status={connectionStatus.state}
+              lastUpdate={connectionStatus.lastUpdate}
+              lastEventReceived={connectionStatus.lastEventReceived}
+              subscriptions={connectionStatus.subscriptions}
+              reconnectAttempts={connectionStatus.reconnectAttempts}
+              error={connectionStatus.error}
+              isHealthy={connectionStatus.isHealthy}
+              connectionQuality={connectionQuality}
               onRetry={handleRetry}
             />
           </div>
@@ -182,12 +183,6 @@ export const ProductionEventDashboard: React.FC<ProductionEventDashboardProps> =
               </Button>
             )}
             
-            <div className="flex items-center gap-2 text-sm text-text-muted">
-              <span>Real-time:</span>
-              <span className={connectionStatus === 'connected' ? 'text-accent-green' : 'text-accent-red'}>
-                {connectionStatus === 'connected' ? 'ACTIVE' : 'INACTIVE'}
-              </span>
-            </div>
           </div>
         </CardContent>
       </Card>

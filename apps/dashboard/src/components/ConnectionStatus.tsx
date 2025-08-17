@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +34,57 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   onRetry,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [lastUpdateText, setLastUpdateText] = useState<string>('--');
+  const [lastUpdateAbsolute, setLastUpdateAbsolute] = useState<string>('--');
+  const [lastEventText, setLastEventText] = useState<string>('--');
+  const [lastEventAbsolute, setLastEventAbsolute] = useState<string>('--');
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    // Update lastUpdate times when mounted or when lastUpdate changes
+    if (lastUpdate) {
+      setLastUpdateText(formatLastUpdate(lastUpdate));
+      setLastUpdateAbsolute(formatAbsoluteTime(lastUpdate));
+    } else {
+      setLastUpdateText('Never');
+      setLastUpdateAbsolute('No updates received');
+    }
+  }, [isMounted, lastUpdate]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    // Update lastEventReceived times when mounted or when lastEventReceived changes
+    if (lastEventReceived) {
+      setLastEventText(formatLastUpdate(lastEventReceived));
+      setLastEventAbsolute(formatAbsoluteTime(lastEventReceived));
+    } else {
+      setLastEventText('Never');
+      setLastEventAbsolute('No events received');
+    }
+  }, [isMounted, lastEventReceived]);
+
+  // Update time displays every second when mounted
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const interval = setInterval(() => {
+      if (lastUpdate) {
+        setLastUpdateText(formatLastUpdate(lastUpdate));
+      }
+      if (lastEventReceived) {
+        setLastEventText(formatLastUpdate(lastEventReceived));
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isMounted, lastUpdate, lastEventReceived]);
 
   const getStatusConfig = (status: ConnectionState) => {
     const baseConfig = (() => {
@@ -177,10 +228,11 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       {lastUpdate && (
         <span 
           className="text-xs text-text-muted"
-          title={formatAbsoluteTime(lastUpdate)}
+          title={lastUpdateAbsolute}
           data-testid="last-update"
+          suppressHydrationWarning
         >
-          {formatLastUpdate(lastUpdate)}
+          {lastUpdateText}
         </span>
       )}
 
@@ -258,12 +310,12 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">Connection Updated:</span>
-                    <span className="text-text-primary font-mono">
-                      {formatLastUpdate(lastUpdate)}
+                    <span className="text-text-primary font-mono" suppressHydrationWarning>
+                      {lastUpdateText}
                     </span>
                   </div>
-                  <div className="text-text-muted text-xs">
-                    {formatAbsoluteTime(lastUpdate)}
+                  <div className="text-text-muted text-xs" suppressHydrationWarning>
+                    {lastUpdateAbsolute}
                   </div>
                 </div>
               )}
@@ -272,12 +324,12 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">Last Event:</span>
-                    <span className="text-text-primary font-mono">
-                      {formatLastUpdate(lastEventReceived)}
+                    <span className="text-text-primary font-mono" suppressHydrationWarning>
+                      {lastEventText}
                     </span>
                   </div>
-                  <div className="text-text-muted text-xs">
-                    {formatAbsoluteTime(lastEventReceived)}
+                  <div className="text-text-muted text-xs" suppressHydrationWarning>
+                    {lastEventAbsolute}
                   </div>
                 </div>
               )}
