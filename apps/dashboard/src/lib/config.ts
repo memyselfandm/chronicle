@@ -96,6 +96,12 @@ export interface AppConfig {
  * Validates required environment variables
  */
 function validateEnvironment(): void {
+  // Only validate on server-side or in development
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    // Skip validation on client-side in production
+    return;
+  }
+  
   const required = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY'
@@ -104,10 +110,18 @@ function validateEnvironment(): void {
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(', ')}\n` +
-      'Please check your .env.local file and ensure all required variables are set.'
-    );
+    // In development, warn but don't throw
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        `Missing environment variables: ${missing.join(', ')}\n` +
+        'Please check your .env.local or .env.development file.'
+      );
+    } else {
+      throw new Error(
+        `Missing required environment variables: ${missing.join(', ')}\n` +
+        'Please check your .env.local file and ensure all required variables are set.'
+      );
+    }
   }
 }
 
@@ -169,8 +183,8 @@ function createConfig(): AppConfig {
     
     // Supabase configuration
     supabase: {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
       serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     },
     

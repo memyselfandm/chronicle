@@ -2,10 +2,19 @@ import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { config, configUtils } from './config';
 
+// Get Supabase URL and key, with fallbacks for client-side loading
+const supabaseUrl = config.supabase.url || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = config.supabase.anonKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Validate we have required config before creating client
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase configuration missing. Dashboard will not be able to connect to the database.');
+}
+
 // Create Supabase client with environment-aware configuration
 export const supabase = createClient<Database>(
-  config.supabase.url,
-  config.supabase.anonKey,
+  supabaseUrl || 'http://localhost:54321', // Fallback to local Supabase
+  supabaseAnonKey || 'placeholder-key-for-build', // Placeholder to prevent build errors
   {
     realtime: {
       params: {
