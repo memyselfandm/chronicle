@@ -374,6 +374,50 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - **Single Agent**: Documentation requires understanding of all changes
 - **Can parallelize**: Different documentation sections if needed
 
+### Sprint 8: Code Consistency & Technical Debt Cleanup
+**Features**: Code quality improvements identified from parallel agent work
+**Goal**: Standardize patterns and eliminate technical debt from rapid development
+**Priority**: HIGH - Prevents future bugs and improves maintainability
+
+**Issues to Address**:
+1. **Type Duplication**: ConnectionState defined in multiple files
+2. **Unstable Functions**: formatLastUpdate/formatAbsoluteTime recreated on each render
+3. **Inconsistent Logging**: Mix of console.warn and console.error for similar issues
+4. **Magic Numbers**: Hardcoded delays (300ms, 500ms, 30000ms) throughout code
+5. **Cleanup Duplication**: Timeout cleanup logic repeated in multiple places
+6. **Unused Variables**: sessionsError and other variables defined but never used
+
+**Parallelization Strategy**:
+- **Agent 1 - Type Consolidation & Constants**:
+  - Create `/src/types/connection.ts` for shared connection types
+  - Create `/src/lib/constants.ts` for timing constants
+  - Update all imports to use single source
+  - Replace magic numbers with named constants
+  
+- **Agent 2 - Function Optimization & Performance**:
+  - Convert inline functions to useCallback/useMemo
+  - Stabilize formatLastUpdate and formatAbsoluteTime functions
+  - Optimize re-render triggers in ConnectionStatus
+  - Review and optimize all useEffect dependencies
+
+- **Agent 3 - Cleanup & Error Handling**:
+  - Consolidate timeout cleanup logic into reusable functions
+  - Standardize console logging patterns (warn vs error)
+  - Remove all unused variables and imports
+  - Add consistent error boundaries
+
+**Dependencies**: 
+- All agents can work simultaneously on different aspects
+- Integration testing needed after all changes complete
+
+**Acceptance Criteria**:
+- Zero duplicate type definitions
+- All functions in useEffect deps are stable
+- Consistent error handling throughout
+- No magic numbers in code
+- Single cleanup pattern used everywhere
+- TypeScript strict mode passes without errors
+
 ## Success Metrics
 
 ### Must Have (Sprint 1)
