@@ -35,8 +35,7 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 5. **Align Event Types**: Update to new hook-based event type system
 6. **Fix Type Definitions**: Ensure TypeScript interfaces match actual database schema
 7. **Real Connection Status**: Monitor actual Supabase connection state
-8. **Add Authentication**: Implement secure access control
-9. **Production UI**: Remove demo labels and add professional interface
+8. **Production UI**: Remove demo labels and add professional interface
 
 ## Critical Implementation Guidelines
 
@@ -235,24 +234,7 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - [x] Add connection error handling
 - [x] Display real subscription status
 
-### Feature 12: Add Authentication System
-**Description**: Implement secure authentication for dashboard access.
-
-**Acceptance Criteria**:
-- Users must authenticate to access dashboard
-- Support multiple auth methods (email/password, OAuth)
-- Session management and logout
-- Protected routes and RLS integration
-
-**Tasks**:
-- [ ] Set up Supabase Auth configuration
-- [ ] Create login/signup components
-- [ ] Add auth context provider
-- [ ] Implement protected route wrapper
-- [ ] Configure RLS policies for user data
-- [ ] Add logout functionality
-
-### Feature 13: Production UI Updates
+### Feature 12: Production UI Updates
 **Description**: Remove all demo labels and create professional interface.
 
 **Acceptance Criteria**:
@@ -269,7 +251,7 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - [ ] Implement error boundaries
 - [ ] Add production favicon and metadata
 
-### Feature 14: Environment Configuration
+### Feature 13: Environment Configuration
 **Description**: Set up proper environment configuration for production.
 
 **Acceptance Criteria**:
@@ -286,7 +268,7 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - [ ] Add error tracking (Sentry or similar)
 - [ ] Document deployment process
 
-### Feature 15: Documentation Updates
+### Feature 14: Documentation Updates
 **Description**: Update documentation to reflect new structure.
 
 **Acceptance Criteria**:
@@ -356,18 +338,17 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - **Agent 2**: Fix connection status monitoring (Feature 11)
 - **Dependency Note**: Both can work independently on their features
 
-### Sprint 6: Security & Production UI
-**Features**: Feature 12, Feature 13, Feature 14
-**Goal**: Add authentication and production-ready interface
+### Sprint 6: Production UI & Environment
+**Features**: Feature 12, Feature 13
+**Goal**: Create production-ready interface and environment configuration
 
 **Parallelization Strategy**:
-- **Agent 1**: Implement authentication system (Feature 12)
-- **Agent 2**: Update UI for production (Feature 13)
-- **Agent 3**: Configure production environment (Feature 14)
-- **No dependencies**: All three can work simultaneously
+- **Agent 1**: Update UI for production (Feature 12)
+- **Agent 2**: Configure production environment (Feature 13)
+- **No dependencies**: Both can work simultaneously
 
 ### Sprint 7: Documentation & Final Polish
-**Features**: Feature 15 + any remaining fixes
+**Features**: Feature 14 + any remaining fixes
 **Goal**: Complete documentation and final testing
 
 **Parallelization Strategy**:
@@ -437,7 +418,6 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 
 ### Critical for Production (Sprint 5-6)
 - Real data integration working
-- Authentication implemented
 - Production UI without demo labels
 - Proper connection monitoring
 - Environment configurations set
@@ -537,8 +517,7 @@ The dashboard currently only shows demo data. **Sprint 5-6 are critical** to mak
    - Connect to actual Supabase data streams
    - Fix connection status monitoring
 
-2. **Sprint 6**: Security and professional UI
-   - Add authentication system
+2. **Sprint 6**: Production UI and environment
    - Remove all demo labels
    - Configure production environment
 
