@@ -347,15 +347,7 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - **Agent 2**: Configure production environment (Feature 13)
 - **No dependencies**: Both can work simultaneously
 
-### Sprint 7: Documentation & Final Polish
-**Features**: Feature 14 + any remaining fixes
-**Goal**: Complete documentation and final testing
-
-**Parallelization Strategy**:
-- **Single Agent**: Documentation requires understanding of all changes
-- **Can parallelize**: Different documentation sections if needed
-
-### Sprint 8: Code Consistency & Technical Debt Cleanup
+### Sprint 7: Code Consistency & Technical Debt Cleanup
 **Features**: Code quality improvements identified from parallel agent work
 **Goal**: Standardize patterns and eliminate technical debt from rapid development
 **Priority**: HIGH - Prevents future bugs and improves maintainability
@@ -398,6 +390,14 @@ This epic focuses on transforming the Chronicle Dashboard from a demo prototype 
 - No magic numbers in code
 - Single cleanup pattern used everywhere
 - TypeScript strict mode passes without errors
+
+### Sprint 8: Documentation & Final Polish
+**Features**: Feature 14 + any remaining fixes
+**Goal**: Complete documentation and final testing
+
+**Parallelization Strategy**:
+- **Single Agent**: Documentation requires understanding of all changes
+- **Can parallelize**: Different documentation sections if needed
 
 ## Success Metrics
 
