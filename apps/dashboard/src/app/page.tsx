@@ -1,5 +1,5 @@
 import { Header } from "@/components/layout/Header";
-import { EventDashboard } from "@/components/EventDashboard";
+import { ProductionEventDashboard } from "@/components/ProductionEventDashboard";
 
 export default function Dashboard() {
   return (
@@ -8,7 +8,7 @@ export default function Dashboard() {
       <main className="flex-1 overflow-hidden">
         <div className="h-full flex flex-col">
           <div className="flex-1 overflow-y-auto">
-            <EventDashboard />
+            <ProductionEventDashboard />
           </div>
         </div>
       </main>

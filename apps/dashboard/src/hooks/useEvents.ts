@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, REALTIME_CONFIG } from '../lib/supabase';
 import { Event } from '@/types/events';
@@ -32,6 +32,25 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     filters = {},
     enableRealtime = true,
   } = options;
+
+  // Store filters in a ref to prevent unnecessary re-renders
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  // Create stable filter keys for dependency comparisons
+  const sessionIdsKey = filters.sessionIds?.join(',') || '';
+  const eventTypesKey = filters.eventTypes?.join(',') || '';
+  const dateRangeStartKey = filters.dateRange?.start?.toISOString() || '';
+  const dateRangeEndKey = filters.dateRange?.end?.toISOString() || '';
+  const searchQueryKey = filters.searchQuery || '';
+
+  // Stabilize filters object for dependency comparisons
+  const stableFilters = useMemo(() => ({
+    sessionIds: filters.sessionIds || [],
+    eventTypes: filters.eventTypes || [],
+    dateRange: filters.dateRange || null,
+    searchQuery: filters.searchQuery || ''
+  }), [sessionIdsKey, eventTypesKey, dateRangeStartKey, dateRangeEndKey, searchQueryKey]);
 
   // State management
   const [events, setEvents] = useState<Event[]>([]);
@@ -68,6 +87,9 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       setLoading(true);
       setError(null);
 
+      // Use the ref to access current filters without triggering re-renders
+      const currentFilters = filtersRef.current;
+
       let query = supabase
         .from('chronicle_events')
         .select('*')
@@ -75,24 +97,24 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
         .range(loadOffset, loadOffset + limit - 1);
 
       // Apply filters
-      if (filters.sessionIds && filters.sessionIds.length > 0) {
-        query = query.in('session_id', filters.sessionIds);
+      if (currentFilters.sessionIds && currentFilters.sessionIds.length > 0) {
+        query = query.in('session_id', currentFilters.sessionIds);
       }
 
-      if (filters.eventTypes && filters.eventTypes.length > 0) {
-        query = query.in('type', filters.eventTypes);
+      if (currentFilters.eventTypes && currentFilters.eventTypes.length > 0) {
+        query = query.in('type', currentFilters.eventTypes);
       }
 
-      if (filters.dateRange?.start) {
-        query = query.gte('timestamp', filters.dateRange.start.toISOString());
+      if (currentFilters.dateRange?.start) {
+        query = query.gte('timestamp', currentFilters.dateRange.start.toISOString());
       }
 
-      if (filters.dateRange?.end) {
-        query = query.lte('timestamp', filters.dateRange.end.toISOString());
+      if (currentFilters.dateRange?.end) {
+        query = query.lte('timestamp', currentFilters.dateRange.end.toISOString());
       }
 
-      if (filters.searchQuery) {
-        query = query.textSearch('data', filters.searchQuery);
+      if (currentFilters.searchQuery) {
+        query = query.textSearch('data', currentFilters.searchQuery);
       }
 
       const { data, error: fetchError } = await query;
@@ -131,7 +153,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     } finally {
       setLoading(false);
     }
-  }, [limit, filters]);
+  }, [limit]); // Remove filters from dependencies since we use ref
 
   /**
    * Handles new events from real-time subscription
@@ -217,14 +239,16 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     setOffset(prev => prev + limit);
   }, [fetchEvents, loading, hasMore, offset, limit]);
 
-  // Initial data fetch
+  // Fetch data when component mounts or filters change
   useEffect(() => {
     fetchEvents(0, false);
-  }, [fetchEvents]);
+  }, [fetchEvents, stableFilters]);
 
   // Setup real-time subscription
   useEffect(() => {
-    setupRealtimeSubscription();
+    if (enableRealtime) {
+      setupRealtimeSubscription();
+    }
 
     // Cleanup on unmount
     return () => {
@@ -233,14 +257,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
         channelRef.current.unsubscribe();
       }
     };
-  }, [setupRealtimeSubscription, unregisterChannel]);
-
-  // Update subscription when filters change
-  useEffect(() => {
-    if (enableRealtime) {
-      setupRealtimeSubscription();
-    }
-  }, [filters, enableRealtime, setupRealtimeSubscription]);
+  }, [enableRealtime, setupRealtimeSubscription, unregisterChannel]);
 
   return {
     events,

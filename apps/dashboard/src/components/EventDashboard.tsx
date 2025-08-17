@@ -185,8 +185,8 @@ export const EventDashboard: React.FC<EventDashboardProps> = ({
             
             <div className="flex items-center gap-2 text-sm text-text-muted">
               <span>Real-time:</span>
-              <span className={connectionStatus === 'connected' ? 'text-accent-green' : 'text-accent-red'}>
-                {connectionStatus === 'connected' ? 'ACTIVE' : 'INACTIVE'}
+              <span className={connectionStatus.state === 'connected' ? 'text-accent-green' : 'text-accent-red'}>
+                {connectionStatus.state === 'connected' ? 'ACTIVE' : 'INACTIVE'}
               </span>
             </div>
           </div>
