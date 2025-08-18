@@ -16,8 +16,8 @@ import sys
 import os
 
 # Add the apps directory to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'hooks', 'src'))
-sys.path.append(os.path.join(os.path.dirname(__file__), 'dashboard', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'apps', 'hooks', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'apps', 'dashboard', 'src'))
 
 try:
     from base_hook import BaseHook

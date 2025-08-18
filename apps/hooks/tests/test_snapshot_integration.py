@@ -14,9 +14,10 @@ from typing import Dict, List, Any
 from datetime import datetime
 
 # Add the hooks src directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'hooks', 'src'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'hooks', 'config'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'lib'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'config'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts', 'snapshot'))
 
 try:
     from models import Session, Event, EventType

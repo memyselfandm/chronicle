@@ -16,8 +16,9 @@ from datetime import datetime
 from pathlib import Path
 
 # Add the hooks src directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'hooks', 'src'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'hooks', 'config'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'lib'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'config'))
 
 try:
     from models import EventType, validate_session_data, validate_event_data
