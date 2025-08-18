@@ -33,7 +33,7 @@ def sample_hook_input():
 
 def test_base_hook_init():
     """Test BaseHook initialization."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager') as mock_db:
         mock_db.return_value = Mock()
@@ -47,7 +47,7 @@ def test_base_hook_init():
 
 def test_get_session_id_from_env():
     """Test extracting session ID from environment."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch.dict(os.environ, {"CLAUDE_SESSION_ID": "env-session-456"}):
         with patch('src.core.base_hook.DatabaseManager'):
@@ -60,7 +60,7 @@ def test_get_session_id_from_env():
 
 def test_get_session_id_from_input():
     """Test extracting session ID from input data."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -73,7 +73,7 @@ def test_get_session_id_from_input():
 
 def test_get_session_id_priority():
     """Test session ID extraction priority (input > env)."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch.dict(os.environ, {"CLAUDE_SESSION_ID": "env-session"}):
         with patch('src.core.base_hook.DatabaseManager'):
@@ -89,7 +89,7 @@ def test_get_session_id_priority():
 @patch('src.core.base_hook.get_git_info')
 def test_load_project_context(mock_git_info):
     """Test loading project context."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     mock_git_info.return_value = {
         "branch": "main",
@@ -110,7 +110,7 @@ def test_load_project_context(mock_git_info):
 
 def test_save_event_success(mock_database_manager):
     """Test successful event saving."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     mock_database_manager.save_session.return_value = (True, "session-uuid-123")
     
@@ -137,7 +137,7 @@ def test_save_event_success(mock_database_manager):
 
 def test_save_event_failure(mock_database_manager):
     """Test event saving failure."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     mock_database_manager.save_event.return_value = False
     
@@ -154,7 +154,7 @@ def test_save_event_failure(mock_database_manager):
 
 def test_save_event_without_session_id():
     """Test event saving without session ID."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -169,7 +169,7 @@ def test_save_event_without_session_id():
 
 def test_log_error_creates_file():
     """Test error logging creates log file."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -191,7 +191,7 @@ def test_log_error_creates_file():
 
 def test_log_error_appends_to_existing():
     """Test error logging appends to existing log file."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
@@ -216,7 +216,7 @@ def test_log_error_appends_to_existing():
 @patch('src.core.base_hook.sanitize_data')
 def test_process_hook_input_sanitization(mock_sanitize):
     """Test that hook input is sanitized."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     mock_sanitize.return_value = {"clean": "data"}
     
@@ -232,7 +232,7 @@ def test_process_hook_input_sanitization(mock_sanitize):
 
 def test_hook_timing_measurement():
     """Test that hook execution time is measured."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -249,7 +249,7 @@ def test_hook_timing_measurement():
 
 def test_error_handling_in_save_event():
     """Test error handling when saving events."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     mock_db = Mock()
     mock_db.save_event.side_effect = Exception("Database error")
@@ -266,7 +266,7 @@ def test_error_handling_in_save_event():
 
 def test_create_response_basic():
     """Test basic create_response functionality."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -280,7 +280,7 @@ def test_create_response_basic():
 
 def test_create_response_with_parameters():
     """Test create_response with custom parameters."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -297,7 +297,7 @@ def test_create_response_with_parameters():
 
 def test_create_response_with_hook_specific_output():
     """Test create_response with hookSpecificOutput."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -321,7 +321,7 @@ def test_create_response_with_hook_specific_output():
 
 def test_create_response_with_stop_reason():
     """Test create_response with stopReason for blocking scenarios."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -347,7 +347,7 @@ def test_create_response_with_stop_reason():
 
 def test_create_response_permission_formats():
     """Test create_response with various permission decision formats."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -403,7 +403,7 @@ def test_create_response_permission_formats():
 
 def test_create_hook_specific_output_helper():
     """Test helper method for building hookSpecificOutput."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()
@@ -427,7 +427,7 @@ def test_create_hook_specific_output_helper():
 
 def test_create_permission_response_helper():
     """Test helper method for permission-based responses."""
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
     
     with patch('src.core.base_hook.DatabaseManager'):
         hook = BaseHook()

@@ -13,7 +13,7 @@ from pathlib import Path
 # Add src to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.core.database import validate_environment, DatabaseManager
+from src.lib.database import validate_environment, DatabaseManager
 
 
 def print_validation_results(results):

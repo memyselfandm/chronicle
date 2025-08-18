@@ -47,6 +47,56 @@ class DatabaseError(Exception):
     pass
 
 
+class ConnectionError(DatabaseError):
+    """Database connection specific errors."""
+    pass
+
+
+class ValidationError(DatabaseError):
+    """Data validation specific errors."""
+    pass
+
+
+class SupabaseClient:
+    """
+    Simplified SupabaseClient wrapper for backward compatibility.
+    
+    This provides the same interface as the core SupabaseClient but with 
+    simpler implementation for UV compatibility.
+    """
+    
+    def __init__(self, url: Optional[str] = None, key: Optional[str] = None):
+        """Initialize Supabase client."""
+        self.supabase_url = url or os.getenv("SUPABASE_URL")
+        self.supabase_key = key or os.getenv("SUPABASE_ANON_KEY")
+        self._supabase_client: Optional[Client] = None
+        
+        if SUPABASE_AVAILABLE and self.supabase_url and self.supabase_key:
+            try:
+                self._supabase_client = create_client(self.supabase_url, self.supabase_key)
+            except Exception:
+                pass
+    
+    def health_check(self) -> bool:
+        """Check if the database connection is healthy."""
+        if not self._supabase_client:
+            return False
+        try:
+            # Simple query to test connection
+            result = self._supabase_client.table("chronicle_sessions").select("count").limit(1).execute()
+            return True
+        except:
+            return False
+    
+    def has_client(self) -> bool:
+        """Check if client is initialized."""
+        return self._supabase_client is not None
+    
+    def get_client(self) -> Optional[Client]:
+        """Get the underlying Supabase client."""
+        return self._supabase_client
+
+
 def get_database_config() -> Dict[str, Any]:
     """Get database configuration with proper paths."""
     # Determine database path based on installation

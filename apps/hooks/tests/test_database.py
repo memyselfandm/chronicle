@@ -41,7 +41,7 @@ def sample_event_data():
 
 def test_database_init_with_supabase_config():
     """Test database initialization with Supabase configuration."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     with patch('src.database.create_client') as mock_create:
         with patch('src.database.SUPABASE_AVAILABLE', True):
@@ -59,7 +59,7 @@ def test_database_init_with_supabase_config():
 
 def test_database_init_missing_credentials():
     """Test database initialization without credentials."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     client = SupabaseClient()
     
@@ -70,7 +70,7 @@ def test_database_init_missing_credentials():
 
 def test_connection_health_check_success(mock_supabase):
     """Test successful connection health check."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     mock_client, mock_table = mock_supabase
     mock_table.select.return_value.limit.return_value.execute.return_value = Mock(data=[])
@@ -86,7 +86,7 @@ def test_connection_health_check_success(mock_supabase):
 
 def test_connection_health_check_failure(mock_supabase):
     """Test failed connection health check."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     mock_client, mock_table = mock_supabase
     mock_table.select.return_value.limit.return_value.execute.side_effect = Exception("Connection failed")
@@ -102,7 +102,7 @@ def test_connection_health_check_failure(mock_supabase):
 
 def test_upsert_session_success(mock_supabase, sample_session_data):
     """Test successful session upsert."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     mock_client, mock_table = mock_supabase
     mock_table.upsert.return_value.execute.return_value = Mock(data=[sample_session_data])
@@ -119,7 +119,7 @@ def test_upsert_session_success(mock_supabase, sample_session_data):
 
 def test_upsert_session_failure(mock_supabase, sample_session_data):
     """Test failed session upsert."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     mock_client, mock_table = mock_supabase
     mock_table.upsert.return_value.execute.side_effect = Exception("Database error")
@@ -135,7 +135,7 @@ def test_upsert_session_failure(mock_supabase, sample_session_data):
 
 def test_insert_event_success(mock_supabase, sample_event_data):
     """Test successful event insertion."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     mock_client, mock_table = mock_supabase
     mock_table.insert.return_value.execute.return_value = Mock(data=[sample_event_data])
@@ -152,7 +152,7 @@ def test_insert_event_success(mock_supabase, sample_event_data):
 
 def test_insert_event_validation_failure():
     """Test event insertion with invalid data."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     client = SupabaseClient()
     
@@ -166,7 +166,7 @@ def test_insert_event_validation_failure():
 
 def test_insert_event_without_client():
     """Test event insertion without Supabase client."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     client = SupabaseClient()  # No credentials
     
@@ -181,7 +181,7 @@ def test_insert_event_without_client():
 
 def test_retry_logic_success():
     """Test retry logic with eventual success."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     mock_client = Mock()
     mock_table = Mock()
@@ -210,7 +210,7 @@ def test_retry_logic_success():
 
 def test_retry_logic_max_attempts():
     """Test retry logic reaches maximum attempts."""
-    from src.core.database import SupabaseClient
+    from src.lib.database import SupabaseClient
     
     mock_client = Mock()
     mock_table = Mock()

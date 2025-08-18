@@ -10,9 +10,9 @@ from unittest.mock import Mock, patch, MagicMock
 
 # Try to import the security validation modules that we'll create
 try:
-    from src.core.security import SecurityValidator, InputSizeError, PathTraversalError
-    from src.core.base_hook import BaseHook
-    from src.core.utils import sanitize_data
+    from src.lib.security import SecurityValidator, InputSizeError, PathTraversalError
+    from src.lib.base_hook import BaseHook
+    from src.lib.utils import sanitize_data
 except ImportError:
     # In case modules don't exist yet, we'll create them
     SecurityValidator = None
@@ -459,7 +459,7 @@ class TestBaseHookSecurityIntegration:
     
     def test_base_hook_validates_input_size(self, mock_database_manager):
         """Test that BaseHook validates input size."""
-        from src.core.base_hook import BaseHook
+        from src.lib.base_hook import BaseHook
         
         with patch('src.core.base_hook.DatabaseManager') as mock_db_manager:
             mock_db_manager.return_value = mock_database_manager
@@ -481,7 +481,7 @@ class TestBaseHookSecurityIntegration:
     
     def test_base_hook_path_validation(self, mock_database_manager):
         """Test that BaseHook validates file paths."""
-        from src.core.base_hook import BaseHook
+        from src.lib.base_hook import BaseHook
         
         with patch('src.core.base_hook.DatabaseManager') as mock_db_manager:
             mock_db_manager.return_value = mock_database_manager
@@ -504,7 +504,7 @@ class TestBaseHookSecurityIntegration:
     
     def test_base_hook_sensitive_data_sanitization(self, mock_database_manager):
         """Test that BaseHook sanitizes sensitive data."""
-        from src.core.base_hook import BaseHook
+        from src.lib.base_hook import BaseHook
         
         with patch('src.core.base_hook.DatabaseManager') as mock_db_manager:
             mock_db_manager.return_value = mock_database_manager

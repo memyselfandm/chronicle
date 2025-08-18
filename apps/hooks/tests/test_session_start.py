@@ -20,7 +20,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 
 # Import from src module
-from src.core.base_hook import BaseHook
+from src.lib.base_hook import BaseHook
 
 
 class MockSessionStartHook(BaseHook):

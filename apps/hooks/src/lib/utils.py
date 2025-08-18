@@ -8,6 +8,7 @@ from inline hooks, optimized for UV script compatibility.
 import json
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -388,3 +389,159 @@ def parse_tool_response(response_data: Any) -> Dict[str, Any]:
         parsed["partial_result"] = response_data["partial_result"]
     
     return parsed
+
+
+# Additional functions merged from core/utils.py for compatibility
+
+def extract_session_context() -> Dict[str, Optional[str]]:
+    """Extract session context from environment variables."""
+    return {
+        "claude_session_id": os.getenv("CLAUDE_SESSION_ID"),
+        "claude_project_dir": os.getenv("CLAUDE_PROJECT_DIR"),
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+def get_git_info(cwd: Optional[str] = None) -> Dict[str, Any]:
+    """Get git information for the current repository."""
+    try:
+        import subprocess
+        
+        work_dir = cwd or os.getcwd()
+        
+        def run_git_cmd(cmd):
+            try:
+                result = subprocess.run(
+                    ["git"] + cmd,
+                    cwd=work_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()
+                return None
+            except:
+                return None
+        
+        branch = run_git_cmd(["rev-parse", "--abbrev-ref", "HEAD"])
+        commit = run_git_cmd(["rev-parse", "HEAD"])
+        remote_url = run_git_cmd(["config", "--get", "remote.origin.url"])
+        
+        return {
+            "git_branch": branch,
+            "git_commit": commit[:8] if commit else None,
+            "git_remote_url": remote_url,
+            "is_git_repo": branch is not None
+        }
+    except:
+        return {
+            "git_branch": None,
+            "git_commit": None,
+            "git_remote_url": None,
+            "is_git_repo": False
+        }
+
+
+def resolve_project_path(fallback_path: Optional[str] = None) -> str:
+    """
+    Resolve project path using CLAUDE_PROJECT_DIR or fallback.
+    
+    Args:
+        fallback_path: Optional fallback path if environment variable is not set
+        
+    Returns:
+        Resolved project root path
+    """
+    claude_project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    if claude_project_dir:
+        expanded_path = os.path.expanduser(claude_project_dir)
+        if os.path.isdir(expanded_path):
+            return expanded_path
+    
+    return fallback_path or os.getcwd()
+
+
+def get_project_context_with_env_support(cwd: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Capture project information and context with enhanced environment variable support.
+    
+    Args:
+        cwd: Working directory (defaults to resolved project directory from CLAUDE_PROJECT_DIR)
+        
+    Returns:
+        Dictionary containing project context information
+    """
+    # Resolve the working directory
+    resolved_cwd = resolve_project_path(cwd)
+    
+    # Get git information
+    git_info = get_git_info(resolved_cwd)
+    
+    # Get session context
+    session_context = extract_session_context()
+    
+    return {
+        "cwd": resolved_cwd,
+        "project_path": resolved_cwd,
+        "git_branch": git_info.get("git_branch"),
+        "git_commit": git_info.get("git_commit"),
+        "git_remote_url": git_info.get("git_remote_url"),
+        "is_git_repo": git_info.get("is_git_repo", False),
+        "claude_session_id": session_context.get("claude_session_id"),
+        "claude_project_dir": session_context.get("claude_project_dir"),
+        "resolved_from_env": bool(os.getenv("CLAUDE_PROJECT_DIR")),
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+def validate_environment_setup() -> Dict[str, Any]:
+    """
+    Validate the environment setup for the hooks system.
+    
+    Returns:
+        Dictionary containing validation results, warnings, and recommendations
+    """
+    warnings = []
+    errors = []
+    recommendations = []
+    
+    # Check for required environment variables
+    claude_session_id = os.getenv("CLAUDE_SESSION_ID")
+    if not claude_session_id:
+        warnings.append("CLAUDE_SESSION_ID not set - session tracking may not work")
+    
+    # Check database configuration
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_ANON_KEY")
+    
+    if not supabase_url or not supabase_key:
+        warnings.append("Supabase configuration incomplete - falling back to SQLite")
+    
+    # Check project directory
+    claude_project_dir = os.getenv("CLAUDE_PROJECT_DIR")
+    if claude_project_dir:
+        expanded_path = os.path.expanduser(claude_project_dir)
+        if not os.path.isdir(expanded_path):
+            errors.append(f"CLAUDE_PROJECT_DIR points to non-existent directory: {expanded_path}")
+    
+    # Provide recommendations
+    if not claude_session_id:
+        recommendations.append("Set CLAUDE_SESSION_ID environment variable for session tracking")
+    
+    if not supabase_url or not supabase_key:
+        recommendations.append("Configure Supabase for cloud database features")
+    
+    status = "healthy"
+    if errors:
+        status = "error"
+    elif warnings:
+        status = "warning"
+    
+    return {
+        "status": status,
+        "warnings": warnings,
+        "errors": errors,
+        "recommendations": recommendations,
+        "timestamp": datetime.now().isoformat()
+    }

@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 try:
-    from src.core.base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
 except ImportError:
     from base_hook import BaseHook
 

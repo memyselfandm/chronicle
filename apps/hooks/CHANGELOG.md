@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Cleanup - Archive Consolidated Directory
+
+**Archived unused consolidated/ directory to improve codebase organization:**
+
+#### Background
+- The `consolidated/` directory contained simplified versions of hook dependencies designed for UV single-file scripts
+- Directory contained 8 Python files (~71KB, 2,094 lines) with reduced functionality
+- No active hooks or scripts import from this directory
+- All current hooks use the full-featured `src/lib/` modules instead
+
+#### Analysis Results
+- **No external dependencies**: Comprehensive codebase search confirmed no imports from consolidated/
+- **Functionality subset**: All consolidated features are available in enhanced form in src/lib/
+- **Historical purpose**: Directory was experimental approach for UV single-file script optimization
+- **Current approach**: Active hooks use modular lib/ structure with full dependency management
+
+#### Changes Made
+- **Archived**: Moved consolidated/ directory to archived/consolidated/ for historical reference
+- **Preserved**: All code and documentation maintained in archive
+- **Validated**: Test suite confirms no functionality loss
+- **Documented**: Added historical context to CHANGELOG
+
+**Files Affected:**
+- `consolidated/` → `archived/consolidated/` (moved entire directory)
+- `tests/test_consolidated_cleanup.py` - Added validation test suite
+
 ## [3.1.0] - 2025-08-16
 
 ### Fixed - Pre-Tool-Use Event Visibility Issues

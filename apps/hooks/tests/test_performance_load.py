@@ -16,9 +16,9 @@ from unittest.mock import Mock, patch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 
-from src.core.database import SupabaseClient, DatabaseManager
-from src.core.base_hook import BaseHook
-from src.core.utils import sanitize_data
+from src.lib.database import SupabaseClient, DatabaseManager
+from src.lib.base_hook import BaseHook
+from src.lib.utils import sanitize_data
 
 
 def validate_hook_input(data):
