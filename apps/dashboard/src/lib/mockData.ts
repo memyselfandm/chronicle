@@ -1,5 +1,7 @@
 // Mock data utilities for Chronicle Dashboard development and testing
 
+import { MONITORING_INTERVALS } from './constants';
+
 export interface EventData {
   id: string;
   timestamp: Date;
@@ -308,7 +310,7 @@ export function generateRealtimeEventStream(): EventData[] {
   // Generate events with realistic timing patterns
   const now = new Date();
   for (let i = 0; i < 20; i++) {
-    const timestamp = new Date(now.getTime() - (i * 30000) - Math.random() * 30000); // Spread over last 10-15 minutes
+    const timestamp = new Date(now.getTime() - (i * MONITORING_INTERVALS.RECENT_EVENT_THRESHOLD) - Math.random() * MONITORING_INTERVALS.RECENT_EVENT_THRESHOLD); // Spread over last 10-15 minutes
     events.push({
       ...generateMockEvent(getRandomItem(sessions)),
       timestamp

@@ -4,6 +4,8 @@
  */
 
 import { config, configUtils } from './config';
+import { TIME_CONSTANTS } from './constants';
+import { logger } from './utils';
 
 /**
  * Performance monitoring interface
@@ -141,7 +143,7 @@ class SentryMonitoring {
         category,
         data,
         level: 'info',
-        timestamp: Date.now() / 1000,
+        timestamp: Date.now() / TIME_CONSTANTS.MILLISECONDS_PER_SECOND,
       });
       
     } catch (error) {
@@ -273,7 +275,11 @@ class Analytics {
     // Here you would send to your analytics service
     // For development, we just log the event
     if (configUtils.isDevelopment()) {
-      console.log('📊 Analytics Event:', analyticsEvent);
+      logger.debug('Analytics Event', {
+        component: 'monitoring',
+        action: 'trackAnalyticsEvent',
+        data: analyticsEvent
+      });
     }
   }
   

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from './ui/Card';
 import { useEvents } from '@/hooks/useEvents';
 import { useSessions } from '@/hooks/useSessions';
 import type { Event } from '@/types/events';
+import { TIME_CONSTANTS } from '@/lib/constants';
 
 interface EventDashboardProps {
   className?: string;
@@ -37,7 +38,6 @@ export const EventDashboard: React.FC<EventDashboardProps> = ({
     activeSessions, 
     sessionSummaries, 
     loading: sessionsLoading, 
-    error: sessionsError,
     retry: retrySessions,
     getSessionDuration,
     getSessionSuccessRate
@@ -104,7 +104,7 @@ export const EventDashboard: React.FC<EventDashboardProps> = ({
     const totalSessions = sessions.length;
     const recentErrors = events.filter(e => 
       e.event_type === 'error' && 
-      new Date(e.timestamp).getTime() > Date.now() - 24 * 60 * 60 * 1000
+      new Date(e.timestamp).getTime() > Date.now() - TIME_CONSTANTS.ONE_DAY_MS
     ).length;
 
     return {

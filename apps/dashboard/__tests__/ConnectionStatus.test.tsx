@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectionStatus, useConnectionStatus } from '@/components/ConnectionStatus';
-import type { ConnectionState } from '@/components/ConnectionStatus';
+import { MONITORING_INTERVALS } from '@/lib/constants';
+import type { ConnectionState } from '@/types/connection';
 
 // Test component to test the hook
 const TestHookComponent = () => {
@@ -334,7 +335,7 @@ describe('useConnectionStatus Hook', () => {
     
     // Advance time and record another update
     act(() => {
-      jest.advanceTimersByTime(30000); // 30 seconds
+      jest.advanceTimersByTime(MONITORING_INTERVALS.HEALTH_CHECK_INTERVAL); // 30 seconds
     });
     
     fireEvent.click(screen.getByTestId('record-update'));

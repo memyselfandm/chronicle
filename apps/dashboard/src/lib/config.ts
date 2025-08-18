@@ -3,6 +3,8 @@
  * Handles environment-specific configuration with proper validation and defaults
  */
 
+import { MONITORING_INTERVALS } from './constants';
+
 /**
  * Environment types supported by the application
  */
@@ -216,7 +218,7 @@ function createConfig(): AppConfig {
       maxEventsDisplay: getEnvVar('NEXT_PUBLIC_MAX_EVENTS_DISPLAY', 1000),
       pollingInterval: getEnvVar('NEXT_PUBLIC_POLLING_INTERVAL', 5000),
       batchSize: getEnvVar('NEXT_PUBLIC_BATCH_SIZE', 50),
-      realtimeHeartbeat: getEnvVar('NEXT_PUBLIC_REALTIME_HEARTBEAT_INTERVAL', 30000),
+      realtimeHeartbeat: getEnvVar('NEXT_PUBLIC_REALTIME_HEARTBEAT_INTERVAL', MONITORING_INTERVALS.REALTIME_HEARTBEAT_INTERVAL),
       realtimeTimeout: getEnvVar('NEXT_PUBLIC_REALTIME_TIMEOUT', 10000),
     },
     

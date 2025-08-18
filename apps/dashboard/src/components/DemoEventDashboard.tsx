@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatedEventCard } from './AnimatedEventCard';
 import { EventDetailModal } from './EventDetailModal';
 import { ConnectionStatus, useConnectionStatus } from './ConnectionStatus';
 import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import type { Event } from '@/types/events';
+import { TIME_CONSTANTS } from '@/lib/constants';
+import { TimeoutManager } from '@/lib/utils';
 
 // Mock data generator for demo
 const generateMockEvent = (id: string): Event => {
@@ -50,7 +52,7 @@ const generateMockEvent = (id: string): Event => {
       }
     },
     tool_name: isToolEvent ? tools[Math.floor(Math.random() * tools.length)] : undefined,
-    duration_ms: event_type === 'post_tool_use' ? Math.floor(Math.random() * 1000) + 50 : undefined,
+    duration_ms: event_type === 'post_tool_use' ? Math.floor(Math.random() * TIME_CONSTANTS.MILLISECONDS_PER_SECOND) + 50 : undefined,
     created_at: new Date().toISOString()
   };
 };
@@ -72,6 +74,9 @@ export const DemoEventDashboard: React.FC<DemoEventDashboardProps> = ({ classNam
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
   const [autoGenerate, setAutoGenerate] = useState(false);
   
+  // Timeout manager for proper cleanup
+  const timeoutManager = useRef(new TimeoutManager());
+  
   const { 
     status, 
     lastUpdate, 
@@ -91,7 +96,7 @@ export const DemoEventDashboard: React.FC<DemoEventDashboardProps> = ({ classNam
       recordUpdate();
       
       // Remove from new events after 5 seconds
-      setTimeout(() => {
+      timeoutManager.current.set(`highlight-${newEvent.id}`, () => {
         setNewEventIds(prev => {
           const updated = new Set(prev);
           updated.delete(newEvent.id);
@@ -100,7 +105,10 @@ export const DemoEventDashboard: React.FC<DemoEventDashboardProps> = ({ classNam
       }, 5000);
     }, 2000 + Math.random() * 3000); // Random interval between 2-5 seconds
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      timeoutManager.current.clearAll();
+    };
   }, [autoGenerate, recordUpdate]);
 
   const handleEventClick = useCallback((event: Event) => {
@@ -119,7 +127,7 @@ export const DemoEventDashboard: React.FC<DemoEventDashboardProps> = ({ classNam
     setNewEventIds(prev => new Set([...prev, newEvent.id]));
     recordUpdate();
 
-    setTimeout(() => {
+    timeoutManager.current.set(`manual-highlight-${newEvent.id}`, () => {
       setNewEventIds(prev => {
         const updated = new Set(prev);
         updated.delete(newEvent.id);
@@ -134,16 +142,16 @@ export const DemoEventDashboard: React.FC<DemoEventDashboardProps> = ({ classNam
       setAutoGenerate(false);
     } else if (status === 'disconnected') {
       updateStatus('connecting');
-      setTimeout(() => {
+      timeoutManager.current.set('reconnect', () => {
         updateStatus('connected');
         setAutoGenerate(true);
-      }, 1500);
+      }, TIME_CONSTANTS.DEMO_EVENT_INTERVAL);
     } else if (status === 'error') {
       retry();
-      setTimeout(() => {
+      timeoutManager.current.set('error-recovery', () => {
         updateStatus('connected');
         setAutoGenerate(true);
-      }, 1500);
+      }, TIME_CONSTANTS.DEMO_EVENT_INTERVAL);
     }
   }, [status, updateStatus, retry]);
 

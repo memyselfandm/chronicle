@@ -1,8 +1,7 @@
-import { forwardRef, useState } from 'react';
-import { format } from 'date-fns';
+import { forwardRef, useState, useCallback, useMemo } from 'react';
 import { CardContent, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { cn, formatDuration, getEventDescription } from '@/lib/utils';
+import { cn, formatDuration, getEventDescription, formatEventTimestamp, formatAbsoluteTime, getEventBadgeVariant, truncateSessionId, getEventTypeLabel } from '@/lib/utils';
 import type { Event } from '@/types/events';
 
 
@@ -20,75 +19,19 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
       onClick?.(event);
     };
 
-    const getEventTypeColor = (event_type: string) => {
-      switch (event_type) {
-        case 'session_start':
-          return 'purple';
-        case 'pre_tool_use':
-        case 'post_tool_use':
-          return 'success';
-        case 'user_prompt_submit':
-          return 'info';
-        case 'stop':
-        case 'subagent_stop':
-          return 'warning';
-        case 'pre_compact':
-          return 'secondary';
-        case 'error':
-          return 'destructive';
-        case 'notification':
-          return 'default';
-        default:
-          return 'default';
-      }
-    };
+    // Memoize event handlers to prevent unnecessary re-renders
+    const handleMouseEnter = useCallback(() => setShowTooltip(true), []);
+    const handleMouseLeave = useCallback(() => setShowTooltip(false), []);
 
-    // Custom time formatting to match test expectations
-    const formatTimestamp = (timestamp: string) => {
-      try {
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-        
-        if (diffInSeconds < 60) {
-          return `${diffInSeconds}s ago`;
-        }
-        
-        const diffInMinutes = Math.floor(diffInSeconds / 60);
-        if (diffInMinutes < 60) {
-          return `${diffInMinutes}m ago`;
-        }
-        
-        const diffInHours = Math.floor(diffInMinutes / 60);
-        if (diffInHours < 24) {
-          return `${diffInHours}h ago`;
-        }
-        
-        const diffInDays = Math.floor(diffInHours / 24);
-        return `${diffInDays}d ago`;
-      } catch {
-        return 'Unknown time';
-      }
-    };
+    // Memoize computed values to prevent recalculation
+    const computedValues = useMemo(() => ({
+      truncatedSessionId: truncateSessionId(event.session_id, 16),
+      relativeTime: formatEventTimestamp(event.timestamp),
+      absoluteTime: formatAbsoluteTime(event.timestamp),
+      badgeVariant: getEventBadgeVariant(event.event_type)
+    }), [event.session_id, event.timestamp, event.event_type]);
 
-    const formatAbsoluteTimestamp = (timestamp: string) => {
-      try {
-        const date = new Date(timestamp);
-        return format(date, 'MMM d, yyyy \'at\' HH:mm:ss');
-      } catch {
-        return timestamp;
-      }
-    };
-
-    // Custom truncation that matches test expectations
-    const truncateSessionId = (sessionId: string, maxLength: number = 16) => {
-      if (sessionId.length <= maxLength) return sessionId;
-      return `${sessionId.slice(0, maxLength)}...`;
-    };
-
-    const truncatedSessionId = truncateSessionId(event.session_id, 16);
-    const relativeTime = formatTimestamp(event.timestamp);
-    const absoluteTime = formatAbsoluteTimestamp(event.timestamp);
+    const { truncatedSessionId, relativeTime, absoluteTime, badgeVariant } = computedValues;
 
     return (
       <button
@@ -106,10 +49,10 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge 
-                variant={getEventTypeColor(event.event_type)}
+                variant={badgeVariant}
                 className="text-xs font-medium"
               >
-                {event.event_type.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
+                {getEventTypeLabel(event.event_type)}
               </Badge>
               {event.tool_name && (
                 <span className="text-xs font-medium text-text-primary bg-accent-blue/10 px-2 py-0.5 rounded">
@@ -120,8 +63,8 @@ const EventCard = forwardRef<HTMLButtonElement, EventCardProps>(
             <div className="text-xs text-text-muted">
               <span 
                 className="relative"
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
               >
                 {relativeTime}
                 {showTooltip && (
