@@ -26,17 +26,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-# Import from shared library modules
-try:
-    from lib.database import DatabaseManager
-    from lib.base_hook import BaseHook, setup_hook_logging
-    from lib.utils import extract_session_id, format_error_message
-except ImportError:
-    # For UV script compatibility, try relative imports
-    sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
-    from database import DatabaseManager
-    from base_hook import BaseHook, setup_hook_logging
-    from utils import extract_session_id, format_error_message
+# Add src directory to path for lib imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Import shared library modules
+from lib.database import DatabaseManager
+from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
+from lib.utils import load_chronicle_env, extract_session_id, format_error_message
 
 # Load environment variables
 try:
@@ -51,7 +47,8 @@ try:
 except ImportError:
     import json as json_impl
 
-# Set up logging
+# Initialize environment and logging
+load_chronicle_env()
 logger = setup_hook_logging("subagent_stop", "INFO")
 
 class SubagentStopHook(BaseHook):

@@ -76,30 +76,40 @@ pnpm install
 
 #### 2. Environment Configuration
 
-Create your environment file:
+**IMPORTANT**: Chronicle now uses a standardized environment configuration. Set up the root configuration first:
 
 ```bash
+# 1. Configure root environment (required)
+cd ../../  # Go to project root
+cp .env.template .env
+nano .env  # Configure your Supabase credentials
+
+# 2. Then set dashboard-specific overrides (optional)
+cd apps/dashboard
 cp .env.example .env.local
 ```
 
-Edit `.env.local` with your Supabase credentials:
+**Root Configuration** (`.env` in project root):
 
 ```env
-# Supabase Configuration (Required)
+# Project Environment (Required)
+CHRONICLE_ENVIRONMENT=development
+CHRONICLE_SUPABASE_URL=https://your-project.supabase.co
+CHRONICLE_SUPABASE_ANON_KEY=your-anon-key-here
+CHRONICLE_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# Dashboard Configuration (Next.js client-side)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-
-# Optional: Service role key for advanced features
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# Environment Settings
 NEXT_PUBLIC_ENVIRONMENT=development
-NEXT_PUBLIC_APP_TITLE="Chronicle Observability"
+```
 
-# Development Features
+**Dashboard Overrides** (`.env.local` - optional):
+
+```env
+# Only add overrides specific to local development
 NEXT_PUBLIC_DEBUG=true
 NEXT_PUBLIC_SHOW_DEV_TOOLS=true
-NEXT_PUBLIC_ENABLE_REALTIME=true
 ```
 
 #### 3. Validate Configuration
@@ -131,19 +141,26 @@ pip install -r requirements.txt
 # or (recommended - faster)
 uv pip install -r requirements.txt
 
-# Copy environment template
+# Copy hooks environment template (if needed)
 cp .env.template .env
 
-# Configure environment variables
+# Configure hooks-specific variables (optional)
 nano .env
 ```
 
-**Required Hooks Environment Variables**:
+**Hooks Configuration** (inherits from root `.env`):
+
+The hooks system automatically uses configuration from the root `.env` file:
+- `CHRONICLE_SUPABASE_URL`
+- `CHRONICLE_SUPABASE_ANON_KEY`  
+- `CHRONICLE_SUPABASE_SERVICE_ROLE_KEY`
+
+**Optional Hooks Overrides** (in `apps/hooks/.env`):
 ```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-SQLITE_FALLBACK_PATH=~/.chronicle/fallback.db
+# Only set these if you need hooks-specific overrides
+CLAUDE_HOOKS_DB_PATH=~/.chronicle/fallback.db
+CLAUDE_HOOKS_LOG_LEVEL=INFO
+CLAUDE_HOOKS_DEBUG=false
 ```
 
 ### Step 3: Database Schema Setup
