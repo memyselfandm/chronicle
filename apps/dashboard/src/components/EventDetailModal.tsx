@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { Modal, ModalContent, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { cn } from "@/lib/utils";
+import { cn, TimeoutManager, logger } from "@/lib/utils";
+import { UI_DELAYS } from "@/lib/constants";
 import type { Event } from "@/types/events";
 import { formatDuration } from "@/lib/utils";
 
@@ -142,15 +143,33 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
   sessionContext,
 }) => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  
+  // Timeout manager for proper cleanup
+  const timeoutManager = useRef(new TimeoutManager());
+  
+  // Cleanup timeouts when component unmounts or modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      timeoutManager.current.clearAll();
+    }
+    
+    return () => {
+      timeoutManager.current.clearAll();
+    };
+  }, [isOpen]);
 
   const copyToClipboard = useCallback(async (data: any, field: string) => {
     try {
       const textToCopy = typeof data === "string" ? data : JSON.stringify(data, null, 2);
       await navigator.clipboard.writeText(textToCopy);
       setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
+      timeoutManager.current.set('copy-notification', () => setCopiedField(null), UI_DELAYS.NOTIFICATION_DISMISS_DELAY);
     } catch (error) {
-      console.error("Failed to copy to clipboard:", error);
+      logger.error("Failed to copy to clipboard", { 
+        component: 'EventDetailModal',
+        action: 'copyToClipboard',
+        field 
+      }, error as Error);
     }
   }, []);
 

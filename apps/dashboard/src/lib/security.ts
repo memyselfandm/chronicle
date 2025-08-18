@@ -4,6 +4,7 @@
  */
 
 import { config, configUtils } from './config';
+import { logger } from './utils';
 
 /**
  * Content Security Policy configuration
@@ -350,15 +351,24 @@ export function initializeSecurity(): void {
   
   // Log security status
   if (configUtils.isDevelopment()) {
-    console.group('🔒 Security Configuration');
-    console.log('CSP Enabled:', config.security.enableCSP);
-    console.log('Security Headers:', config.security.enableSecurityHeaders);
-    console.log('Rate Limiting:', config.security.rateLimiting.enabled);
-    console.log('Secure Context:', securityChecks.isSecureContext());
+    logger.info('Security Configuration', {
+      component: 'security',
+      action: 'logConfiguration', 
+      data: {
+        cspEnabled: config.security.enableCSP,
+        securityHeaders: config.security.enableSecurityHeaders,
+        rateLimiting: config.security.rateLimiting.enabled,
+        secureContext: securityChecks.isSecureContext()
+      }
+    });
+    
     if (configIssues.length > 0) {
-      console.warn('Configuration Issues:', configIssues);
+      logger.warn('Security configuration issues detected', {
+        component: 'security',
+        action: 'logConfiguration',
+        data: { issues: configIssues }
+      });
     }
-    console.groupEnd();
   }
   
   configUtils.log('info', 'Security configuration initialized');

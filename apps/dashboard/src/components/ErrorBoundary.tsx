@@ -3,6 +3,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader } from './ui/Card';
+import { logger } from '@/lib/utils';
 
 interface Props {
   children: ReactNode;
@@ -28,8 +29,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error to console and call onError callback if provided
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Log the error using centralized logger
+    logger.error('ErrorBoundary caught an error', {
+      component: 'ErrorBoundary',
+      action: 'componentDidCatch',
+      data: { componentStack: errorInfo.componentStack }
+    }, error);
     
     this.setState({
       error,
@@ -113,7 +118,11 @@ export class ErrorBoundary extends Component<Props, State> {
 export const DashboardErrorBoundary: React.FC<{ children: ReactNode }> = ({ children }) => {
   const handleError = (error: Error, errorInfo: ErrorInfo) => {
     // Could send to error reporting service here
-    console.error('Dashboard Error:', { error, errorInfo });
+    logger.error('Dashboard Error', {
+      component: 'DashboardErrorBoundary',
+      action: 'handleError',
+      data: { componentStack: errorInfo.componentStack }
+    }, error);
   };
 
   return (

@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, REALTIME_CONFIG } from '../lib/supabase';
+import { MONITORING_INTERVALS } from '../lib/constants';
 import { Event } from '@/types/events';
 import { FilterState } from '@/types/filters';
-import { useSupabaseConnection, ConnectionStatus } from './useSupabaseConnection';
+import { useSupabaseConnection } from './useSupabaseConnection';
+import type { ConnectionStatus } from '@/types/connection';
 
 interface UseEventsState {
   events: Event[];
@@ -69,7 +71,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     getConnectionQuality,
   } = useSupabaseConnection({
     enableHealthCheck: true,
-    healthCheckInterval: 30000,
+    healthCheckInterval: MONITORING_INTERVALS.HEALTH_CHECK_INTERVAL,
   });
 
   // Refs for cleanup and deduplication

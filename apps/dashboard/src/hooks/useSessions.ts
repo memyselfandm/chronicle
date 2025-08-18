@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { logger } from '../lib/utils';
 import { Session } from '@/types/events';
 
 interface SessionSummary {
@@ -59,7 +60,11 @@ export const useSessions = (): UseSessionsState => {
           .eq('session_id', sessionId);
 
         if (eventsError) {
-          console.warn(`Failed to fetch events for session ${sessionId}:`, eventsError);
+          logger.warn(`Failed to fetch events for session ${sessionId}`, {
+            component: 'useSessions',
+            action: 'loadEventSources',
+            data: { sessionId, error: eventsError.message }
+          });
           continue;
         }
 
@@ -92,7 +97,10 @@ export const useSessions = (): UseSessionsState => {
       return summaries;
 
     } catch (err) {
-      console.error('Failed to fetch session summaries:', err);
+      logger.error('Failed to fetch session summaries', {
+        component: 'useSessions',
+        action: 'loadEventSources'
+      }, err as Error);
       return [];
     }
   }, []);
@@ -194,12 +202,19 @@ export const useSessions = (): UseSessionsState => {
             .eq('id', session.id);
 
           if (updateError) {
-            console.warn(`Failed to update end_time for session ${session.id}:`, updateError);
+            logger.warn(`Failed to update end_time for session ${session.id}`, {
+              component: 'useSessions',
+              action: 'updateSessionEndTimes',
+              data: { sessionId: session.id, error: updateError.message }
+            });
           }
         }
       }
     } catch (err) {
-      console.warn('Error updating session end times:', err);
+      logger.warn('Error updating session end times', {
+        component: 'useSessions',
+        action: 'updateSessionEndTimes'
+      });
     }
   }, [sessions]);
 
@@ -222,14 +237,22 @@ export const useSessions = (): UseSessionsState => {
         .limit(1);
 
       if (stopError) {
-        console.warn(`Failed to check stop events for session ${sessionId}:`, stopError);
+        logger.warn(`Failed to check stop events for session ${sessionId}`, {
+          component: 'useSessions',
+          action: 'checkSessionStatus',
+          data: { sessionId, error: stopError.message }
+        });
         return false;
       }
 
       // If there are stop events, session is not active
       return !stopEvents || stopEvents.length === 0;
     } catch (err) {
-      console.warn(`Error checking session status for ${sessionId}:`, err);
+      logger.warn(`Error checking session status for ${sessionId}`, {
+        component: 'useSessions',
+        action: 'checkSessionStatus',
+        data: { sessionId }
+      });
       return false;
     }
   }, []);

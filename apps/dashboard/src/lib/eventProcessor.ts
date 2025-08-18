@@ -1,5 +1,6 @@
 import { Event } from '@/types/events';
 import { EventType, isValidEventType } from '@/types/filters';
+import { logger } from './utils';
 
 /**
  * Sensitive data keys that should be redacted
@@ -259,7 +260,11 @@ export class EventProcessor {
       return processed;
     } catch (error) {
       this.metrics.errorCount++;
-      console.error('Event processing error:', error);
+      logger.error('Event processing error', {
+        component: 'eventProcessor',
+        action: 'processBatch',
+        data: { batchSize: queue.length }
+      }, error as Error);
       return null;
     }
   }
