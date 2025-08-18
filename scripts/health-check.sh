@@ -133,9 +133,9 @@ check_project_structure() {
         "README.md"
         "INSTALLATION.md"
         "CONFIGURATION.md"
-        "DEPLOYMENT.md"
+        "docs/guides/deployment.md"
         "TROUBLESHOOTING.md"
-        "SECURITY.md"
+        "docs/guides/security.md"
         "SUPABASE_SETUP.md"
     )
     

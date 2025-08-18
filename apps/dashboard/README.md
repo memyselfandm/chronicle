@@ -128,7 +128,7 @@ NEXT_PUBLIC_ENABLE_ANALYTICS=false
 
 ### Production Environment
 
-For production deployment, see [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive setup instructions including:
+For production deployment, see [../../docs/guides/deployment.md](../../docs/guides/deployment.md) for comprehensive setup instructions including:
 
 - Security configuration (CSP, rate limiting)
 - Monitoring setup (Sentry integration)
@@ -185,8 +185,9 @@ apps/dashboard/
 │   ├── health-check.js       # Application health verification
 │   └── validate-environment.js # Environment validation
 ├── CODESTYLE.md              # Development patterns and conventions
-├── DEPLOYMENT.md             # Production deployment guide
-├── SECURITY.md              # Security guidelines and best practices
+├── ../../docs/guides/
+│   ├── deployment.md        # Production deployment guide (consolidated)
+│   └── security.md          # Security guidelines and best practices (consolidated)
 └── CONFIG_MANAGEMENT.md     # Configuration management guide
 ```
 
@@ -335,8 +336,8 @@ __tests__/
 ### Additional Documentation
 
 - **[CODESTYLE.md](./CODESTYLE.md)**: Development patterns and coding conventions
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)**: Production deployment guide with platform-specific instructions
-- **[SECURITY.md](./SECURITY.md)**: Security guidelines and best practices
+- **[../../docs/guides/deployment.md](../../docs/guides/deployment.md)**: Production deployment guide with platform-specific instructions
+- **[../../docs/guides/security.md](../../docs/guides/security.md)**: Security guidelines and best practices
 - **[CONFIG_MANAGEMENT.md](./CONFIG_MANAGEMENT.md)**: Configuration management and environment setup
 
 ### API Documentation
@@ -376,7 +377,7 @@ Before deploying to production:
 4. **Performance**: Enable CDN and optimize for your user base
 5. **Database**: Ensure proper indexing and backup strategies
 
-For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+For detailed deployment instructions, see [../../docs/guides/deployment.md](../../docs/guides/deployment.md).
 
 ---
 
@@ -386,8 +387,8 @@ For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 - **Documentation**: Check the docs in this repository
 - **Configuration Issues**: See [CONFIG_MANAGEMENT.md](./CONFIG_MANAGEMENT.md)
-- **Security Questions**: Review [SECURITY.md](./SECURITY.md)
-- **Deployment Problems**: Follow [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **Security Questions**: Review [../../docs/guides/security.md](../../docs/guides/security.md)
+- **Deployment Problems**: Follow [../../docs/guides/deployment.md](../../docs/guides/deployment.md)
 
 ### Development Support
 

@@ -61,27 +61,64 @@ If you prefer manual control or the automated installer fails:
 
 ### Step 1: Dashboard Setup
 
+#### 1. Clone and Install Dependencies
+
 ```bash
-# Navigate to dashboard
-cd apps/dashboard
+# Clone the repository
+git clone <repository-url>
+cd chronicle-dev/apps/dashboard
 
 # Install dependencies (choose one)
 npm install
 # or
 pnpm install
-
-# Copy environment template
-cp .env.example .env.local
-
-# Configure environment variables
-nano .env.local
 ```
 
-**Required Dashboard Environment Variables**:
+#### 2. Environment Configuration
+
+Create your environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` with your Supabase credentials:
+
 ```env
+# Supabase Configuration (Required)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Optional: Service role key for advanced features
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Environment Settings
+NEXT_PUBLIC_ENVIRONMENT=development
+NEXT_PUBLIC_APP_TITLE="Chronicle Observability"
+
+# Development Features
+NEXT_PUBLIC_DEBUG=true
+NEXT_PUBLIC_SHOW_DEV_TOOLS=true
+NEXT_PUBLIC_ENABLE_REALTIME=true
 ```
+
+#### 3. Validate Configuration
+
+Run the environment validation script:
+
+```bash
+npm run validate:env
+```
+
+This script will check your configuration and report any issues.
+
+#### 4. Start Development Server
+
+```bash
+npm run dev
+```
+
+The application will be available at [http://localhost:3000](http://localhost:3000).
 
 ### Step 2: Hooks System Setup
 
@@ -150,9 +187,83 @@ chmod +x ~/.claude/hooks/*.py
 
 The installer updates your Claude Code `settings.json` to register all hooks.
 
-## Configuration
+## Dashboard Database Requirements
 
-### Environment Templates
+Chronicle Dashboard requires these Supabase tables:
+
+### chronicle_sessions Table
+
+```sql
+CREATE TABLE chronicle_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_path TEXT NOT NULL,
+    git_branch TEXT,
+    start_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    end_time TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'error')),
+    event_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### chronicle_events Table
+
+```sql
+CREATE TABLE chronicle_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES chronicle_sessions(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('prompt', 'tool_use', 'session_start', 'session_end')),
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    data JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### Required Indexes
+
+```sql
+-- Performance indexes
+CREATE INDEX idx_events_session_id ON chronicle_events(session_id);
+CREATE INDEX idx_events_timestamp ON chronicle_events(timestamp DESC);
+CREATE INDEX idx_events_type ON chronicle_events(type);
+CREATE INDEX idx_sessions_status ON chronicle_sessions(status);
+CREATE INDEX idx_sessions_start_time ON chronicle_sessions(start_time DESC);
+```
+
+### Real-time Subscriptions
+
+Enable real-time subscriptions for live updates:
+
+```sql
+-- Enable real-time for the tables
+ALTER PUBLICATION supabase_realtime ADD TABLE chronicle_sessions;
+ALTER PUBLICATION supabase_realtime ADD TABLE chronicle_events;
+```
+
+## Configuration Templates
+
+### Dashboard Environment Variables
+
+#### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | `https://abc123.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | `eyJ...` |
+
+#### Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NEXT_PUBLIC_ENVIRONMENT` | `development` | Environment name |
+| `NEXT_PUBLIC_APP_TITLE` | `Chronicle Observability` | Application title |
+| `NEXT_PUBLIC_DEBUG` | `true` (dev), `false` (prod) | Enable debug logging |
+| `NEXT_PUBLIC_ENABLE_REALTIME` | `true` | Enable real-time updates |
+| `NEXT_PUBLIC_MAX_EVENTS_DISPLAY` | `1000` | Maximum events to display |
+| `NEXT_PUBLIC_POLLING_INTERVAL` | `5000` | Polling interval in ms |
+
+### Hooks Environment Variables
 
 #### Dashboard (.env.local)
 ```env
@@ -189,28 +300,6 @@ HOOK_TIMEOUT_MS=100
 ASYNC_OPERATIONS=true
 ```
 
-### Supabase Configuration
-
-#### 1. Create Supabase Project
-1. Visit [supabase.com](https://supabase.com) and create account
-2. Create new project (free tier is sufficient)
-3. Note your project URL and keys from Settings > API
-
-#### 2. Database Schema
-Run the schema setup script or manually execute:
-```sql
--- Copy the complete schema from apps/hooks/config/schema.sql
--- This includes tables for sessions, events, tool_events, etc.
-```
-
-#### 3. Security Settings (Optional)
-For production deployments, consider enabling Row Level Security:
-```sql
--- Enable RLS on main tables
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE events ENABLE ROW LEVEL SECURITY;
-```
-
 ## Verification
 
 ### Test Dashboard
@@ -244,6 +333,33 @@ pytest
 2. **Trigger some activity** (read files, run commands)
 3. **Check dashboard** for live events appearing
 4. **Check logs** at `~/.claude/hooks.log` for hook execution
+
+## Development Scripts
+
+### Available Commands
+
+```bash
+# Development
+npm run dev                    # Start development server with Turbopack
+npm run build                 # Build for production
+npm run start                 # Start production server
+npm run lint                  # Run ESLint
+
+# Testing
+npm run test                  # Run all tests
+npm run test:watch           # Run tests in watch mode
+
+# Validation and Health Checks
+npm run validate:env         # Validate environment configuration
+npm run validate:config      # Full configuration validation
+npm run security:check       # Security audit
+npm run health:check         # Health check script
+
+# Build Variants
+npm run build:production     # Production build with optimizations
+npm run build:staging        # Staging build
+npm run build:analyze        # Build with bundle analyzer
+```
 
 ## Troubleshooting
 

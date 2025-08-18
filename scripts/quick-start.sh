@@ -564,8 +564,8 @@ show_next_steps() {
     echo "   📋 Claude Code logs: ~/.claude/logs/"
     echo
     echo "4. Production deployment:"
-    echo "   📖 See DEPLOYMENT.md for production setup"
-    echo "   🔒 See SECURITY.md for security best practices"
+    echo "   📖 See docs/guides/deployment.md for production setup"
+    echo "   🔒 See docs/guides/security.md for security best practices"
     echo
     echo "5. Get help:"
     echo "   📚 Read TROUBLESHOOTING.md for common issues"

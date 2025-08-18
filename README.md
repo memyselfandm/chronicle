@@ -37,8 +37,8 @@ python install.py  # Installs Claude Code hooks
 - **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** - Database setup guide
 
 ### Deployment & Production
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Production deployment guide
-- **[SECURITY.md](./SECURITY.md)** - Security best practices
+- **[docs/guides/deployment.md](./docs/guides/deployment.md)** - Production deployment guide
+- **[docs/guides/security.md](./docs/guides/security.md)** - Security best practices
 
 ### Troubleshooting & Support
 - **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Common issues & solutions
@@ -76,8 +76,10 @@ chronicle/
 └── docs/                 # Comprehensive documentation
     ├── INSTALLATION.md
     ├── CONFIGURATION.md
-    ├── DEPLOYMENT.md
-    ├── SECURITY.md
+    ├── docs/
+    │   └── guides/
+    │       ├── deployment.md       # Consolidated deployment guide
+    │       └── security.md         # Consolidated security guide
     ├── SUPABASE_SETUP.md
     └── TROUBLESHOOTING.md
 ```
@@ -123,7 +125,7 @@ docker-compose up -d
 - **Railway/Render**: Full-stack deployment
 - **Self-hosted**: Complete deployment guide
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
+See [docs/guides/deployment.md](./docs/guides/deployment.md) for detailed instructions.
 
 ## 🔒 Security Features
 
@@ -133,7 +135,7 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 - **Row Level Security**: Optional Supabase RLS configuration
 - **Audit Logging**: Comprehensive security event tracking
 
-See [SECURITY.md](./SECURITY.md) for security best practices.
+See [docs/guides/security.md](./docs/guides/security.md) for security best practices.
 
 ## 📈 Monitoring & Observability
 
@@ -150,7 +152,7 @@ The Chronicle dashboard provides:
 2. **Installation Problems**: Review [INSTALLATION.md](./INSTALLATION.md)
 3. **Configuration Issues**: See [CONFIGURATION.md](./CONFIGURATION.md)
 4. **Health Check**: Run `./scripts/health-check.sh`
-5. **Security Questions**: Consult [SECURITY.md](./SECURITY.md)
+5. **Security Questions**: Consult [docs/guides/security.md](./docs/guides/security.md)
 
 ## 📄 License
 
