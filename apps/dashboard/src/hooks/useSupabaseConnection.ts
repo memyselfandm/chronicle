@@ -1,25 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, REALTIME_CONFIG } from '../lib/supabase';
-
-export type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'error';
-
-export interface ConnectionStatus {
-  state: ConnectionState;
-  lastUpdate: Date | null;
-  lastEventReceived: Date | null;
-  subscriptions: number;
-  reconnectAttempts: number;
-  error: string | null;
-  isHealthy: boolean;
-}
-
-export interface UseSupabaseConnectionOptions {
-  enableHealthCheck?: boolean;
-  healthCheckInterval?: number;
-  maxReconnectAttempts?: number;
-  reconnectDelay?: number;
-}
+import { CONNECTION_DELAYS, MONITORING_INTERVALS } from '../lib/constants';
+import { logger } from '../lib/utils';
+import type {
+  ConnectionState,
+  ConnectionStatus,
+  UseSupabaseConnectionOptions,
+} from '../types/connection';
 
 /**
  * Enhanced hook for monitoring Supabase connection state
@@ -28,9 +16,9 @@ export interface UseSupabaseConnectionOptions {
 export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}) => {
   const {
     enableHealthCheck = true,
-    healthCheckInterval = 30000, // 30 seconds
+    healthCheckInterval = MONITORING_INTERVALS.HEALTH_CHECK_INTERVAL,
     maxReconnectAttempts = REALTIME_CONFIG.RECONNECT_ATTEMPTS,
-    reconnectDelay = 1000, // Start with 1 second
+    reconnectDelay = CONNECTION_DELAYS.QUICK_RECONNECT_DELAY,
   } = options;
 
   // State management
@@ -69,7 +57,7 @@ export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}
   /**
    * Debounced state update to prevent flickering
    */
-  const updateConnectionState = useCallback((newState: ConnectionState, debounceMs: number = 300) => {
+  const updateConnectionState = useCallback((newState: ConnectionState, debounceMs: number = CONNECTION_DELAYS.DEBOUNCE_DELAY) => {
     // Special handling for 'connecting' state - only show after delay
     if (newState === 'connecting') {
       // Clear any existing connecting timeout
@@ -78,12 +66,12 @@ export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}
         connectingTimeoutRef.current = null;
       }
       
-      // Only show connecting if it takes longer than 500ms
+      // Only show connecting if it takes longer than display delay
       connectingTimeoutRef.current = setTimeout(() => {
         if (pendingStateRef.current === 'connecting') {
           updateStatusImmediate({ state: 'connecting' });
         }
-      }, 500);
+      }, CONNECTION_DELAYS.CONNECTING_DISPLAY_DELAY);
       
       pendingStateRef.current = newState;
       return;
@@ -165,7 +153,30 @@ export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}
         .limit(1);
 
       if (error) {
-        console.warn('Health check failed:', error.message);
+        // Check for CORS/network errors which indicate backend is down
+        const isCorsError = error.message?.includes('Failed to fetch') || 
+                           error.message?.includes('CORS') ||
+                           error.message?.includes('NetworkError');
+        
+        if (isCorsError) {
+          logger.warn('Supabase connection failed - backend may be down', {
+            component: 'useSupabaseConnection',
+            action: 'performHealthCheck',
+            data: { error: error.message }
+          });
+          updateStatus({
+            isHealthy: false,
+            error: 'Supabase backend is unreachable (CORS/Network error). Service may be down.',
+            state: 'error'
+          });
+          return false;
+        }
+        
+        logger.warn('Health check failed', {
+          component: 'useSupabaseConnection', 
+          action: 'performHealthCheck',
+          data: { error: error.message }
+        });
         
         // Only update to error state if we're currently connected
         // and this represents a real connectivity issue
@@ -198,7 +209,11 @@ export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown health check error';
-      console.error('Health check error:', errorMessage);
+      logger.error('Health check error', {
+        component: 'useSupabaseConnection',
+        action: 'performHealthCheck',
+        data: { errorMessage }
+      });
       
       // Only transition to error state if we're not already there
       updateStatus({
@@ -348,14 +363,14 @@ export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}
           error: err?.message || 'Channel subscription error',
         });
         // Auto-reconnect on channel error
-        setTimeout(() => reconnect(), 2000);
+        setTimeout(() => reconnect(), CONNECTION_DELAYS.RECONNECT_DELAY);
       } else if (status === 'TIMED_OUT') {
         updateStatus({
           state: 'disconnected',
           error: 'Connection timed out',
         });
         // Auto-reconnect on timeout
-        setTimeout(() => reconnect(), 1000);
+        setTimeout(() => reconnect(), CONNECTION_DELAYS.QUICK_RECONNECT_DELAY);
       }
     });
 
@@ -393,7 +408,7 @@ export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}
     
     // Quality based on how recent the last event was
     if (timeSinceLastEvent < 10000) return 'excellent'; // < 10s
-    if (timeSinceLastEvent < 30000) return 'good';      // < 30s
+    if (timeSinceLastEvent < MONITORING_INTERVALS.RECENT_EVENT_THRESHOLD) return 'good';
     if (timeSinceLastEvent < 120000) return 'poor';     // < 2m
     return 'unknown';
   }, [status.lastEventReceived, status.isHealthy]);
