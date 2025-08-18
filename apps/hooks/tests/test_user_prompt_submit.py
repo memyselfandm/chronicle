@@ -421,7 +421,7 @@ class TestUserPromptAdditionalContext:
     
     def test_create_user_prompt_response_with_additional_context(self, mock_database_manager):
         """Test creating response with additionalContext in hookSpecificOutput."""
-        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+        with patch('src.lib.base_hook.DatabaseManager', return_value=mock_database_manager):
             from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
@@ -442,7 +442,7 @@ class TestUserPromptAdditionalContext:
     
     def test_create_user_prompt_response_with_blocking(self, mock_database_manager):
         """Test creating response that blocks prompt execution."""
-        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+        with patch('src.lib.base_hook.DatabaseManager', return_value=mock_database_manager):
             from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
@@ -462,7 +462,7 @@ class TestUserPromptAdditionalContext:
     
     def test_create_user_prompt_response_minimal(self, mock_database_manager):
         """Test creating minimal response without additional context."""
-        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+        with patch('src.lib.base_hook.DatabaseManager', return_value=mock_database_manager):
             from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
@@ -477,7 +477,7 @@ class TestUserPromptAdditionalContext:
     
     def test_process_prompt_with_new_response_format(self, mock_database_manager, sample_user_prompt_input):
         """Test that process_prompt_input now returns proper JSON response instead of pass-through."""
-        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+        with patch('src.lib.base_hook.DatabaseManager', return_value=mock_database_manager):
             from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
@@ -499,7 +499,7 @@ class TestUserPromptAdditionalContext:
     
     def test_smart_context_injection(self, mock_database_manager):
         """Test smart context injection based on prompt content."""
-        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+        with patch('src.lib.base_hook.DatabaseManager', return_value=mock_database_manager):
             from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
@@ -528,7 +528,7 @@ class TestUserPromptAdditionalContext:
     
     def test_error_handling_with_new_format(self, mock_database_manager):
         """Test error handling still returns proper JSON format."""
-        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+        with patch('src.lib.base_hook.DatabaseManager', return_value=mock_database_manager):
             from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
@@ -569,7 +569,7 @@ class TestUserPromptAdditionalContext:
             }
         }
         
-        with patch('src.core.base_hook.DatabaseManager', return_value=mock_database_manager):
+        with patch('src.lib.base_hook.DatabaseManager', return_value=mock_database_manager):
             from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook(config)

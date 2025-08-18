@@ -28,7 +28,7 @@ sys.path.insert(0, str(test_dir.parent / "src"))
 sys.path.insert(0, str(test_dir.parent / "src" / "core"))
 sys.path.insert(0, str(test_dir.parent / "scripts"))
 
-from base_hook import BaseHook
+from src.lib.base_hook import BaseHook
 from install import HookInstaller, find_claude_directory
 from utils import get_git_info
 

@@ -21,7 +21,7 @@ from pathlib import Path
 # Add the src directory to the path so we can import the hook modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from base_hook import BaseHook
+from src.lib.base_hook import BaseHook
 
 
 class MockDatabaseManager:

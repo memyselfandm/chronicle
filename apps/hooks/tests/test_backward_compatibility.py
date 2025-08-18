@@ -22,11 +22,11 @@ import shutil
 # Add src directory to path for importing hooks
 test_dir = Path(__file__).parent
 sys.path.insert(0, str(test_dir.parent / "src"))
-sys.path.insert(0, str(test_dir.parent / "src" / "core"))
+sys.path.insert(0, str(test_dir.parent / "src" / "lib"))
 sys.path.insert(0, str(test_dir.parent / "scripts"))
 
 from install import HookInstaller, validate_settings_json, merge_hook_settings
-from base_hook import BaseHook
+from src.lib.base_hook import BaseHook
 
 
 class TestBackwardCompatibility(unittest.TestCase):

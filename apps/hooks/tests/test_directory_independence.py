@@ -29,7 +29,7 @@ test_dir = Path(__file__).parent
 sys.path.insert(0, str(test_dir.parent / "src"))
 sys.path.insert(0, str(test_dir.parent / "src" / "core"))
 
-from base_hook import BaseHook
+from src.lib.base_hook import BaseHook
 from utils import resolve_project_path, get_project_context_with_env_support
 
 

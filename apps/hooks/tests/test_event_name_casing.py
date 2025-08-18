@@ -15,7 +15,7 @@ from unittest.mock import patch, Mock
 # Add the core directory to the path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src', 'core'))
 
-from base_hook import BaseHook
+from src.lib.base_hook import BaseHook
 
 
 class TestEventNameCasing(unittest.TestCase):

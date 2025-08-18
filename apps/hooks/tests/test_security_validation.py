@@ -461,7 +461,7 @@ class TestBaseHookSecurityIntegration:
         """Test that BaseHook validates input size."""
         from src.lib.base_hook import BaseHook
         
-        with patch('src.core.base_hook.DatabaseManager') as mock_db_manager:
+        with patch('src.lib.base_hook.DatabaseManager') as mock_db_manager:
             mock_db_manager.return_value = mock_database_manager
             
             hook = BaseHook()
@@ -483,7 +483,7 @@ class TestBaseHookSecurityIntegration:
         """Test that BaseHook validates file paths."""
         from src.lib.base_hook import BaseHook
         
-        with patch('src.core.base_hook.DatabaseManager') as mock_db_manager:
+        with patch('src.lib.base_hook.DatabaseManager') as mock_db_manager:
             mock_db_manager.return_value = mock_database_manager
             
             hook = BaseHook()
@@ -506,7 +506,7 @@ class TestBaseHookSecurityIntegration:
         """Test that BaseHook sanitizes sensitive data."""
         from src.lib.base_hook import BaseHook
         
-        with patch('src.core.base_hook.DatabaseManager') as mock_db_manager:
+        with patch('src.lib.base_hook.DatabaseManager') as mock_db_manager:
             mock_db_manager.return_value = mock_database_manager
             
             hook = BaseHook()

@@ -20,9 +20,9 @@ import sys
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from core.base_hook import BaseHook
-from core.database import DatabaseManager
-from core.performance import (
+from src.lib.base_hook import BaseHook
+from src.lib.database import DatabaseManager
+from src.lib.performance import (
     measure_performance, get_performance_collector, get_hook_cache,
     PerformanceMetrics, EarlyReturnValidator
 )
@@ -218,7 +218,7 @@ class TestPerformanceRequirements:
     async def test_async_database_operations_performance(self, performance_thresholds):
         """Test async database operations improve performance."""
         # Test with mock async operations
-        from core.database import SQLiteClient
+        from src.lib.database import SQLiteClient
         
         with patch('aiosqlite.connect') as mock_connect:
             # Mock async context manager

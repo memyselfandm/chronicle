@@ -14,12 +14,12 @@ from datetime import datetime
 import sys
 
 # Add source paths for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "core"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "lib"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 try:
     from database import DatabaseManager, SupabaseClient, SQLiteClient
-    from base_hook import BaseHook
+    from src.lib.base_hook import BaseHook
 except ImportError:
     # Gracefully handle import failures during test discovery
     DatabaseManager = None
@@ -90,7 +90,7 @@ class TestDatabaseIntegration:
         """Test database health check with successful Supabase connection."""
         mock_client, mock_table = mock_supabase_client
         
-        with patch('src.core.database.create_client', return_value=mock_client):
+        with patch('src.lib.database.create_client', return_value=mock_client):
             with patch.dict(os.environ, {
                 'SUPABASE_URL': 'https://test.supabase.co',
                 'SUPABASE_ANON_KEY': 'test-key'
@@ -154,7 +154,7 @@ class TestDatabaseIntegration:
         # Configure Supabase to fail
         mock_client.table.side_effect = Exception("Connection failed")
         
-        with patch('src.core.database.create_client', return_value=mock_client):
+        with patch('src.lib.database.create_client', return_value=mock_client):
             with patch.dict(os.environ, {
                 'SUPABASE_URL': 'https://test.supabase.co',
                 'SUPABASE_ANON_KEY': 'test-key'
@@ -343,7 +343,7 @@ class TestDatabaseIntegration:
         
         mock_table.insert.return_value.execute = failing_insert
         
-        with patch('src.core.database.create_client', return_value=mock_client):
+        with patch('src.lib.database.create_client', return_value=mock_client):
             with patch.dict(os.environ, {
                 'SUPABASE_URL': 'https://test.supabase.co',
                 'SUPABASE_ANON_KEY': 'test-key'

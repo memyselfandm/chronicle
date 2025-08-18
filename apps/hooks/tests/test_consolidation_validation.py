@@ -13,7 +13,6 @@ from pathlib import Path
 
 # Add the hooks source directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "core"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "lib"))
 
 class TestConsolidationPreMerge(unittest.TestCase):
@@ -118,7 +117,7 @@ class TestConsolidationPostMerge(unittest.TestCase):
         }
     
     def test_lib_has_all_core_base_hook_functionality(self):
-        """Test that lib BaseHook has all functionality from core."""
+        """Test that lib BaseHook has all functionality from src.lib."""
         try:
             from src.lib.base_hook import BaseHook
             hook = BaseHook()
@@ -142,7 +141,7 @@ class TestConsolidationPostMerge(unittest.TestCase):
             self.fail(f"Failed to import consolidated lib BaseHook: {e}")
     
     def test_lib_has_all_core_database_functionality(self):
-        """Test that lib database has all functionality from core."""
+        """Test that lib database has all functionality from src.lib."""
         try:
             from src.lib.database import DatabaseManager, SupabaseClient
             
@@ -166,7 +165,7 @@ class TestConsolidationPostMerge(unittest.TestCase):
             self.fail(f"Failed to import consolidated lib database: {e}")
     
     def test_lib_has_all_core_utils_functionality(self):
-        """Test that lib utils has all functionality from core."""
+        """Test that lib utils has all functionality from src.lib."""
         try:
             from src.lib.utils import (
                 sanitize_data, format_error_message, extract_session_context,

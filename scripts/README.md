@@ -1,15 +1,47 @@
-# Chronicle Snapshot Testing Scripts
+# Chronicle Development Scripts
 
-Real data capture and playback system for comprehensive Chronicle testing using live Claude Code session data.
+Development utilities including testing, cleanup, and maintenance scripts for the Chronicle project.
 
 ## 🎯 Overview
 
 These scripts enable you to:
-1. **Capture** live session data from your Supabase instance
-2. **Validate & Sanitize** the data for privacy and security compliance  
-3. **Playback** the data to test Chronicle components with realistic usage patterns
+1. **Clean** build artifacts, cache files, and temporary development files
+2. **Capture** live session data from your Supabase instance
+3. **Validate & Sanitize** the data for privacy and security compliance  
+4. **Playback** the data to test Chronicle components with realistic usage patterns
 
 ## 📋 Scripts
+
+### 🧹 `clean.sh` - Project Cleanup
+Comprehensive cleanup script that removes build artifacts, cache files, and temporary development files.
+
+```bash
+# Run full cleanup
+./scripts/clean.sh
+
+# Make script executable (if needed)
+chmod +x scripts/clean.sh
+```
+
+**What gets cleaned:**
+- Python cache files (`__pycache__/`, `*.pyc`, `*.pyo`)
+- Python build artifacts (`build/`, `dist/`, `*.egg-info/`)
+- Test coverage reports (`coverage/`, `lcov-report/`, `.coverage`)
+- TypeScript build artifacts (`*.tsbuildinfo`, `.next/`)
+- Node.js artifacts (debug logs, yarn logs)
+- Temporary files (`*.tmp`, `*.temp`, `*.log`)
+- OS-specific files (`.DS_Store`, `Thumbs.db`)
+- Editor backup files (`*.swp`, `*.swo`, `*~`)
+- Development debug files from root (`test_*.py`, `debug_*.py`, etc.)
+- Performance monitoring outputs (`*.prof`, `performance_*.json`)
+
+**When to use:**
+- Before running tests to ensure clean environment
+- After switching branches to clean old artifacts
+- During development to free up disk space
+- Before committing to ensure no artifacts are included
+
+**Safe cleanup:** The script preserves source code, documentation, configuration files, and essential project structure.
 
 ### 1. `snapshot_capture.py` - Data Capture
 Captures live Chronicle data from Supabase for testing purposes.
