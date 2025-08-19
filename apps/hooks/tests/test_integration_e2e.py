@@ -968,3 +968,732 @@ class TestSystemIntegrationScenarios:
         # Verify database calls were made
         assert mock_db.upsert_session.call_count >= 1  # At least session start
         assert mock_db.insert_event.call_count >= len(session_events)  # At least one per event
+
+
+class TestHookInteractionFlow:
+    """Test hook-to-hook interactions and data flow."""
+
+    @pytest.fixture
+    def enhanced_mock_db(self):
+        """Enhanced mock database that tracks interactions."""
+        mock_db = Mock()
+        mock_db.health_check.return_value = True
+        mock_db.session_data = {}
+        mock_db.event_data = []
+        
+        def track_session_upsert(session_data):
+            session_id = session_data["session_id"]
+            if session_id not in mock_db.session_data:
+                mock_db.session_data[session_id] = session_data.copy()
+            else:
+                mock_db.session_data[session_id].update(session_data)
+            return True
+        
+        def track_event_insert(event_data):
+            mock_db.event_data.append(event_data.copy())
+            return True
+        
+        mock_db.upsert_session = track_session_upsert
+        mock_db.insert_event = track_event_insert
+        
+        return mock_db
+
+    def test_tool_use_hook_interaction_pattern(self, enhanced_mock_db):
+        """Test Pre/Post tool use hook interaction patterns."""
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = enhanced_mock_db
+        
+        # Simulate complete tool use cycle with data flow
+        tool_cycles = [
+            {
+                "tool_name": "Read",
+                "pre_input": {"file_path": "/project/package.json"},
+                "post_response": {"content": '{"name": "my-app", "version": "1.0.0"}', "size": 1024}
+            },
+            {
+                "tool_name": "Edit", 
+                "pre_input": {
+                    "file_path": "/project/package.json",
+                    "old_string": '"version": "1.0.0"',
+                    "new_string": '"version": "1.1.0"'
+                },
+                "post_response": {"success": True, "changes_made": 1}
+            },
+            {
+                "tool_name": "Bash",
+                "pre_input": {"command": "npm test"},
+                "post_response": {"exit_code": 0, "output": "All tests passed", "duration": 5.2}
+            }
+        ]
+        
+        for cycle in tool_cycles:
+            # Pre-tool hook
+            pre_event = {
+                "session_id": session_id,
+                "hook_event_name": "PreToolUse",
+                "tool_name": cycle["tool_name"],
+                "tool_input": cycle["pre_input"],
+                "matcher": cycle["tool_name"],
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            pre_result = hook.process_hook(pre_event)
+            assert pre_result["continue"] is True, f"Pre-hook failed for {cycle['tool_name']}"
+            
+            # Post-tool hook
+            post_event = {
+                "session_id": session_id,
+                "hook_event_name": "PostToolUse", 
+                "tool_name": cycle["tool_name"],
+                "tool_response": cycle["post_response"],
+                "duration_ms": 150,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            post_result = hook.process_hook(post_event)
+            assert post_result["continue"] is True, f"Post-hook failed for {cycle['tool_name']}"
+        
+        # Verify hook interaction patterns in stored data
+        events = enhanced_mock_db.event_data
+        
+        # Should have pairs of pre/post events
+        pre_events = [e for e in events if e.get("hook_event_name") == "PreToolUse"]
+        post_events = [e for e in events if e.get("hook_event_name") == "PostToolUse"]
+        
+        assert len(pre_events) == len(post_events) == len(tool_cycles), "Mismatched pre/post event counts"
+        
+        # Verify tool name consistency within pairs
+        for i, cycle in enumerate(tool_cycles):
+            assert pre_events[i]["tool_name"] == cycle["tool_name"]
+            assert post_events[i]["tool_name"] == cycle["tool_name"]
+            
+            # Verify data flow from pre to post
+            assert "tool_input" in str(pre_events[i])
+            assert "tool_response" in str(post_events[i])
+
+    def test_session_context_propagation(self, enhanced_mock_db):
+        """Test that session context propagates correctly across hooks."""
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = enhanced_mock_db
+        
+        # Session start with rich context
+        session_context = {
+            "session_id": session_id,
+            "hook_event_name": "SessionStart",
+            "source": "startup",
+            "project_path": "/Users/dev/my-project",
+            "git_branch": "feature/new-dashboard",
+            "custom_instructions": "Focus on TypeScript and React best practices",
+            "environment": "development",
+            "ide": "VS Code"
+        }
+        
+        result = hook.process_hook(session_context)
+        assert result["continue"] is True
+        
+        # Multiple operations that should inherit session context
+        operations = [
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "prompt_text": "Create a new React component for the dashboard"
+            },
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": "/Users/dev/my-project/src/Dashboard.tsx",
+                    "content": "// New React component"
+                }
+            },
+            {
+                "hook_event_name": "PreToolUse", 
+                "tool_name": "Bash",
+                "tool_input": {"command": "cd /Users/dev/my-project && npm run type-check"}
+            }
+        ]
+        
+        for operation in operations:
+            event = {"session_id": session_id, **operation}
+            result = hook.process_hook(event)
+            assert result["continue"] is True
+        
+        # Verify session context is maintained
+        session_data = enhanced_mock_db.session_data[session_id]
+        assert session_data["project_path"] == "/Users/dev/my-project"
+        assert session_data["git_branch"] == "feature/new-dashboard"
+        assert session_data["custom_instructions"] == "Focus on TypeScript and React best practices"
+        
+        # All events should reference the same session
+        events = enhanced_mock_db.event_data
+        session_events = [e for e in events if e.get("session_id") == session_id]
+        
+        assert len(session_events) >= len(operations) + 1  # Operations + session start
+        
+        for event in session_events:
+            assert event["session_id"] == session_id
+
+    def test_error_propagation_and_recovery(self, enhanced_mock_db):
+        """Test error propagation between hooks and recovery mechanisms."""
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = enhanced_mock_db
+        
+        # Simulate database failure scenarios
+        original_insert = enhanced_mock_db.insert_event
+        failure_count = 0
+        
+        def failing_insert(event_data):
+            nonlocal failure_count
+            failure_count += 1
+            if failure_count <= 2:  # First 2 calls fail
+                raise Exception("Database connection lost")
+            return original_insert(event_data)
+        
+        enhanced_mock_db.insert_event = failing_insert
+        
+        # Process events with database failures
+        events_to_process = [
+            {"hook_event_name": "SessionStart", "source": "error_test"},
+            {"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": {"file_path": "/test/file1.txt"}},
+            {"hook_event_name": "PostToolUse", "tool_name": "Read", "tool_response": {"content": "data"}},
+            {"hook_event_name": "PreToolUse", "tool_name": "Write", "tool_input": {"file_path": "/test/file2.txt"}},
+            {"hook_event_name": "Stop"}
+        ]
+        
+        successful_events = 0
+        failed_events = 0
+        
+        for event_data in events_to_process:
+            event = {"session_id": session_id, **event_data}
+            
+            try:
+                result = hook.process_hook(event)
+                
+                # Hook should handle errors gracefully
+                assert isinstance(result, dict), "Hook should return dict even on database errors"
+                assert "continue" in result, "Hook result should have continue field"
+                
+                if result.get("continue", True):
+                    successful_events += 1
+                else:
+                    failed_events += 1
+                    
+            except Exception as e:
+                failed_events += 1
+                print(f"Hook processing failed: {e}")
+        
+        print(f"Error recovery test: {successful_events} successful, {failed_events} failed events")
+        
+        # System should recover after initial failures
+        assert successful_events >= 2, "System should recover and process some events successfully"
+        
+        # Events that succeeded should be properly stored
+        stored_events = [e for e in enhanced_mock_db.event_data if e.get("session_id") == session_id]
+        assert len(stored_events) >= 1, "At least some events should be stored despite failures"
+
+    def test_mcp_tool_integration_flow(self, enhanced_mock_db):
+        """Test MCP (Model Context Protocol) tool integration flow."""
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = enhanced_mock_db
+        
+        # MCP tool scenarios
+        mcp_scenarios = [
+            {
+                "tool_name": "mcp__github__create_issue",
+                "tool_input": {
+                    "title": "Implement new dashboard feature",
+                    "body": "Need to create a responsive dashboard component",
+                    "labels": ["enhancement", "frontend"],
+                    "assignee": "developer"
+                },
+                "expected_server": "github"
+            },
+            {
+                "tool_name": "mcp__slack__send_message",
+                "tool_input": {
+                    "channel": "#dev-updates",
+                    "message": "Dashboard component implementation is complete",
+                    "mentions": ["@team"]
+                },
+                "expected_server": "slack"
+            },
+            {
+                "tool_name": "mcp__database__query", 
+                "tool_input": {
+                    "query": "SELECT * FROM user_preferences WHERE dashboard_enabled = true",
+                    "connection": "production"
+                },
+                "expected_server": "database"
+            }
+        ]
+        
+        for scenario in mcp_scenarios:
+            # Pre-tool event for MCP tool
+            pre_event = {
+                "session_id": session_id,
+                "hook_event_name": "PreToolUse",
+                "tool_name": scenario["tool_name"],
+                "tool_input": scenario["tool_input"],
+                "matcher": scenario["tool_name"]
+            }
+            
+            result = hook.process_hook(pre_event)
+            assert result["continue"] is True, f"MCP pre-hook failed for {scenario['tool_name']}"
+            
+            # Post-tool event for MCP tool
+            post_event = {
+                "session_id": session_id,
+                "hook_event_name": "PostToolUse",
+                "tool_name": scenario["tool_name"],
+                "tool_response": {
+                    "success": True,
+                    "mcp_server": scenario["expected_server"],
+                    "response_data": {"id": f"mcp-response-{len(enhanced_mock_db.event_data)}"}
+                }
+            }
+            
+            result = hook.process_hook(post_event)
+            assert result["continue"] is True, f"MCP post-hook failed for {scenario['tool_name']}"
+        
+        # Verify MCP tool detection and handling
+        events = enhanced_mock_db.event_data
+        mcp_events = [e for e in events if "mcp__" in str(e.get("tool_name", ""))]
+        
+        assert len(mcp_events) >= len(mcp_scenarios) * 2, "All MCP tool events should be captured"
+        
+        # Verify MCP tool categorization
+        for event in mcp_events:
+            tool_name = event.get("tool_name", "")
+            if tool_name.startswith("mcp__"):
+                # Tool name should include server identifier
+                assert "__" in tool_name, f"MCP tool name should include server: {tool_name}"
+
+    def test_user_interaction_hook_workflow(self, enhanced_mock_db):
+        """Test user interaction hooks in realistic workflow."""
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = enhanced_mock_db
+        
+        # Realistic user interaction workflow
+        user_workflow = [
+            # Initial user prompt
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "prompt_text": "I want to create a React dashboard with charts and user authentication",
+                "context": {"conversation_turn": 1}
+            },
+            
+            # Follow-up clarification
+            {
+                "hook_event_name": "UserPromptSubmit", 
+                "prompt_text": "Make sure to use TypeScript and include responsive design",
+                "context": {"conversation_turn": 2, "clarification": True}
+            },
+            
+            # User provides feedback on generated code
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "prompt_text": "The component looks good, but can you add error handling for the API calls?",
+                "context": {"conversation_turn": 3, "feedback": True}
+            },
+            
+            # Notification about system state
+            {
+                "hook_event_name": "Notification",
+                "message": "Code generation completed successfully",
+                "type": "success",
+                "context": {"automated": True}
+            },
+            
+            # Pre-compact hook (memory management)
+            {
+                "hook_event_name": "PreCompact",
+                "reason": "Context length approaching limit",
+                "items_to_compact": 15,
+                "estimated_savings": "2.5KB"
+            }
+        ]
+        
+        processed_interactions = 0
+        
+        for interaction in user_workflow:
+            event = {"session_id": session_id, **interaction}
+            result = hook.process_hook(event)
+            
+            assert result["continue"] is True, f"User interaction failed: {interaction['hook_event_name']}"
+            processed_interactions += 1
+        
+        # Verify user interaction tracking
+        events = enhanced_mock_db.event_data
+        user_events = [e for e in events if e.get("hook_event_name") in [
+            "UserPromptSubmit", "Notification", "PreCompact"
+        ]]
+        
+        assert len(user_events) == len(user_workflow), "All user interactions should be tracked"
+        
+        # Verify conversation flow tracking
+        prompt_events = [e for e in events if e.get("hook_event_name") == "UserPromptSubmit"]
+        assert len(prompt_events) == 3, "Should track all user prompts"
+        
+        # Verify system notifications
+        notification_events = [e for e in events if e.get("hook_event_name") == "Notification"]
+        assert len(notification_events) == 1, "Should track system notifications"
+        
+        print(f"User interaction workflow: {processed_interactions} interactions processed successfully")
+
+    def test_performance_during_complex_workflow(self, enhanced_mock_db):
+        """Test performance during complex multi-hook workflows."""
+        import time
+        
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = enhanced_mock_db
+        
+        # Complex workflow with multiple hook types
+        complex_workflow = []
+        
+        # Session start
+        complex_workflow.append({
+            "hook_event_name": "SessionStart",
+            "source": "performance_test",
+            "project_path": "/complex/project"
+        })
+        
+        # Simulate realistic development session
+        for i in range(20):  # 20 iterations of development cycle
+            cycle = [
+                # User input
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "prompt_text": f"Iteration {i}: Implement feature {i}"
+                },
+                
+                # File operations
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": f"/project/src/feature_{i}.tsx"}
+                },
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "Read", 
+                    "tool_response": {"content": f"Feature {i} implementation"}
+                },
+                
+                # Code modification
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Edit",
+                    "tool_input": {
+                        "file_path": f"/project/src/feature_{i}.tsx",
+                        "old_string": "placeholder",
+                        "new_string": f"implementation_{i}"
+                    }
+                },
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "Edit",
+                    "tool_response": {"success": True}
+                }
+            ]
+            
+            complex_workflow.extend(cycle)
+        
+        # Session end
+        complex_workflow.append({
+            "hook_event_name": "Stop"
+        })
+        
+        # Execute workflow and measure performance
+        start_time = time.perf_counter()
+        execution_times = []
+        
+        for step, event_data in enumerate(complex_workflow):
+            event = {"session_id": session_id, **event_data}
+            
+            step_start = time.perf_counter()
+            result = hook.process_hook(event)
+            step_end = time.perf_counter()
+            
+            step_duration = (step_end - step_start) * 1000  # Convert to milliseconds
+            execution_times.append(step_duration)
+            
+            assert result["continue"] is True, f"Complex workflow step {step} failed"
+            
+            # Each individual hook execution should be under 100ms
+            assert step_duration < 100, f"Step {step} took {step_duration:.2f}ms, exceeds 100ms limit"
+        
+        end_time = time.perf_counter()
+        total_duration = end_time - start_time
+        
+        # Performance analysis
+        avg_execution_time = sum(execution_times) / len(execution_times)
+        max_execution_time = max(execution_times)
+        
+        print(f"Complex workflow performance:")
+        print(f"  Total steps: {len(complex_workflow)}")
+        print(f"  Total time: {total_duration:.2f}s")
+        print(f"  Average step time: {avg_execution_time:.2f}ms")
+        print(f"  Max step time: {max_execution_time:.2f}ms")
+        print(f"  Steps per second: {len(complex_workflow) / total_duration:.1f}")
+        
+        # Verify all events were processed and stored
+        events = enhanced_mock_db.event_data
+        workflow_events = [e for e in events if e.get("session_id") == session_id]
+        
+        assert len(workflow_events) == len(complex_workflow), "All workflow events should be stored"
+        
+        # Performance requirements
+        assert avg_execution_time < 50, f"Average execution time {avg_execution_time:.2f}ms too high"
+        assert max_execution_time < 100, f"Max execution time {max_execution_time:.2f}ms exceeds limit"
+        assert len(complex_workflow) / total_duration > 10, "Workflow processing too slow"
+
+
+class TestRealWorldIntegrationScenarios:
+    """Test realistic integration scenarios matching actual Claude Code usage."""
+
+    @pytest.fixture
+    def production_mock_setup(self):
+        """Setup that mimics production environment constraints."""
+        mock_db = Mock()
+        mock_db.health_check.return_value = True
+        
+        # Simulate realistic database latency
+        def delayed_upsert(session_data):
+            time.sleep(0.002)  # 2ms database latency
+            return True
+        
+        def delayed_insert(event_data):
+            time.sleep(0.003)  # 3ms database latency  
+            return True
+        
+        mock_db.upsert_session = delayed_upsert
+        mock_db.insert_event = delayed_insert
+        
+        return mock_db
+
+    @pytest.mark.skipif(BaseHook is None, reason="Hook modules not available")
+    def test_full_stack_development_session(self, production_mock_setup):
+        """Test complete full-stack development session integration."""
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = production_mock_setup
+        
+        # Realistic full-stack development workflow
+        fullstack_session = [
+            # Project initialization
+            {
+                "hook_event_name": "SessionStart",
+                "source": "startup",
+                "project_path": "/Users/dev/fullstack-app",
+                "git_branch": "main",
+                "custom_instructions": "Build a full-stack React + Node.js application"
+            },
+            
+            # Backend development
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "prompt_text": "Set up Express.js backend with TypeScript and database"
+            },
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": "/Users/dev/fullstack-app/backend/src/server.ts",
+                    "content": "// Express server setup with TypeScript"
+                }
+            },
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Write",
+                "tool_response": {"success": True}
+            },
+            
+            # Database setup
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": "/Users/dev/fullstack-app/backend/src/database.ts",
+                    "content": "// Database connection and models"
+                }
+            },
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Write", 
+                "tool_response": {"success": True}
+            },
+            
+            # Frontend development
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "prompt_text": "Create React frontend with components and routing"
+            },
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": "/Users/dev/fullstack-app/frontend/src/App.tsx",
+                    "content": "// Main React application component"
+                }
+            },
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Write",
+                "tool_response": {"success": True}
+            },
+            
+            # Testing
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Bash",
+                "tool_input": {"command": "cd /Users/dev/fullstack-app && npm run test"}
+            },
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Bash",
+                "tool_response": {
+                    "exit_code": 0,
+                    "output": "All tests passed",
+                    "duration": 8.5
+                }
+            },
+            
+            # Deployment preparation
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": "/Users/dev/fullstack-app/docker-compose.yml",
+                    "content": "# Docker configuration for deployment"
+                }
+            },
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Write",
+                "tool_response": {"success": True}
+            },
+            
+            # Session completion
+            {
+                "hook_event_name": "Stop"
+            }
+        ]
+        
+        # Execute full session with performance tracking
+        execution_times = []
+        start_time = time.time()
+        
+        for event_data in fullstack_session:
+            event = {"session_id": session_id, **event_data}
+            
+            step_start = time.perf_counter()
+            result = hook.process_hook(event)
+            step_end = time.perf_counter()
+            
+            step_duration = (step_end - step_start) * 1000
+            execution_times.append(step_duration)
+            
+            assert result["continue"] is True, f"Full-stack session failed at: {event_data['hook_event_name']}"
+            assert step_duration < 100, f"Step exceeded 100ms: {step_duration:.2f}ms"
+        
+        total_time = time.time() - start_time
+        avg_time = sum(execution_times) / len(execution_times)
+        
+        print(f"Full-stack development session:")
+        print(f"  Steps: {len(fullstack_session)}")
+        print(f"  Total time: {total_time:.2f}s")
+        print(f"  Average step: {avg_time:.2f}ms")
+        print(f"  All steps < 100ms: {all(t < 100 for t in execution_times)}")
+
+    def test_ai_pair_programming_session(self, production_mock_setup):
+        """Test AI pair programming session with rapid back-and-forth."""
+        session_id = str(uuid.uuid4())
+        hook = BaseHook()
+        hook.db_client = production_mock_setup
+        
+        # Rapid pair programming session
+        pair_programming = []
+        
+        # Session start
+        pair_programming.append({
+            "hook_event_name": "SessionStart",
+            "source": "startup", 
+            "project_path": "/Users/dev/pair-project"
+        })
+        
+        # Rapid iterations (simulating back-and-forth programming)
+        for iteration in range(15):
+            cycle = [
+                # User provides input/feedback
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "prompt_text": f"Iteration {iteration}: Let's implement this feature step by step"
+                },
+                
+                # AI reads current code
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": f"/Users/dev/pair-project/src/component_{iteration}.tsx"}
+                },
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "Read",
+                    "tool_response": {"content": f"Current implementation {iteration}"}
+                },
+                
+                # AI makes changes
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "Edit",
+                    "tool_input": {
+                        "file_path": f"/Users/dev/pair-project/src/component_{iteration}.tsx",
+                        "old_string": "placeholder",
+                        "new_string": f"improved_implementation_{iteration}"
+                    }
+                },
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "Edit",
+                    "tool_response": {"success": True}
+                }
+            ]
+            
+            pair_programming.extend(cycle)
+        
+        # Session end
+        pair_programming.append({"hook_event_name": "Stop"})
+        
+        # Execute rapid session
+        rapid_execution_times = []
+        
+        for event_data in pair_programming:
+            event = {"session_id": session_id, **event_data}
+            
+            start = time.perf_counter()
+            result = hook.process_hook(event)
+            end = time.perf_counter()
+            
+            duration = (end - start) * 1000
+            rapid_execution_times.append(duration)
+            
+            assert result["continue"] is True
+            # Rapid programming should still meet performance requirements
+            assert duration < 100, f"Rapid programming step too slow: {duration:.2f}ms"
+        
+        avg_rapid_time = sum(rapid_execution_times) / len(rapid_execution_times)
+        max_rapid_time = max(rapid_execution_times)
+        
+        print(f"AI pair programming session:")
+        print(f"  Total interactions: {len(pair_programming)}")
+        print(f"  Average time: {avg_rapid_time:.2f}ms")
+        print(f"  Max time: {max_rapid_time:.2f}ms")
+        print(f"  All under 100ms: {all(t < 100 for t in rapid_execution_times)}")
+        
+        # Pair programming should be fast and responsive
+        assert avg_rapid_time < 30, "Pair programming should be very responsive"
+        assert max_rapid_time < 100, "No step should exceed 100ms"
