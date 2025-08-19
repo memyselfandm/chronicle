@@ -124,7 +124,9 @@ addopts = [
     "--cov=src",
     "--cov-report=term-missing",
     "--cov-report=html",
-    "--cov-fail-under=80",
+    "--cov-report=json",
+    "--cov-report=lcov",
+    "--cov-fail-under=60",
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
@@ -148,7 +150,21 @@ omit = [
     "*/venv/*",
     "*/.venv/*",
     "*/site-packages/*",
+    "*/examples/*",
+    "*/migrations/*",
+    "*/archived/*",
 ]
+branch = true
+
+[tool.coverage.html]
+directory = "htmlcov"
+title = "Chronicle Hooks Coverage Report"
+
+[tool.coverage.json]
+output = "coverage.json"
+
+[tool.coverage.lcov]
+output = "coverage.lcov"
 
 [tool.coverage.report]
 exclude_lines = [

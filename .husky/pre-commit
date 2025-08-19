@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Chronicle Pre-commit Hook
+# Runs tests and coverage checks before allowing commits
+
+echo "🔍 Running pre-commit checks..."
+
+# Run linting
+echo "📋 Linting code..."
+npm run lint || {
+  echo "❌ Linting failed. Please fix the issues and try again."
+  exit 1
+}
+
+# Run tests with coverage (fast mode)
+echo "🧪 Running tests with coverage..."
+npm run test:coverage || {
+  echo "❌ Tests failed. Please fix failing tests and try again."
+  exit 1
+}
+
+# Check coverage thresholds
+echo "📊 Checking coverage thresholds..."
+npm run coverage:check || {
+  echo "❌ Coverage below thresholds. Please add tests and try again."
+  echo "💡 Run 'npm run coverage:report' to see detailed coverage info."
+  exit 1
+}
+
+echo "✅ All pre-commit checks passed!"

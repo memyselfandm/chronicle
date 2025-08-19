@@ -115,7 +115,7 @@ class PostToolUseHook(BaseHook):
                     "success": response_parsed["success"],
                     "result_size": response_parsed["result_size"],
                     "error": response_parsed["error"],
-                    "error_type": response_parsed["error_type"],
+                    "error_type": response_parsed.get("error_type"),
                     "is_mcp_tool": is_mcp,
                     "mcp_server": mcp_server,
                     "large_result": response_parsed["large_result"],

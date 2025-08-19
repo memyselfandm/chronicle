@@ -13,6 +13,62 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testEnvironment: 'jsdom',
+  
+  // Coverage configuration
+  collectCoverage: false, // Set to true in CI or with --coverage flag
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/app/**/layout.tsx',
+    '!src/app/**/page.tsx',
+    '!src/lib/mockData.ts',
+    '!src/types/**',
+  ],
+  coveragePathIgnorePatterns: [
+    '/node_modules/',
+    '/.next/',
+    '/coverage/',
+    '/public/',
+    '/tmp/',
+  ],
+  coverageReporters: [
+    'text',
+    'text-summary',
+    'html',
+    'lcov',
+    'json-summary',
+    'json',
+  ],
+  coverageDirectory: 'coverage',
+  coverageThreshold: {
+    global: {
+      lines: 80,
+      functions: 80,
+      branches: 80,
+      statements: 80,
+    },
+    // Component-specific thresholds
+    'src/components/**/*.{ts,tsx}': {
+      lines: 85,
+      functions: 85,
+      branches: 80,
+      statements: 85,
+    },
+    // Hooks require higher coverage
+    'src/hooks/**/*.{ts,tsx}': {
+      lines: 90,
+      functions: 90,
+      branches: 85,
+      statements: 90,
+    },
+    // Core lib modules are critical
+    'src/lib/**/*.{ts,tsx}': {
+      lines: 85,
+      functions: 85,
+      branches: 80,
+      statements: 85,
+    },
+  },
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

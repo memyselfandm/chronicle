@@ -613,4 +613,301 @@ describe('Error Handling and Edge Cases', () => {
       window.getComputedStyle = originalGetComputedStyle;
     });
   });
+
+  describe('Real-time Connection Edge Cases', () => {
+    it('handles WebSocket connection drops during event streaming', async () => {
+      const mockChannel = {
+        on: jest.fn(() => mockChannel),
+        subscribe: jest.fn(),
+        unsubscribe: jest.fn()
+      };
+
+      (supabase.channel as jest.Mock).mockReturnValue(mockChannel);
+
+      render(<EventFeed events={generateMockEvents(3)} />);
+
+      // Simulate WebSocket dropping connection
+      const systemCallback = mockChannel.on.mock.calls.find(call => call[0] === 'system')?.[2];
+      if (systemCallback) {
+        systemCallback({ extension: 'postgres_changes', status: 'error', message: 'Connection lost' });
+      }
+
+      // Should handle connection loss gracefully
+      expect(screen.getByTestId('event-feed')).toBeInTheDocument();
+      expect(screen.getAllByTestId(/event-card-/)).toHaveLength(3);
+    });
+
+    it('handles rapid connection state changes', async () => {
+      let connectionState = 'connecting';
+      const events = generateMockEvents(2);
+      
+      const { rerender } = render(
+        <div>
+          <Header connectionStatus={connectionState as any} eventCount={events.length} />
+          <EventFeed events={events} />
+        </div>
+      );
+
+      // Rapidly cycle through connection states
+      const states = ['connecting', 'connected', 'disconnected', 'error', 'connected'];
+      
+      for (const state of states) {
+        connectionState = state;
+        rerender(
+          <div>
+            <Header connectionStatus={connectionState as any} eventCount={events.length} />
+            <EventFeed events={events} />
+          </div>
+        );
+        
+        // Should handle each state transition without errors
+        expect(screen.getByTestId('event-feed')).toBeInTheDocument();
+      }
+    });
+
+    it('handles malformed real-time event payloads', async () => {
+      const mockChannel = {
+        on: jest.fn((event, filter, callback) => {
+          if (event === 'postgres_changes') {
+            // Simulate receiving malformed payloads
+            setTimeout(() => {
+              const malformedPayloads = [
+                { new: null },
+                { new: undefined },
+                { new: 'not-an-object' },
+                { new: { id: null, malformed: true } },
+                { malformed_structure: true },
+                null,
+                undefined
+              ];
+              
+              malformedPayloads.forEach(payload => {
+                try {
+                  callback(payload);
+                } catch (e) {
+                  // Should not throw
+                }
+              });
+            }, 100);
+          }
+          return mockChannel;
+        }),
+        subscribe: jest.fn(),
+        unsubscribe: jest.fn()
+      };
+
+      (supabase.channel as jest.Mock).mockReturnValue(mockChannel);
+
+      expect(() => {
+        render(<EventFeed events={generateMockEvents(2)} />);
+      }).not.toThrow();
+
+      // Wait for async malformed payloads
+      await waitFor(() => {
+        expect(screen.getByTestId('event-feed')).toBeInTheDocument();
+      });
+    });
+
+    it('handles subscription timeout scenarios', async () => {
+      const mockChannel = {
+        on: jest.fn(() => mockChannel),
+        subscribe: jest.fn((callback) => {
+          // Simulate subscription timeout
+          setTimeout(() => {
+            callback('TIMED_OUT', null);
+          }, 100);
+        }),
+        unsubscribe: jest.fn()
+      };
+
+      (supabase.channel as jest.Mock).mockReturnValue(mockChannel);
+
+      render(<EventFeed events={generateMockEvents(2)} />);
+
+      // Should handle timeout gracefully
+      await waitFor(() => {
+        expect(screen.getByTestId('event-feed')).toBeInTheDocument();
+      });
+    });
+
+    it('handles channel subscription failures', async () => {
+      const mockChannel = {
+        on: jest.fn(() => mockChannel),
+        subscribe: jest.fn((callback) => {
+          // Simulate subscription failure
+          setTimeout(() => {
+            callback('CHANNEL_ERROR', { message: 'Failed to subscribe to channel' });
+          }, 100);
+        }),
+        unsubscribe: jest.fn()
+      };
+
+      (supabase.channel as jest.Mock).mockReturnValue(mockChannel);
+
+      render(<EventFeed events={generateMockEvents(2)} />);
+
+      // Should handle subscription failure gracefully
+      await waitFor(() => {
+        expect(screen.getByTestId('event-feed')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Memory and Resource Management', () => {
+    it('handles memory pressure scenarios', () => {
+      // Simulate low memory conditions
+      const originalPerformance = window.performance;
+      const mockPerformance = {
+        ...window.performance,
+        memory: {
+          usedJSHeapSize: 950 * 1024 * 1024, // 950MB used
+          totalJSHeapSize: 1024 * 1024 * 1024, // 1GB total
+          jsHeapSizeLimit: 1024 * 1024 * 1024
+        }
+      };
+      window.performance = mockPerformance as any;
+
+      expect(() => {
+        render(<EventFeed events={generateMockEvents(100)} />);
+      }).not.toThrow();
+
+      // Restore
+      window.performance = originalPerformance;
+    });
+
+    it('handles rapid event updates without memory leaks', async () => {
+      const events = generateMockEvents(10);
+      const { rerender } = render(<EventFeed events={events} />);
+
+      // Simulate rapid updates
+      for (let i = 0; i < 50; i++) {
+        const newEvents = [...events, ...generateMockEvents(5)];
+        rerender(<EventFeed events={newEvents} />);
+      }
+
+      // Should handle rapid updates without issues
+      expect(screen.getByTestId('event-feed')).toBeInTheDocument();
+    });
+
+    it('handles component cleanup during error states', () => {
+      const { unmount } = render(
+        <EventFeed 
+          events={generateMockEvents(5)} 
+          error="Network error" 
+          onRetry={jest.fn()}
+        />
+      );
+
+      // Should cleanup without errors
+      expect(() => {
+        unmount();
+      }).not.toThrow();
+    });
+  });
+
+  describe('Advanced Filter Edge Cases', () => {
+    it('handles filter combinations that return no results', () => {
+      const onFilterChange = jest.fn();
+      render(<EventFilter onFilterChange={onFilterChange} />);
+
+      // Apply filters that would return no results
+      onFilterChange({
+        searchQuery: 'nonexistent_event_type',
+        eventTypes: ['pre_tool_use'],
+        sessionIds: ['nonexistent_session'],
+        dateRange: {
+          start: new Date('2020-01-01'),
+          end: new Date('2020-01-02')
+        }
+      });
+
+      expect(onFilterChange).toHaveBeenCalled();
+    });
+
+    it('handles invalid date ranges in filters', () => {
+      const onFilterChange = jest.fn();
+      render(<EventFilter onFilterChange={onFilterChange} />);
+
+      // Apply invalid date ranges
+      const invalidDateRanges = [
+        { start: new Date('invalid'), end: new Date() },
+        { start: new Date(), end: new Date('invalid') },
+        { start: new Date('2024-12-31'), end: new Date('2024-01-01') }, // End before start
+        { start: null, end: new Date() },
+        { start: new Date(), end: null }
+      ];
+
+      invalidDateRanges.forEach(dateRange => {
+        expect(() => {
+          onFilterChange({
+            searchQuery: '',
+            eventTypes: [],
+            sessionIds: [],
+            dateRange: dateRange as any
+          });
+        }).not.toThrow();
+      });
+    });
+
+    it('handles extreme filter values', () => {
+      const onFilterChange = jest.fn();
+      render(<EventFilter onFilterChange={onFilterChange} />);
+
+      // Test extreme values
+      const extremeFilters = {
+        searchQuery: 'x'.repeat(10000), // Very long search
+        eventTypes: Array.from({ length: 1000 }, (_, i) => `event_type_${i}` as any),
+        sessionIds: Array.from({ length: 1000 }, (_, i) => `session_${i}`),
+        dateRange: {
+          start: new Date('1900-01-01'),
+          end: new Date('2100-12-31')
+        }
+      };
+
+      expect(() => {
+        onFilterChange(extremeFilters);
+      }).not.toThrow();
+    });
+  });
+
+  describe('Cross-Browser Compatibility', () => {
+    it('handles missing modern JavaScript features', () => {
+      // Mock missing Array.prototype.flatMap
+      const originalFlatMap = Array.prototype.flatMap;
+      delete (Array.prototype as any).flatMap;
+
+      expect(() => {
+        render(<EventFeed events={generateMockEvents(5)} />);
+      }).not.toThrow();
+
+      // Restore
+      Array.prototype.flatMap = originalFlatMap;
+    });
+
+    it('handles missing Promise.allSettled', async () => {
+      const originalAllSettled = Promise.allSettled;
+      delete (Promise as any).allSettled;
+
+      expect(() => {
+        render(<EventFeed events={generateMockEvents(3)} />);
+      }).not.toThrow();
+
+      // Restore
+      Promise.allSettled = originalAllSettled;
+    });
+
+    it('handles different timezone behaviors', () => {
+      // Mock different timezone behaviors
+      const originalTimezoneOffset = Date.prototype.getTimezoneOffset;
+      Date.prototype.getTimezoneOffset = jest.fn(() => -480); // PST
+
+      const events = generateMockEvents(3);
+      expect(() => {
+        render(<EventFeed events={events} />);
+      }).not.toThrow();
+
+      // Restore
+      Date.prototype.getTimezoneOffset = originalTimezoneOffset;
+    });
+  });
 });

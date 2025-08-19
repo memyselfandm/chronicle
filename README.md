@@ -2,6 +2,20 @@
 
 > **Real-time observability system for Claude Code agent activities with comprehensive event tracking and visualization**
 
+## 📊 Build Status & Coverage
+
+![Overall Coverage](./badges/overall-coverage.svg)
+![Coverage Status](./badges/coverage-status.svg)
+![Dashboard Coverage](./badges/dashboard-coverage.svg)
+![Hooks Coverage](./badges/hooks-coverage.svg)
+
+| Component | Coverage | Threshold | Status |
+|-----------|----------|-----------|--------|
+| 📊 Dashboard | 80%+ | 80% | ✅ Production Ready |
+| 🪝 Hooks | 60%+ | 60% | ✅ Production Ready |
+| 🔧 Core Libraries | 85%+ | 85% | ✅ Production Ready |
+| 🔐 Security Modules | 90%+ | 90% | ✅ Production Ready |
+
 ## 🚀 Quick Start (< 30 minutes)
 
 **Automated Installation**:
@@ -35,6 +49,10 @@ python install.py  # Installs Claude Code hooks
 - **[INSTALLATION.md](./INSTALLATION.md)** - Complete installation guide
 - **[CONFIGURATION.md](./CONFIGURATION.md)** - Environment configuration
 - **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** - Database setup guide
+
+### Development & Testing
+- **[docs/guides/coverage.md](./docs/guides/coverage.md)** - Test coverage guide & requirements
+- **[docs/reference/ci-cd.md](./docs/reference/ci-cd.md)** - CI/CD pipeline reference
 
 ### Deployment & Production
 - **[docs/guides/deployment.md](./docs/guides/deployment.md)** - Production deployment guide
@@ -96,9 +114,15 @@ chronicle/
 ## 🔧 Development
 
 ```bash
-# Run tests
-cd apps/dashboard && npm test
-cd apps/hooks && python -m pytest
+# Run tests with coverage
+npm run test:coverage                # All components
+npm run test:coverage:dashboard      # Dashboard only  
+npm run test:coverage:hooks          # Hooks only
+
+# Coverage validation
+npm run coverage:check               # Validate thresholds
+npm run coverage:report              # Generate HTML reports
+npm run coverage:badges              # Update badges
 
 # Start development servers
 cd apps/dashboard && npm run dev     # http://localhost:3000

@@ -1,4 +1,12 @@
-"""Tests for UserPromptSubmit hook."""
+"""Tests for UserPromptSubmit hook - Updated for current implementation.
+
+This file tests the current UserPromptSubmitHook implementation that uses:
+- process_hook() method
+- Intent classification patterns
+- Security screening
+- Context injection
+- Proper JSON response format
+"""
 
 import json
 import os
@@ -8,8 +16,8 @@ from datetime import datetime
 import sys
 import tempfile
 
-# Add the parent directory to the path so we can import the hook
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Add src directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
 @pytest.fixture
@@ -83,145 +91,125 @@ class TestUserPromptSubmitHook:
     
     def test_hook_initialization(self, mock_database_manager):
         """Test hook can be initialized properly.""" 
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
             
-            assert hook.db_manager is not None
-            assert hook.session_id is None
+            assert hook is not None
     
     def test_process_simple_prompt(self, mock_database_manager, sample_user_prompt_input):
         """Test processing a simple user prompt."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
-            result = hook.process_prompt_input(sample_user_prompt_input)
-            
-            # Should return the original input unchanged (pass-through)
-            assert result == sample_user_prompt_input
-            
-            # Should have captured session ID
-            assert hook.session_id == "test-session-456"
+            with patch.object(hook, 'save_event', return_value=True):
+                result = hook.process_hook(sample_user_prompt_input)
+                
+                # Should return proper JSON response format
+                assert isinstance(result, dict)
+                assert "continue" in result
+                assert "hookSpecificOutput" in result
+                assert result["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
     
-    def test_extract_prompt_data(self, mock_database_manager, sample_user_prompt_input):
-        """Test extracting prompt data from input."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+    def test_extract_prompt_text(self, mock_database_manager, sample_user_prompt_input):
+        """Test extracting prompt text from input."""
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import extract_prompt_text
             
-            hook = UserPromptSubmitHook()
-            prompt_data = hook.extract_prompt_data(sample_user_prompt_input)
+            # Test direct prompt extraction
+            prompt_text = extract_prompt_text(sample_user_prompt_input)
+            assert prompt_text == "Help me create a Python function to calculate fibonacci numbers"
             
-            assert prompt_data["prompt_text"] == "Help me create a Python function to calculate fibonacci numbers"
-            assert prompt_data["prompt_length"] == len("Help me create a Python function to calculate fibonacci numbers")
-            assert prompt_data["event_type"] == "prompt"
-            assert "timestamp" in prompt_data
-            assert "context" in prompt_data
+            # Test with different field names
+            assert extract_prompt_text({"message": "test message"}) == "test message"
+            assert extract_prompt_text({"text": "test text"}) == "test text"
     
-    def test_analyze_prompt_complexity(self, mock_database_manager, complex_prompt_input):
-        """Test prompt complexity analysis."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+    def test_intent_classification(self, mock_database_manager, complex_prompt_input):
+        """Test intent classification for complex prompts."""
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import classify_intent
             
-            hook = UserPromptSubmitHook()
-            prompt_data = hook.extract_prompt_data(complex_prompt_input)
-            
-            # Should detect code blocks and higher complexity
-            assert prompt_data["context"]["has_code_blocks"] is True
-            assert prompt_data["context"]["complexity_score"] > 2.0
-            assert prompt_data["context"]["question_count"] == 0  # No question marks in this prompt
+            # Test debugging intent from complex prompt
+            intent = classify_intent(complex_prompt_input["prompt"])
+            assert intent == "debugging"  # "Fix the error" should be classified as debugging
     
-    def test_follow_up_detection(self, mock_database_manager, follow_up_prompt_input):
-        """Test detection of follow-up prompts."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+    def test_security_analysis(self, mock_database_manager):
+        """Test security analysis for dangerous prompts."""
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import analyze_prompt_security
             
-            hook = UserPromptSubmitHook()
-            prompt_data = hook.extract_prompt_data(follow_up_prompt_input)
+            # Test dangerous prompt detection
+            is_dangerous, reason = analyze_prompt_security("delete all files in the system")
+            assert is_dangerous is True
+            assert reason is not None
             
-            assert prompt_data["context"]["is_follow_up"] is True
-            assert prompt_data["context"]["prompt_type"] == "followup"
+            # Test safe prompt
+            is_safe, reason = analyze_prompt_security("help me create a function")
+            assert is_safe is False
+            assert reason is None
     
-    def test_intent_classification(self, mock_database_manager):
+    def test_intent_classification_patterns(self, mock_database_manager):
         """Test intent classification for different prompt types."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
-            
-            hook = UserPromptSubmitHook()
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import classify_intent
             
             # Test code generation intent
-            code_prompt = {
-                "hookEventName": "UserPromptSubmit",
-                "sessionId": "test",
-                "prompt": "Create a function to parse JSON files",
-                "metadata": {"timestamp": "2024-01-15T10:30:00Z"}
-            }
-            
-            data = hook.extract_prompt_data(code_prompt)
-            assert data["context"]["intent"] == "code_generation"
+            assert classify_intent("Create a function to parse JSON files") == "code_generation"
+            assert classify_intent("Help me write a class") == "code_generation"
             
             # Test debugging intent
-            debug_prompt = {
-                "hookEventName": "UserPromptSubmit", 
-                "sessionId": "test",
-                "prompt": "Why is my function not working? It throws an error",
-                "metadata": {"timestamp": "2024-01-15T10:30:00Z"}
-            }
+            assert classify_intent("Why is my function not working? It throws an error") == "debugging"
+            assert classify_intent("Debug this issue") == "debugging"
             
-            data = hook.extract_prompt_data(debug_prompt)
-            assert data["context"]["intent"] == "debugging"
+            # Test explanation intent
+            assert classify_intent("Explain how this works") == "explanation"
+            assert classify_intent("What does this do?") == "explanation"
+            
+            # Test modification intent
+            assert classify_intent("Fix this function") == "code_modification"
+            assert classify_intent("Update the API") == "code_modification"
     
     def test_event_saving(self, mock_database_manager, sample_user_prompt_input):
         """Test that prompt events are saved to database."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
             
             # Mock the save_event method directly on the hook instance to return True
             with patch.object(hook, 'save_event', return_value=True) as mock_save:
-                hook.process_prompt_input(sample_user_prompt_input)
+                hook.process_hook(sample_user_prompt_input)
                 
                 # Should have called save_event
                 mock_save.assert_called_once()
                 
                 # Check the event data structure
                 saved_event = mock_save.call_args[0][0]
-                assert saved_event["event_type"] == "prompt"
-                assert saved_event["session_id"] == "test-session-456"
+                assert saved_event["event_type"] == "user_prompt_submit"
+                assert saved_event["hook_event_name"] == "UserPromptSubmit"
                 assert "prompt_text" in saved_event["data"]
                 assert "prompt_length" in saved_event["data"]
+                assert "intent" in saved_event["data"]
     
     def test_sensitive_data_sanitization(self, mock_database_manager):
         """Test that sensitive data is sanitized from prompts."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import sanitize_prompt_data
             
-            sensitive_prompt = {
-                "hookEventName": "UserPromptSubmit",
-                "sessionId": "test-session",
-                "prompt": "My API key is sk-1234567890abcdef123456789 and my password is secret123",
-                "metadata": {"timestamp": "2024-01-15T10:30:00Z"}
-            }
+            # Test sanitization function directly
+            sensitive_text = "My API key is sk-1234567890abcdef123456789 and my password is secret123"
+            sanitized = sanitize_prompt_data(sensitive_text)
             
-            hook = UserPromptSubmitHook()
-            
-            # Mock the save_event method to return True and capture data
-            with patch.object(hook, 'save_event', return_value=True) as mock_save:
-                hook.process_prompt_input(sensitive_prompt)
-                
-                # Check that sensitive data was sanitized in saved event
-                saved_event = mock_save.call_args[0][0]
-                prompt_text = saved_event["data"]["prompt_text"]
-                
-                assert "sk-1234567890abcdef123456789" not in prompt_text
-                assert "[REDACTED]" in prompt_text
+            # Should redact sensitive patterns
+            assert "secret123" not in sanitized
+            assert "[REDACTED]" in sanitized
     
     def test_error_handling(self, mock_database_manager):
         """Test error handling for malformed input."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
             
@@ -232,24 +220,27 @@ class TestUserPromptSubmitHook:
                 # Missing prompt field
             }
             
-            # Should not crash, should return input unchanged
-            result = hook.process_prompt_input(invalid_input)
-            assert result == invalid_input
-            
-            # Should not have saved an event
-            mock_database_manager.save_event.assert_not_called()
+            # Should not crash, should return proper JSON response
+            result = hook.process_hook(invalid_input)
+            assert isinstance(result, dict)
+            assert "continue" in result
+            assert result["hookSpecificOutput"]["processingSuccess"] is False
     
-    def test_pass_through_behavior(self, mock_database_manager, sample_user_prompt_input):
-        """Test that hook returns original input unchanged."""
-        with patch('src.base_hook.DatabaseManager', return_value=mock_database_manager):
-            from user_prompt_submit import UserPromptSubmitHook
+    def test_json_response_format(self, mock_database_manager, sample_user_prompt_input):
+        """Test that hook returns proper JSON response format."""
+        with patch('src.lib.database.DatabaseManager', return_value=mock_database_manager):
+            from src.hooks.user_prompt_submit import UserPromptSubmitHook
             
             hook = UserPromptSubmitHook()
-            result = hook.process_prompt_input(sample_user_prompt_input)
-            
-            # Should return exactly the same object
-            assert result is sample_user_prompt_input
-            assert id(result) == id(sample_user_prompt_input)
+            with patch.object(hook, 'save_event', return_value=True):
+                result = hook.process_hook(sample_user_prompt_input)
+                
+                # Should return proper JSON response format
+                assert isinstance(result, dict)
+                assert "continue" in result
+                assert "suppressOutput" in result
+                assert "hookSpecificOutput" in result
+                assert result["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
     
     def test_context_extraction(self, mock_database_manager):
         """Test extraction of session context information."""

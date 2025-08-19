@@ -378,11 +378,14 @@ def parse_tool_response(response_data: Any) -> Dict[str, Any]:
     parsed = {
         "success": success,
         "error": error,
-        "error_type": error_type,
         "result_size": result_size,
         "large_result": result_size > LARGE_RESULT_THRESHOLD,
         "metadata": response_data if isinstance(response_data, dict) else None
     }
+    
+    # Only include error_type if it's not None
+    if error_type is not None:
+        parsed["error_type"] = error_type
     
     # Include partial results if available
     if isinstance(response_data, dict) and "partial_result" in response_data:
