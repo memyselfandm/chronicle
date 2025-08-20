@@ -122,7 +122,7 @@ class TestHookE2EIntegration:
         )
 
         # Process hook input
-        result = hook.process_hook(sample_hook_input)
+        result = hook.process_hook_data(sample_hook_input, sample_hook_input.get("hook_event_name", ""))
 
         # Verify processing succeeded
         assert result["continue"] is True
@@ -145,7 +145,7 @@ class TestHookE2EIntegration:
         hook.db_client = sqlite_client
 
         # Process hook input
-        result = hook.process_hook(sample_hook_input)
+        result = hook.process_hook_data(sample_hook_input, sample_hook_input.get("hook_event_name", ""))
 
         # Verify processing succeeded
         assert result["continue"] is True
@@ -182,7 +182,7 @@ class TestHookE2EIntegration:
         async def process_hook_async(hook_input):
             hook = BaseHook()
             hook.db_client = SupabaseClient(url="https://test.supabase.co", key="test-key")
-            return hook.process_hook(hook_input)
+            return hook.process_hook_data(hook_input, hook_input.get("hook_event_name", ""))
 
         tasks = [process_hook_async(hook_input) for hook_input in hook_inputs]
         results = await asyncio.gather(*tasks)
@@ -266,7 +266,7 @@ class TestHookE2EIntegration:
 
         results = []
         for event_input in [session_start_input] + tool_events + [prompt_event, session_stop_input]:
-            result = hook.process_hook(event_input)
+            result = hook.process_hook_data(event_input, event_input.get("hook_event_name", ""))
             results.append(result)
 
         # Verify all events processed successfully
@@ -299,7 +299,7 @@ class TestHookE2EIntegration:
         hook = BaseHook()
         hook.db_client = SupabaseClient(url="https://test.supabase.co", key="test-key")
 
-        result = hook.process_hook(mcp_tool_input)
+        result = hook.process_hook_data(mcp_tool_input, mcp_tool_input.get("hook_event_name", ""))
 
         # Verify MCP tool was processed
         assert result["continue"] is True
@@ -343,7 +343,7 @@ class TestHookErrorHandling:
         hook.db_client = failing_database_client
 
         # Hook should not crash even with database failures
-        result = hook.process_hook(hook_input)
+        result = hook.process_hook_data(hook_input, hook_input.get("hook_event_name", ""))
         
         # Should continue execution despite database error
         assert result["continue"] is True
@@ -370,7 +370,7 @@ class TestHookErrorHandling:
 
         for malformed_input in malformed_inputs:
             # Should not crash with malformed input
-            result = hook.process_hook(malformed_input)
+            result = hook.process_hook_data(malformed_input, malformed_input.get("hook_event_name", "") if isinstance(malformed_input, dict) else "")
             assert isinstance(result, dict)
             # Should have continue field
             assert "continue" in result
@@ -400,7 +400,7 @@ class TestHookErrorHandling:
 
             # Should complete within reasonable time
             start_time = datetime.now()
-            result = hook.process_hook(hook_input)
+            result = hook.process_hook_data(hook_input, hook_input.get("hook_event_name", ""))
             end_time = datetime.now()
 
             # Verify it doesn't take too long (hook should timeout or handle gracefully)
@@ -434,7 +434,7 @@ class TestHookErrorHandling:
         hook.db_client = intermittent_client
 
         # Should handle network interruption gracefully
-        result = hook.process_hook(hook_input)
+        result = hook.process_hook_data(hook_input, hook_input.get("hook_event_name", ""))
         assert result["continue"] is True
 
 
@@ -460,7 +460,7 @@ class TestHookPerformance:
 
         # Measure execution time
         start_time = datetime.now()
-        result = hook.process_hook(hook_input)
+        result = hook.process_hook_data(hook_input, hook_input.get("hook_event_name", ""))
         end_time = datetime.now()
 
         duration_ms = (end_time - start_time).total_seconds() * 1000
@@ -494,7 +494,7 @@ class TestHookPerformance:
 
         # Measure memory before and after
         initial_size = sys.getsizeof(hook)
-        result = hook.process_hook(large_payload)
+        result = hook.process_hook_data(large_payload, large_payload.get("hook_event_name", ""))
         final_size = sys.getsizeof(hook)
 
         # Memory usage should not grow significantly
@@ -528,7 +528,7 @@ class TestHookPerformance:
                 hook.db_client = mock_client
 
                 start_time = time.time()
-                result = hook.process_hook(hook_input)
+                result = hook.process_hook_data(hook_input, hook_input.get("hook_event_name", ""))
                 end_time = time.time()
 
                 results.append({
@@ -958,7 +958,7 @@ class TestSystemIntegrationScenarios:
         # Process all events
         results = []
         for event in session_events:
-            result = hook.process_hook(event)
+            result = hook.process_hook_data(event, event.get("hook_event_name", ""))
             results.append(result)
             assert result["continue"] is True, f"Hook should continue for event: {event['hook_event_name']}"
         
@@ -1038,7 +1038,7 @@ class TestHookInteractionFlow:
                 "timestamp": datetime.now().isoformat()
             }
             
-            pre_result = hook.process_hook(pre_event)
+            pre_result = hook.process_hook_data(pre_event, pre_event.get("hook_event_name", ""))
             assert pre_result["continue"] is True, f"Pre-hook failed for {cycle['tool_name']}"
             
             # Post-tool hook
@@ -1051,7 +1051,7 @@ class TestHookInteractionFlow:
                 "timestamp": datetime.now().isoformat()
             }
             
-            post_result = hook.process_hook(post_event)
+            post_result = hook.process_hook_data(post_event, post_event.get("hook_event_name", ""))
             assert post_result["continue"] is True, f"Post-hook failed for {cycle['tool_name']}"
         
         # Verify hook interaction patterns in stored data
@@ -1090,7 +1090,7 @@ class TestHookInteractionFlow:
             "ide": "VS Code"
         }
         
-        result = hook.process_hook(session_context)
+        result = hook.process_hook_data(session_context, session_context.get("hook_event_name", ""))
         assert result["continue"] is True
         
         # Multiple operations that should inherit session context
@@ -1116,7 +1116,7 @@ class TestHookInteractionFlow:
         
         for operation in operations:
             event = {"session_id": session_id, **operation}
-            result = hook.process_hook(event)
+            result = hook.process_hook_data(event, event.get("hook_event_name", ""))
             assert result["continue"] is True
         
         # Verify session context is maintained
@@ -1169,7 +1169,7 @@ class TestHookInteractionFlow:
             event = {"session_id": session_id, **event_data}
             
             try:
-                result = hook.process_hook(event)
+                result = hook.process_hook_data(event, event.get("hook_event_name", ""))
                 
                 # Hook should handle errors gracefully
                 assert isinstance(result, dict), "Hook should return dict even on database errors"
@@ -1240,7 +1240,7 @@ class TestHookInteractionFlow:
                 "matcher": scenario["tool_name"]
             }
             
-            result = hook.process_hook(pre_event)
+            result = hook.process_hook_data(pre_event, pre_event.get("hook_event_name", ""))
             assert result["continue"] is True, f"MCP pre-hook failed for {scenario['tool_name']}"
             
             # Post-tool event for MCP tool
@@ -1255,7 +1255,7 @@ class TestHookInteractionFlow:
                 }
             }
             
-            result = hook.process_hook(post_event)
+            result = hook.process_hook_data(post_event, post_event.get("hook_event_name", ""))
             assert result["continue"] is True, f"MCP post-hook failed for {scenario['tool_name']}"
         
         # Verify MCP tool detection and handling
@@ -1321,7 +1321,7 @@ class TestHookInteractionFlow:
         
         for interaction in user_workflow:
             event = {"session_id": session_id, **interaction}
-            result = hook.process_hook(event)
+            result = hook.process_hook_data(event, event.get("hook_event_name", ""))
             
             assert result["continue"] is True, f"User interaction failed: {interaction['hook_event_name']}"
             processed_interactions += 1
@@ -1415,7 +1415,7 @@ class TestHookInteractionFlow:
             event = {"session_id": session_id, **event_data}
             
             step_start = time.perf_counter()
-            result = hook.process_hook(event)
+            result = hook.process_hook_data(event, event.get("hook_event_name", ""))
             step_end = time.perf_counter()
             
             step_duration = (step_end - step_start) * 1000  # Convert to milliseconds
@@ -1591,7 +1591,7 @@ class TestRealWorldIntegrationScenarios:
             event = {"session_id": session_id, **event_data}
             
             step_start = time.perf_counter()
-            result = hook.process_hook(event)
+            result = hook.process_hook_data(event, event.get("hook_event_name", ""))
             step_end = time.perf_counter()
             
             step_duration = (step_end - step_start) * 1000
@@ -1675,7 +1675,7 @@ class TestRealWorldIntegrationScenarios:
             event = {"session_id": session_id, **event_data}
             
             start = time.perf_counter()
-            result = hook.process_hook(event)
+            result = hook.process_hook_data(event, event.get("hook_event_name", ""))
             end = time.perf_counter()
             
             duration = (end - start) * 1000
