@@ -1,0 +1,60 @@
+{
+  "name": "chronicle-dev",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chronicle observability platform - monorepo",
+  "workspaces": [
+    "apps/dashboard",
+    "apps/hooks"
+  ],
+  "scripts": {
+    "dev": "npm run dev:dashboard",
+    "dev:dashboard": "cd apps/dashboard && npm run dev",
+    "dev:hooks": "cd apps/hooks && uv run python -m pytest tests/ --watch",
+    "build": "npm run build:dashboard && npm run build:hooks",
+    "build:dashboard": "cd apps/dashboard && npm run build",
+    "build:hooks": "cd apps/hooks && uv build",
+    "test": "npm run test:dashboard && npm run test:hooks",
+    "test:dashboard": "cd apps/dashboard && npm run test",
+    "test:hooks": "cd apps/hooks && uv run python -m pytest",
+    "test:coverage": "npm run test:coverage:dashboard && npm run test:coverage:hooks",
+    "test:coverage:dashboard": "cd apps/dashboard && npm run test -- --coverage --watchAll=false",
+    "test:coverage:hooks": "cd apps/hooks && uv run python -m pytest --cov=src --cov-report=json --cov-report=html --cov-report=lcov",
+    "coverage:check": "node scripts/coverage/check-thresholds.js",
+    "coverage:report": "node scripts/coverage/generate-report.js",
+    "coverage:badges": "node scripts/coverage/generate-badges.js",
+    "coverage:trend": "node scripts/coverage/track-trends.js",
+    "lint": "npm run lint:dashboard && npm run lint:hooks",
+    "lint:dashboard": "cd apps/dashboard && npm run lint",
+    "lint:hooks": "cd apps/hooks && uv run flake8 src tests",
+    "validate": "npm run lint && npm run test:coverage && npm run coverage:check",
+    "ci:test": "npm run test:coverage",
+    "ci:validate": "npm run validate",
+    "precommit": "npm run lint && npm run test",
+    "prepare": "husky install || true"
+  },
+  "devDependencies": {
+    "husky": "^8.0.3",
+    "lcov-parse": "^1.0.0",
+    "badge-maker": "^3.3.1",
+    "glob": "^10.3.10",
+    "fs-extra": "^11.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chronicle/chronicle-dev"
+  },
+  "keywords": [
+    "observability",
+    "claude-code",
+    "monitoring",
+    "dashboard",
+    "hooks"
+  ],
+  "author": "Chronicle Team",
+  "license": "MIT"
+}

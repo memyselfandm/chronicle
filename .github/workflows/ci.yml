@@ -1,0 +1,243 @@
+name: CI - Test Coverage & Quality
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Dashboard Tests & Coverage
+  dashboard-tests:
+    name: 📊 Dashboard Tests & Coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dashboard
+    
+    steps:
+      - name: 🚀 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/dashboard/package-lock.json
+
+      - name: 📥 Install dependencies
+        run: npm ci
+
+      - name: 🧹 Lint code
+        run: npm run lint
+
+      - name: 🧪 Run tests with coverage
+        run: npm run test -- --coverage --watchAll=false --passWithNoTests
+        env:
+          CI: true
+
+      - name: 📊 Check coverage thresholds
+        run: |
+          # Extract coverage percentage from Jest output
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Dashboard coverage: $COVERAGE%"
+          
+          # Fail if below 80% threshold
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "❌ Dashboard coverage ($COVERAGE%) is below required 80% threshold"
+            exit 1
+          fi
+          echo "✅ Dashboard coverage meets 80% threshold"
+
+      - name: 📈 Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          flags: dashboard
+          directory: apps/dashboard/coverage
+          fail_ci_if_error: true
+
+      - name: 💾 Archive coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-coverage
+          path: apps/dashboard/coverage/
+
+  # Hooks Tests & Coverage  
+  hooks-tests:
+    name: 🪝 Hooks Tests & Coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/hooks
+    
+    steps:
+      - name: 🚀 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: 🔧 Setup Python environment
+        run: |
+          uv python install ${{ env.PYTHON_VERSION }}
+          uv sync
+
+      - name: 🧹 Lint code
+        run: uv run flake8 src tests
+
+      - name: 🔍 Type checking
+        run: uv run mypy src
+
+      - name: 🧪 Run tests with coverage
+        run: |
+          uv run pytest \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=json \
+            --cov-report=html \
+            --cov-report=lcov \
+            --cov-fail-under=60 \
+            -v
+
+      - name: 📊 Check coverage thresholds
+        run: |
+          # Extract coverage percentage from pytest-cov JSON output
+          COVERAGE=$(cat coverage.json | jq '.totals.percent_covered')
+          echo "Hooks coverage: $COVERAGE%"
+          
+          # Fail if below 60% threshold (already enforced by --cov-fail-under)
+          if (( $(echo "$COVERAGE < 60" | bc -l) )); then
+            echo "❌ Hooks coverage ($COVERAGE%) is below required 60% threshold"
+            exit 1
+          fi
+          echo "✅ Hooks coverage meets 60% threshold"
+
+      - name: 📈 Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          flags: hooks
+          files: apps/hooks/coverage.lcov
+          fail_ci_if_error: true
+
+      - name: 💾 Archive coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: hooks-coverage
+          path: apps/hooks/htmlcov/
+
+  # Combined Coverage Analysis
+  coverage-analysis:
+    name: 📈 Coverage Analysis & Reporting
+    runs-on: ubuntu-latest
+    needs: [dashboard-tests, hooks-tests]
+    
+    steps:
+      - name: 🚀 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📥 Install root dependencies
+        run: npm ci
+
+      - name: 📥 Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-coverage'
+          merge-multiple: true
+
+      - name: 📊 Generate coverage report
+        run: npm run coverage:report
+
+      - name: 🏆 Generate coverage badges
+        run: npm run coverage:badges
+
+      - name: 📈 Track coverage trends
+        run: npm run coverage:trend
+
+      - name: 💬 Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read coverage data
+            const dashboardCoverage = JSON.parse(fs.readFileSync('dashboard-coverage/coverage-summary.json', 'utf8'));
+            const hooksCoverage = JSON.parse(fs.readFileSync('coverage.json', 'utf8'));
+            
+            const dashboardPct = dashboardCoverage.total.lines.pct;
+            const hooksPct = hooksCoverage.totals.percent_covered;
+            
+            const comment = `## 📊 Coverage Report
+            
+            | Component | Coverage | Threshold | Status |
+            |-----------|----------|-----------|--------|
+            | 📊 Dashboard | ${dashboardPct.toFixed(1)}% | 80% | ${dashboardPct >= 80 ? '✅' : '❌'} |
+            | 🪝 Hooks | ${hooksPct.toFixed(1)}% | 60% | ${hooksPct >= 60 ? '✅' : '❌'} |
+            
+            ${dashboardPct >= 80 && hooksPct >= 60 ? '🎉 All coverage thresholds met!' : '⚠️ Some coverage thresholds not met'}
+            
+            View detailed reports in the CI artifacts.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Security & Quality Gates
+  quality-gates:
+    name: 🔒 Security & Quality Gates  
+    runs-on: ubuntu-latest
+    needs: [dashboard-tests, hooks-tests]
+    
+    steps:
+      - name: 🚀 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 🔒 Dashboard Security Audit
+        working-directory: apps/dashboard
+        run: |
+          npm ci
+          npm audit --audit-level=moderate
+
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: 🔒 Hooks Security Check
+        working-directory: apps/hooks
+        run: |
+          uv sync
+          # Add safety check for Python dependencies
+          uv run pip install safety
+          uv run safety check
+
+      - name: ✅ Quality validation
+        run: |
+          echo "✅ All quality gates passed"
+          echo "- Dashboard coverage >= 80%"
+          echo "- Hooks coverage >= 60%" 
+          echo "- Security audits passed"
+          echo "- Linting checks passed"

@@ -1,0 +1,2 @@
+Testing Chronicle hooks with Claude Code debug mode.
+This should trigger PreToolUse and PostToolUse hooks.

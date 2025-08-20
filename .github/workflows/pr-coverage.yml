@@ -1,0 +1,156 @@
+name: PR Coverage Comment
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  coverage-comment:
+    name: 💬 Coverage Comment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: 🚀 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📥 Install root dependencies
+        run: npm ci
+
+      - name: 📊 Setup Dashboard
+        working-directory: apps/dashboard
+        run: |
+          npm ci
+          npm run test -- --coverage --watchAll=false --passWithNoTests
+        continue-on-error: true
+
+      - name: 🐍 Setup Python with uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: 🪝 Setup Hooks
+        working-directory: apps/hooks
+        run: |
+          uv python install 3.11
+          uv sync
+          uv run pytest --cov=src --cov-report=json --cov-report=lcov || true
+        continue-on-error: true
+
+      - name: 📊 Generate coverage analysis
+        run: |
+          npm run coverage:report || true
+          npm run coverage:badges || true
+
+      - name: 💬 Post coverage comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let dashboardCoverage = null;
+            let hooksCoverage = null;
+            let dashboardStatus = '❓';
+            let hooksStatus = '❓';
+            
+            // Try to read dashboard coverage
+            try {
+              const dashboardData = JSON.parse(fs.readFileSync('apps/dashboard/coverage/coverage-summary.json', 'utf8'));
+              dashboardCoverage = dashboardData.total.lines.pct;
+              dashboardStatus = dashboardCoverage >= 80 ? '✅' : '❌';
+            } catch (error) {
+              console.log('Dashboard coverage not available:', error.message);
+              dashboardStatus = '⚠️';
+            }
+            
+            // Try to read hooks coverage  
+            try {
+              const hooksData = JSON.parse(fs.readFileSync('apps/hooks/coverage.json', 'utf8'));
+              hooksCoverage = hooksData.totals.percent_covered;
+              hooksStatus = hooksCoverage >= 60 ? '✅' : '❌';
+            } catch (error) {
+              console.log('Hooks coverage not available:', error.message);
+              hooksStatus = '⚠️';
+            }
+            
+            // Calculate overall status
+            const overallPassing = dashboardStatus === '✅' && hooksStatus === '✅';
+            const overallStatus = overallPassing ? '🎉 All coverage thresholds met!' : 
+                                 (dashboardStatus === '⚠️' || hooksStatus === '⚠️') ? 
+                                 '⚠️ Coverage data unavailable' : 
+                                 '🚨 Coverage thresholds not met';
+            
+            const comment = `## 📊 Coverage Report
+            
+            | Component | Coverage | Threshold | Status |
+            |-----------|----------|-----------|--------|
+            | 📊 Dashboard | ${dashboardCoverage ? dashboardCoverage.toFixed(1) + '%' : 'N/A'} | 80% | ${dashboardStatus} |
+            | 🪝 Hooks | ${hooksCoverage ? hooksCoverage.toFixed(1) + '%' : 'N/A'} | 60% | ${hooksStatus} |
+            
+            ${overallStatus}
+            
+            ### 📋 Coverage Details
+            
+            ${dashboardCoverage ? `- **Dashboard**: ${dashboardCoverage.toFixed(1)}% line coverage` : '- **Dashboard**: Coverage data not available'}
+            ${hooksCoverage ? `- **Hooks**: ${hooksCoverage.toFixed(1)}% line coverage` : '- **Hooks**: Coverage data not available'}
+            
+            ### 🚀 Next Steps
+            
+            ${!overallPassing ? `
+            **To improve coverage:**
+            
+            \`\`\`bash
+            # Run coverage locally
+            npm run test:coverage
+            
+            # Check specific coverage
+            npm run test:coverage:dashboard
+            npm run test:coverage:hooks
+            
+            # Generate detailed reports
+            npm run coverage:report
+            \`\`\`
+            
+            📚 See [Coverage Guide](./docs/guides/coverage.md) for detailed instructions.
+            ` : '✨ Great work! All coverage requirements are met.'}
+            
+            ---
+            
+            *🤖 This comment is automatically updated when coverage changes.*`;
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.find(comment => 
+              comment.body.includes('📊 Coverage Report') && comment.user.type === 'Bot'
+            );
+            
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
