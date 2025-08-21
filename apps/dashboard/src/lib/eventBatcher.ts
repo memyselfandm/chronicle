@@ -315,12 +315,44 @@ export class EventBatcher {
     // - Queue is backing up (>100 events)
     // - Average processing time is too high (>50ms)
     // - No events processed in last 30 seconds (if events were received)
+    // - Memory pressure from large queue
     const queueBacklog = metrics.queueLength > 100;
     const slowProcessing = metrics.averageProcessingTime > 50;
     const staleProcessing = metrics.lastProcessedAt && 
       (Date.now() - metrics.lastProcessedAt.getTime()) > 30000;
+    const memoryPressure = this.getMemoryPressure() > 0.8; // 80% threshold
 
-    return !queueBacklog && !slowProcessing && !staleProcessing;
+    return !queueBacklog && !slowProcessing && !staleProcessing && !memoryPressure;
+  }
+
+  /**
+   * Calculate memory pressure from queue size and event data
+   */
+  private getMemoryPressure(): number {
+    const queueSize = this.eventQueue.length + this.currentBatch.length;
+    const maxRecommendedQueue = 200; // Recommended max queue size
+    
+    return Math.min(1, queueSize / maxRecommendedQueue);
+  }
+
+  /**
+   * Get memory optimization recommendations
+   */
+  public getMemoryOptimizationTips(): {
+    shouldFlushImmediately: boolean;
+    shouldReduceBatchSize: boolean;
+    shouldIncreaseFlushFrequency: boolean;
+    memoryPressure: number;
+  } {
+    const metrics = this.getMetrics();
+    const memoryPressure = this.getMemoryPressure();
+    
+    return {
+      shouldFlushImmediately: metrics.queueLength > 150,
+      shouldReduceBatchSize: memoryPressure > 0.7,
+      shouldIncreaseFlushFrequency: metrics.averageProcessingTime > 30,
+      memoryPressure,
+    };
   }
 
   /**
