@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### Breaking Change - Removed Permission Hijacking from PreToolUse Hook
+
+**Chronicle is now purely observational and no longer interferes with Claude's native permission system [CHR-4]:**
+
+#### Background
+- PreToolUse hook was hijacking Claude's tool permission system
+- Forced all non-standard tools (including MCP tools) to require manual approval
+- Broke Claude's native "approve and do not ask again" functionality
+- Chronicle was overstepping its role as an observability tool
+
+#### Changes Made
+- **Removed**: All permission decision logic (`evaluate_permission_decision` and related methods)
+- **Removed**: Hardcoded `standard_tools` list that forced "ask" permission
+- **Changed**: Hook now always returns `continue: true` to allow Claude to handle permissions natively
+- **Kept**: Sensitive data sanitization for secure logging
+- **Updated**: Tests to verify non-interference behavior
+- **Updated**: Documentation to reflect observational-only architecture
+
+#### Impact
+- Claude's "approve and do not ask again" now works for ALL tools including MCP tools
+- Chronicle continues providing observability through event logging
+- No more permission interference from Chronicle hooks
+- Users regain full control over tool permissions through Claude's native system
+
+**Files Affected:**
+- `src/hooks/pre_tool_use.py` - Removed permission logic, now observational only
+- `tests/test_pre_tool_use_permissions.py` - Updated for non-interference testing
+- `integration_test.py` - Updated test cases for new behavior
+- `README.md` - Updated documentation to reflect pure observability
+
 ### Cleanup - Archive Consolidated Directory
 
 **Archived unused consolidated/ directory to improve codebase organization:**

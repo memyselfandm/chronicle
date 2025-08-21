@@ -25,7 +25,7 @@ The Claude Code hooks system provides comprehensive observability into agent beh
 - **Database Storage**: Primary storage to Supabase with SQLite fallback
 - **Security & Privacy**: Configurable data sanitization and PII filtering
 - **Modern JSON Output**: Claude Code compliant hookSpecificOutput format with camelCase fields
-- **Permission Controls**: PreToolUse hook can allow/deny/ask for tool execution based on security analysis
+- **Pure Observability**: PreToolUse hook observes tool execution without interfering with Claude's native permissions
 
 ### Architecture: UV Single-File Scripts with Shared Libraries
 
@@ -51,7 +51,7 @@ Chronicle uses a modern architecture that combines the portability of UV single-
 
 ### Supported Hook Events
 
-- **PreToolUse**: Fired before tool execution (can block execution with permission decisions)
+- **PreToolUse**: Fired before tool execution (observational only, does not interfere with permissions)
 - **PostToolUse**: Fired after tool completion (supports security analysis and decision blocking)
 - **UserPromptSubmit**: Fired when user submits a prompt (supports additionalContext injection)
 - **Notification**: Fired for Claude Code notifications
@@ -68,12 +68,12 @@ Chronicle uses a modern architecture that combines the portability of UV single-
 - Proper `continue`, `stopReason`, and `suppressOutput` control fields
 - Enhanced response metadata and debugging information
 
-**Permission Control System**:
-- **Auto-approve**: Safe operations like reading documentation, directory listing
-- **Auto-deny**: Dangerous operations like system file modification, malicious commands  
-- **User confirmation**: Critical operations like config changes, elevated privileges
-- Configurable security rules with regex pattern matching
-- Clear permission decision reasons for transparency
+**Observability Features**:
+- **Event Logging**: Captures all tool execution events for analysis
+- **Sensitive Data Sanitization**: Redacts passwords, tokens, and secrets from logs
+- **Non-Interference**: Does not alter Claude's native permission system
+- **MCP Tool Support**: Works seamlessly with all tools including MCP servers
+- **Performance Optimized**: Minimal overhead with suppressed output
 
 ### New Features (Sprint 3)
 
