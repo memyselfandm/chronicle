@@ -47,6 +47,7 @@ export interface FilterOptions {
   eventTypes: string[];
   sessionStatus: string[];
   searchTerm: string;
+  selectedSessions: string[]; // Session IDs for filtering
 }
 
 export interface UIState {
@@ -103,6 +104,11 @@ interface DashboardStore {
   updateFilters: (filters: Partial<FilterOptions>) => void;
   resetFilters: () => void;
   
+  // Session filtering actions
+  toggleSessionSelection: (sessionId: string, multiSelect?: boolean) => void;
+  clearSelectedSessions: () => void;
+  setSelectedSessions: (sessionIds: string[]) => void;
+  
   // UI actions
   setSelectedSession: (sessionId: string | null) => void;
   setSelectedEvent: (eventId: string | null) => void;
@@ -133,6 +139,11 @@ interface DashboardStore {
   getTotalEventsCount: () => number;
   getRealTimeMetrics: () => any;
   getSubscriptionStatus: () => { active: number; healthy: number; total: number };
+  
+  // Session filtering selectors
+  getSelectedSessionsArray: () => string[];
+  getFilteredEventsBySelectedSessions: () => EventData[];
+  isSessionSelected: (sessionId: string) => boolean;
 }
 
 // Default state values
@@ -141,6 +152,7 @@ const defaultFilters: FilterOptions = {
   eventTypes: [],
   sessionStatus: [],
   searchTerm: '',
+  selectedSessions: [],
 };
 
 const defaultUI: UIState = {
@@ -224,6 +236,48 @@ export const useDashboardStore = create<DashboardStore>()(
       
       resetFilters: () => set({ filters: defaultFilters }),
       
+      // Session filtering actions
+      toggleSessionSelection: (sessionId: string, multiSelect = false) => set((state) => {
+        const currentSelected = [...state.filters.selectedSessions];
+        
+        if (!multiSelect) {
+          // Single selection mode - clear existing and add only this session
+          return {
+            filters: {
+              ...state.filters,
+              selectedSessions: [sessionId]
+            }
+          };
+        } else {
+          // Multi-select mode - toggle the session
+          const isSelected = currentSelected.includes(sessionId);
+          const newSelectedSessions = isSelected
+            ? currentSelected.filter(id => id !== sessionId)
+            : [...currentSelected, sessionId];
+          
+          return {
+            filters: {
+              ...state.filters,
+              selectedSessions: newSelectedSessions
+            }
+          };
+        }
+      }),
+      
+      clearSelectedSessions: () => set((state) => ({
+        filters: {
+          ...state.filters,
+          selectedSessions: []
+        }
+      })),
+      
+      setSelectedSessions: (sessionIds: string[]) => set((state) => ({
+        filters: {
+          ...state.filters,
+          selectedSessions: [...sessionIds]
+        }
+      })),
+      
       // UI actions
       setSelectedSession: (sessionId) => set((state) => ({
         ui: { ...state.ui, selectedSession: sessionId },
@@ -288,6 +342,13 @@ export const useDashboardStore = create<DashboardStore>()(
         const { events, filters } = get();
         let filtered = [...events];
         
+        // Filter by selected sessions first
+        if (filters.selectedSessions.size > 0) {
+          filtered = filtered.filter((event) =>
+            filters.selectedSessions.has(event.sessionId)
+          );
+        }
+        
         // Filter by date range
         if (filters.dateRange.start) {
           filtered = filtered.filter(
@@ -332,6 +393,28 @@ export const useDashboardStore = create<DashboardStore>()(
       getTotalEventsCount: () => {
         const { events } = get();
         return events.length;
+      },
+      
+      // Session filtering selectors
+      getSelectedSessionsArray: () => {
+        const { filters } = get();
+        return [...filters.selectedSessions];
+      },
+      
+      getFilteredEventsBySelectedSessions: () => {
+        const { events, filters } = get();
+        if (filters.selectedSessions.length === 0) {
+          return events; // Return all events if no sessions selected
+        }
+        
+        return events.filter((event) =>
+          filters.selectedSessions.includes(event.sessionId)
+        );
+      },
+      
+      isSessionSelected: (sessionId: string) => {
+        const { filters } = get();
+        return filters.selectedSessions.includes(sessionId);
       },
       
       // Real-time actions
@@ -573,7 +656,10 @@ export const useDashboardStore = create<DashboardStore>()(
           storage: createJSONStorage(() => localStorage),
           // Only persist certain parts of the state
           partialize: (state) => ({
-            filters: state.filters,
+            filters: {
+              ...state.filters,
+              selectedSessions: Array.from(state.filters.selectedSessions), // Convert Set to Array for persistence
+            },
             ui: {
               ...state.ui,
               loading: false, // Don't persist loading state
@@ -581,6 +667,13 @@ export const useDashboardStore = create<DashboardStore>()(
             },
             // Don't persist real-time state - it should be recreated on load
           }),
+          
+          // Handle rehydration of Set from Array
+          onRehydrateStorage: () => (state) => {
+            if (state && state.filters && Array.isArray(state.filters.selectedSessions)) {
+              state.filters.selectedSessions = new Set(state.filters.selectedSessions as string[]);
+            }
+          },
         }
       ),
       { name: 'chronicle-dashboard' } // devtools name
