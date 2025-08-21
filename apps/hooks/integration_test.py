@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Integration test for PreToolUse permission controls.
-Demonstrates the hook working with real Claude Code input/output format.
+Integration test for PreToolUse hook observability.
+Demonstrates the hook logging events without interfering with Claude's permissions.
 """
 
 import json
@@ -15,63 +15,63 @@ def test_hook_integration():
     
     test_cases = [
         {
-            "name": "Auto-approve documentation reading",
+            "name": "Allow documentation reading",
             "input": {
-                "toolName": "Read",
-                "toolInput": {"file_path": "/project/README.md"},
-                "sessionId": "test-session-123",
-                "hookEventName": "PreToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": "/project/README.md"},
+                "session_id": "test-session-123",
+                "hook_event_name": "PreToolUse",
                 "cwd": "/project"
             },
-            "expected_decision": "allow"
+            "should_continue": True
         },
         {
-            "name": "Deny sensitive file access",
+            "name": "Allow sensitive file access (Chronicle doesn't block)",
             "input": {
-                "toolName": "Read", 
-                "toolInput": {"file_path": ".env"},
-                "sessionId": "test-session-123",
-                "hookEventName": "PreToolUse",
+                "tool_name": "Read", 
+                "tool_input": {"file_path": ".env"},
+                "session_id": "test-session-123",
+                "hook_event_name": "PreToolUse",
                 "cwd": "/project"
             },
-            "expected_decision": "deny"
+            "should_continue": True
         },
         {
-            "name": "Ask for critical file modification",
+            "name": "Allow critical file modification",
             "input": {
-                "toolName": "Edit",
-                "toolInput": {"file_path": "package.json", "old_string": '"version": "1.0.0"', "new_string": '"version": "1.1.0"'},
-                "sessionId": "test-session-123", 
-                "hookEventName": "PreToolUse",
+                "tool_name": "Edit",
+                "tool_input": {"file_path": "package.json", "old_string": '"version": "1.0.0"', "new_string": '"version": "1.1.0"'},
+                "session_id": "test-session-123", 
+                "hook_event_name": "PreToolUse",
                 "cwd": "/project"
             },
-            "expected_decision": "ask"
+            "should_continue": True
         },
         {
-            "name": "Deny dangerous bash command",
+            "name": "Allow even dangerous bash commands (Claude handles permissions)",
             "input": {
-                "toolName": "Bash",
-                "toolInput": {"command": "rm -rf /"},
-                "sessionId": "test-session-123",
-                "hookEventName": "PreToolUse", 
+                "tool_name": "Bash",
+                "tool_input": {"command": "rm -rf /tmp/test"},
+                "session_id": "test-session-123",
+                "hook_event_name": "PreToolUse", 
                 "cwd": "/project"
             },
-            "expected_decision": "deny"
+            "should_continue": True
         },
         {
-            "name": "Ask for sudo command",
+            "name": "Allow MCP tool execution",
             "input": {
-                "toolName": "Bash",
-                "toolInput": {"command": "sudo apt-get update"},
-                "sessionId": "test-session-123",
-                "hookEventName": "PreToolUse",
+                "tool_name": "mcp__linear__list_issues",
+                "tool_input": {"team": "test-team"},
+                "session_id": "test-session-123",
+                "hook_event_name": "PreToolUse",
                 "cwd": "/project" 
             },
-            "expected_decision": "ask"
+            "should_continue": True
         }
     ]
     
-    print("🧪 Running PreToolUse Permission Controls Integration Tests")
+    print("🧪 Running PreToolUse Hook Observability Integration Tests")
     print("=" * 60)
     
     hook_script = os.path.join(os.path.dirname(__file__), "src", "hooks", "pre_tool_use.py")
@@ -117,23 +117,27 @@ def test_hook_integration():
                 continue
                 
             hook_output = response["hookSpecificOutput"]
-            if not all(field in hook_output for field in ["hookEventName", "permissionDecision", "permissionDecisionReason"]):
-                print(f"❌ FAILED - Missing required hookSpecificOutput fields")
+            if "hookEventName" not in hook_output:
+                print(f"❌ FAILED - Missing hookEventName in hookSpecificOutput")
                 print(f"   Hook output: {hook_output}")
                 failed += 1
                 continue
             
-            # Check the permission decision
-            decision = hook_output["permissionDecision"]
-            if decision != test_case["expected_decision"]:
-                print(f"❌ FAILED - Expected decision '{test_case['expected_decision']}', got '{decision}'")
-                print(f"   Reason: {hook_output['permissionDecisionReason']}")
+            # Check that execution continues
+            if response["continue"] != test_case["should_continue"]:
+                print(f"❌ FAILED - Expected continue={test_case['should_continue']}, got {response['continue']}")
+                failed += 1
+                continue
+            
+            # Check that output is suppressed (Chronicle doesn't interfere)
+            if not response["suppressOutput"]:
+                print(f"❌ FAILED - Expected suppressOutput=True (no interference), got False")
                 failed += 1
                 continue
                 
             # Success!
-            print(f"✅ PASSED - Decision: {decision}")
-            print(f"   Reason: {hook_output['permissionDecisionReason']}")
+            print(f"✅ PASSED - Tool execution allowed")
+            print(f"   Event saved: {hook_output.get('eventSaved', 'unknown')}")
             passed += 1
             
         except subprocess.TimeoutExpired:
