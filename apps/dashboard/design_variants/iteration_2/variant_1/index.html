@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Iteration 2 Variant 1</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Minimal Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="title">Chronicle Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <div class="metric">
+                    <span class="metric-value" id="active-sessions">12</span>
+                    <span class="metric-label">Active Sessions</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value" id="awaiting-input">3</span>
+                    <span class="metric-label">Awaiting Input</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value" id="total-events">847</span>
+                    <span class="metric-label">Total Events</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sessions Awaiting Input (Compact) -->
+        <div class="awaiting-section" id="awaiting-section">
+            <div class="awaiting-item">
+                <span class="session-id">session-web-2a3f</span>
+                <span class="tool-name">EditFile</span>
+                <span class="waiting-time">2m 34s</span>
+                <button class="action-btn">Resume</button>
+            </div>
+            <div class="awaiting-item">
+                <span class="session-id">session-api-7k1m</span>
+                <span class="tool-name">WebSearch</span>
+                <span class="waiting-time">45s</span>
+                <button class="action-btn">Resume</button>
+            </div>
+            <div class="awaiting-item">
+                <span class="session-id">session-data-9x4p</span>
+                <span class="tool-name">DatabaseQuery</span>
+                <span class="waiting-time">5m 12s</span>
+                <button class="action-btn">Resume</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Horizontal Visualization -->
+            <div class="horizontal-viz">
+                <div class="viz-header">
+                    <h3>Activity Overview</h3>
+                    <div class="viz-controls">
+                        <button class="time-filter active" data-time="1h">1H</button>
+                        <button class="time-filter" data-time="6h">6H</button>
+                        <button class="time-filter" data-time="24h">24H</button>
+                    </div>
+                </div>
+                
+                <!-- Tool Use Patterns -->
+                <div class="tool-patterns">
+                    <div class="pattern-lane">
+                        <span class="lane-label">Tool Usage</span>
+                        <div class="pattern-bar">
+                            <div class="tool-block edit" data-tool="EditFile" style="width: 25%;">
+                                <i class="fas fa-edit"></i>
+                                <span>Edit</span>
+                            </div>
+                            <div class="tool-block search" data-tool="WebSearch" style="width: 20%;">
+                                <i class="fas fa-search"></i>
+                                <span>Search</span>
+                            </div>
+                            <div class="tool-block code" data-tool="ExecuteCode" style="width: 30%;">
+                                <i class="fas fa-code"></i>
+                                <span>Code</span>
+                            </div>
+                            <div class="tool-block db" data-tool="Database" style="width: 15%;">
+                                <i class="fas fa-database"></i>
+                                <span>DB</span>
+                            </div>
+                            <div class="tool-block other" style="width: 10%;">
+                                <i class="fas fa-cog"></i>
+                                <span>Other</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="pattern-lane">
+                        <span class="lane-label">Prompt Cycles</span>
+                        <div class="pattern-bar">
+                            <div class="cycle-block complete" style="width: 60%;">
+                                <span class="cycle-count">24</span>
+                                <span class="cycle-label">Complete</span>
+                            </div>
+                            <div class="cycle-block pending" style="width: 25%;">
+                                <span class="cycle-count">8</span>
+                                <span class="cycle-label">Pending</span>
+                            </div>
+                            <div class="cycle-block failed" style="width: 15%;">
+                                <span class="cycle-count">4</span>
+                                <span class="cycle-label">Failed</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="pattern-lane">
+                        <span class="lane-label">Sub-agents</span>
+                        <div class="pattern-bar">
+                            <div class="agent-indicator active" data-agent="web-crawler">
+                                <i class="fas fa-spider"></i>
+                                <span>WC</span>
+                            </div>
+                            <div class="agent-indicator active" data-agent="code-analyzer">
+                                <i class="fas fa-microscope"></i>
+                                <span>CA</span>
+                            </div>
+                            <div class="agent-indicator idle" data-agent="data-processor">
+                                <i class="fas fa-stream"></i>
+                                <span>DP</span>
+                            </div>
+                            <div class="agent-indicator error" data-agent="file-manager">
+                                <i class="fas fa-folder"></i>
+                                <span>FM</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Feed -->
+            <div class="event-feed">
+                <div class="feed-header">
+                    <div class="feed-title">
+                        <h3>Live Event Feed</h3>
+                        <button class="pause-btn" id="pause-btn">
+                            <i class="fas fa-pause"></i>
+                        </button>
+                    </div>
+                    <div class="feed-controls">
+                        <select class="event-filter" id="event-type-filter">
+                            <option value="all">All Events</option>
+                            <option value="tool_use">Tool Use</option>
+                            <option value="user_prompt">User Prompts</option>
+                            <option value="agent_response">Agent Responses</option>
+                            <option value="error">Errors</option>
+                            <option value="notification">Notifications</option>
+                        </select>
+                        <select class="session-filter" id="session-filter">
+                            <option value="all">All Sessions</option>
+                            <option value="session-web-2a3f">Web Session 2a3f</option>
+                            <option value="session-api-7k1m">API Session 7k1m</option>
+                            <option value="session-data-9x4p">Data Session 9x4p</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="event-list" id="event-list">
+                    <!-- Events will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Classic Sidebar Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1 class="dashboard-title">Chronicle Dashboard</h1>
+                <span class="version-tag">v3.1 - Classic Sidebar Monitor</span>
+            </div>
+            <div class="header-right">
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Active Sessions</span>
+                        <span class="stat-value" id="active-sessions">12</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Awaiting Input</span>
+                        <span class="stat-value warning" id="awaiting-input">3</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Events/Min</span>
+                        <span class="stat-value" id="events-per-min">47</span>
+                    </div>
+                </div>
+                <div class="header-controls">
+                    <button class="control-btn" id="pause-btn">
+                        <span class="material-icons">pause</span>
+                    </button>
+                    <button class="control-btn" id="refresh-btn">
+                        <span class="material-icons">refresh</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Left Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Sessions</h3>
+                    <div class="sidebar-controls">
+                        <button class="sidebar-btn" id="collapse-all">
+                            <span class="material-icons">unfold_less</span>
+                        </button>
+                        <button class="sidebar-btn" id="filter-btn">
+                            <span class="material-icons">filter_list</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Sessions Awaiting Input (Priority) -->
+                <div class="sessions-section" id="awaiting-sessions">
+                    <div class="section-header awaiting">
+                        <span class="material-icons">notification_important</span>
+                        <span>Awaiting Input (3)</span>
+                    </div>
+                    <div class="session-list" id="awaiting-session-list">
+                        <!-- Awaiting sessions populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Active Sessions -->
+                <div class="sessions-section" id="active-sessions-section">
+                    <div class="section-header active">
+                        <span class="material-icons">play_circle</span>
+                        <span>Active (9)</span>
+                    </div>
+                    <div class="session-list" id="active-session-list">
+                        <!-- Active sessions populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Idle Sessions -->
+                <div class="sessions-section" id="idle-sessions-section">
+                    <div class="section-header idle">
+                        <span class="material-icons">pause_circle</span>
+                        <span>Idle (4)</span>
+                    </div>
+                    <div class="session-list collapsed" id="idle-session-list">
+                        <!-- Idle sessions populated by JS -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main View Area -->
+            <main class="main-view">
+                <!-- Timeline Swimlanes -->
+                <section class="timeline-section">
+                    <div class="timeline-header">
+                        <h3>Activity Timeline</h3>
+                        <div class="timeline-controls">
+                            <button class="timeline-btn" id="timeline-collapse">
+                                <span class="material-icons">expand_less</span>
+                            </button>
+                            <select class="time-range-select" id="timeline-range">
+                                <option value="5m">Last 5 min</option>
+                                <option value="15m" selected>Last 15 min</option>
+                                <option value="1h">Last hour</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="timeline-container" id="timeline-container">
+                        <!-- Timeline swimlanes populated by JS -->
+                    </div>
+                </section>
+
+                <!-- Event Feed -->
+                <section class="event-feed-section">
+                    <div class="event-feed-header">
+                        <h3>Event Feed</h3>
+                        <div class="feed-controls">
+                            <div class="filter-chips" id="filter-chips">
+                                <div class="filter-chip active" data-filter="all">All Events</div>
+                                <div class="filter-chip" data-filter="tools">Tools</div>
+                                <div class="filter-chip" data-filter="notifications">Notifications</div>
+                                <div class="filter-chip" data-filter="errors">Errors</div>
+                            </div>
+                            <button class="feed-btn" id="clear-filters">
+                                <span class="material-icons">clear_all</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="event-feed-container">
+                        <table class="event-feed-table" id="event-feed">
+                            <thead>
+                                <tr>
+                                    <th class="col-time">Time</th>
+                                    <th class="col-session">Session</th>
+                                    <th class="col-event">Event</th>
+                                    <th class="col-tool">Tool</th>
+                                    <th class="col-status">Status</th>
+                                    <th class="col-duration">Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody id="event-feed-body">
+                                <!-- Events populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Connection Status Indicator -->
+        <div class="connection-status" id="connection-status">
+            <span class="material-icons">wifi</span>
+            <span>Connected</span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

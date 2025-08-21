@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Multi-Instance Sub-Agent Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Chronicle Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <div class="instance-stats">
+                    <span id="activeInstances">12</span> instances
+                    <span id="blockedInstances">3</span> awaiting input
+                </div>
+                <button class="pause-btn" id="pauseBtn">
+                    <span class="pause-icon">⏸️</span> Pause
+                </button>
+            </div>
+        </header>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="controls-left">
+                <select id="instanceFilter" class="filter-dropdown">
+                    <option value="all">All Instances (12)</option>
+                    <option value="instance-1">Instance-1 (Main)</option>
+                    <option value="instance-2">Instance-2 (Analysis)</option>
+                    <option value="instance-3">Instance-3 (Testing)</option>
+                    <option value="instance-4">Instance-4 (Deploy)</option>
+                    <option value="instance-5">Instance-5 (Research)</option>
+                    <option value="blocked">Blocked Only (3)</option>
+                    <option value="active">Active Only (9)</option>
+                </select>
+                
+                <select id="eventTypeFilter" class="filter-dropdown">
+                    <option value="all">All Events</option>
+                    <option value="tool">Tool Events</option>
+                    <option value="task">Task Events</option>
+                    <option value="agent">Sub-Agent Events</option>
+                    <option value="user">User Input</option>
+                    <option value="error">Errors</option>
+                </select>
+            </div>
+            
+            <div class="controls-right">
+                <button class="time-filter" data-time="1h">1h</button>
+                <button class="time-filter active" data-time="4h">4h</button>
+                <button class="time-filter" data-time="24h">24h</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Instance Groups -->
+            <div class="instance-groups" id="instanceGroups">
+                <!-- Instance groups will be populated by JavaScript -->
+            </div>
+
+            <!-- Event Feed -->
+            <div class="event-feed">
+                <div class="event-feed-header">
+                    <h3>Live Event Feed</h3>
+                    <span class="event-count">1,247 events</span>
+                </div>
+                <div class="event-list" id="eventList">
+                    <!-- Events will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Blocked Sessions Alert -->
+        <div class="blocked-alert" id="blockedAlert">
+            <div class="blocked-content">
+                <span class="blocked-icon">⚠️</span>
+                <span class="blocked-text">3 sessions awaiting user input</span>
+                <button class="view-blocked-btn">View Details</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

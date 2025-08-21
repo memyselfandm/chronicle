@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Minimal Sidebar</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <!-- Floating Notifications -->
+    <div id="floating-notifications"></div>
+
+    <!-- Main Container -->
+    <div class="dashboard-container">
+        <!-- Minimal Sidebar -->
+        <aside class="minimal-sidebar">
+            <div class="sidebar-header">
+                <span class="material-icons">timeline</span>
+            </div>
+            <div class="session-dots-container">
+                <div class="session-dot active" data-session-id="sess_001" data-tooltip="chronicle-dashboard (main)">
+                    <div class="status-indicator"></div>
+                    <div class="input-badge">2</div>
+                </div>
+                <div class="session-dot waiting" data-session-id="sess_002" data-tooltip="api-service (feature/auth)">
+                    <div class="status-indicator"></div>
+                    <div class="input-badge">1</div>
+                </div>
+                <div class="session-dot active" data-session-id="sess_003" data-tooltip="web-app (development)">
+                    <div class="status-indicator"></div>
+                </div>
+                <div class="session-dot inactive" data-session-id="sess_004" data-tooltip="mobile-client (main)">
+                    <div class="status-indicator"></div>
+                </div>
+                <div class="session-dot active" data-session-id="sess_005" data-tooltip="data-pipeline (feature/metrics)">
+                    <div class="status-indicator"></div>
+                </div>
+                <div class="session-dot waiting" data-session-id="sess_006" data-tooltip="user-service (hotfix/login)">
+                    <div class="status-indicator"></div>
+                    <div class="input-badge">1</div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="total-sessions">6</div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Thin Timeline Strip -->
+            <div class="timeline-strip">
+                <div class="timeline-header">
+                    <span class="timeline-title">Activity Flow</span>
+                    <div class="timeline-controls">
+                        <button class="timeline-btn" id="pause-timeline">
+                            <span class="material-icons">pause</span>
+                        </button>
+                        <button class="timeline-btn" id="zoom-out">
+                            <span class="material-icons">zoom_out</span>
+                        </button>
+                        <button class="timeline-btn" id="zoom-in">
+                            <span class="material-icons">zoom_in</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="timeline-lanes">
+                    <div class="timeline-lane" data-session="sess_001">
+                        <div class="lane-label">S1</div>
+                        <div class="tool-activity">
+                            <div class="tool-dot read-tool"></div>
+                            <div class="tool-dot edit-tool"></div>
+                            <div class="tool-dot bash-tool"></div>
+                            <div class="tool-dot read-tool"></div>
+                            <div class="tool-sequence">R→E→B×3</div>
+                        </div>
+                    </div>
+                    <div class="timeline-lane active" data-session="sess_002">
+                        <div class="lane-label">S2</div>
+                        <div class="tool-activity">
+                            <div class="tool-dot notification-pulse"></div>
+                            <div class="waiting-indicator">Awaiting Input</div>
+                        </div>
+                    </div>
+                    <div class="timeline-lane" data-session="sess_003">
+                        <div class="lane-label">S3</div>
+                        <div class="tool-activity">
+                            <div class="tool-dot glob-tool"></div>
+                            <div class="tool-dot grep-tool"></div>
+                            <div class="tool-dot task-tool"></div>
+                            <div class="sub-agent-indicator">+2 sub</div>
+                        </div>
+                    </div>
+                    <div class="timeline-lane inactive" data-session="sess_004">
+                        <div class="lane-label">S4</div>
+                        <div class="tool-activity">
+                            <div class="idle-indicator">Idle</div>
+                        </div>
+                    </div>
+                    <div class="timeline-lane" data-session="sess_005">
+                        <div class="lane-label">S5</div>
+                        <div class="tool-activity">
+                            <div class="tool-dot web-search-tool"></div>
+                            <div class="tool-dot web-fetch-tool"></div>
+                            <div class="tool-sequence">WS→WF→R</div>
+                        </div>
+                    </div>
+                    <div class="timeline-lane waiting" data-session="sess_006">
+                        <div class="lane-label">S6</div>
+                        <div class="tool-activity">
+                            <div class="tool-dot notification-pulse"></div>
+                            <div class="waiting-indicator">Permission Required</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dense Event Feed -->
+            <div class="event-feed-container">
+                <!-- Feed Controls -->
+                <div class="feed-controls">
+                    <div class="filter-section">
+                        <select id="event-type-filter" class="filter-dropdown">
+                            <option value="">All Events</option>
+                            <option value="user_prompt_submit">User Prompts</option>
+                            <option value="pre_tool_use">Tool Starts</option>
+                            <option value="post_tool_use">Tool Completions</option>
+                            <option value="notification">Notifications</option>
+                            <option value="stop">Session Stops</option>
+                            <option value="subagent_stop">Sub-agent Stops</option>
+                            <option value="error">Errors</option>
+                        </select>
+                        <select id="session-filter" class="filter-dropdown">
+                            <option value="">All Sessions</option>
+                            <option value="sess_001">chronicle-dashboard</option>
+                            <option value="sess_002">api-service</option>
+                            <option value="sess_003">web-app</option>
+                            <option value="sess_004">mobile-client</option>
+                            <option value="sess_005">data-pipeline</option>
+                            <option value="sess_006">user-service</option>
+                        </select>
+                    </div>
+                    <div class="live-indicator">
+                        <span class="live-dot"></span>
+                        <span>Live</span>
+                        <span class="event-count">247 events</span>
+                    </div>
+                </div>
+
+                <!-- Event Feed Table -->
+                <div class="event-feed">
+                    <table class="event-table">
+                        <thead>
+                            <tr>
+                                <th class="time-col">Time</th>
+                                <th class="session-col">Session</th>
+                                <th class="event-col">Event</th>
+                                <th class="tool-col">Tool</th>
+                                <th class="status-col">Status</th>
+                                <th class="duration-col">Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody id="event-feed-body">
+                            <!-- Notification Events (Priority) -->
+                            <tr class="event-row notification-event">
+                                <td class="time-col">14:23:45</td>
+                                <td class="session-col">
+                                    <span class="session-pill waiting">S2</span>
+                                </td>
+                                <td class="event-col">notification</td>
+                                <td class="tool-col">-</td>
+                                <td class="status-col">
+                                    <span class="status-badge awaiting">Awaiting Input</span>
+                                </td>
+                                <td class="duration-col">-</td>
+                            </tr>
+                            
+                            <tr class="event-row notification-event">
+                                <td class="time-col">14:21:32</td>
+                                <td class="session-col">
+                                    <span class="session-pill waiting">S6</span>
+                                </td>
+                                <td class="event-col">notification</td>
+                                <td class="tool-col">Bash</td>
+                                <td class="status-col">
+                                    <span class="status-badge permission">Permission Required</span>
+                                </td>
+                                <td class="duration-col">-</td>
+                            </tr>
+
+                            <!-- Active Tool Events -->
+                            <tr class="event-row active-event">
+                                <td class="time-col">14:23:52</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S1</span>
+                                </td>
+                                <td class="event-col">pre_tool_use</td>
+                                <td class="tool-col">Edit</td>
+                                <td class="status-col">
+                                    <span class="status-badge running">Running</span>
+                                </td>
+                                <td class="duration-col">2.3s</td>
+                            </tr>
+
+                            <tr class="event-row sub-event">
+                                <td class="time-col">14:23:49</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S3</span>
+                                </td>
+                                <td class="event-col indent-1">post_tool_use</td>
+                                <td class="tool-col">Task</td>
+                                <td class="status-col">
+                                    <span class="status-badge success">Success</span>
+                                </td>
+                                <td class="duration-col">234ms</td>
+                            </tr>
+
+                            <!-- Recent Completions -->
+                            <tr class="event-row completed-event">
+                                <td class="time-col">14:23:47</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S1</span>
+                                </td>
+                                <td class="event-col">post_tool_use</td>
+                                <td class="tool-col">Read</td>
+                                <td class="status-col">
+                                    <span class="status-badge success">Success</span>
+                                </td>
+                                <td class="duration-col">156ms</td>
+                            </tr>
+
+                            <tr class="event-row completed-event">
+                                <td class="time-col">14:23:44</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S5</span>
+                                </td>
+                                <td class="event-col">post_tool_use</td>
+                                <td class="tool-col">WebSearch</td>
+                                <td class="status-col">
+                                    <span class="status-badge success">Success</span>
+                                </td>
+                                <td class="duration-col">1.2s</td>
+                            </tr>
+
+                            <tr class="event-row user-event">
+                                <td class="time-col">14:23:41</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S1</span>
+                                </td>
+                                <td class="event-col">user_prompt_submit</td>
+                                <td class="tool-col">-</td>
+                                <td class="status-col">
+                                    <span class="status-badge info">Submitted</span>
+                                </td>
+                                <td class="duration-col">-</td>
+                            </tr>
+
+                            <!-- More sample events -->
+                            <tr class="event-row completed-event">
+                                <td class="time-col">14:23:38</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S3</span>
+                                </td>
+                                <td class="event-col">subagent_stop</td>
+                                <td class="tool-col">-</td>
+                                <td class="status-col">
+                                    <span class="status-badge success">Completed</span>
+                                </td>
+                                <td class="duration-col">5.7s</td>
+                            </tr>
+
+                            <tr class="event-row error-event">
+                                <td class="time-col">14:23:35</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S5</span>
+                                </td>
+                                <td class="event-col">error</td>
+                                <td class="tool-col">Bash</td>
+                                <td class="status-col">
+                                    <span class="status-badge error">Failed</span>
+                                </td>
+                                <td class="duration-col">-</td>
+                            </tr>
+
+                            <!-- Sub-agent events with indentation -->
+                            <tr class="event-row sub-event">
+                                <td class="time-col">14:23:30</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S3</span>
+                                </td>
+                                <td class="event-col indent-2">post_tool_use</td>
+                                <td class="tool-col">Grep</td>
+                                <td class="status-col">
+                                    <span class="status-badge success">Success</span>
+                                </td>
+                                <td class="duration-col">89ms</td>
+                            </tr>
+
+                            <tr class="event-row sub-event">
+                                <td class="time-col">14:23:29</td>
+                                <td class="session-col">
+                                    <span class="session-pill active">S3</span>
+                                </td>
+                                <td class="event-col indent-2">pre_tool_use</td>
+                                <td class="tool-col">Grep</td>
+                                <td class="status-col">
+                                    <span class="status-badge success">Started</span>
+                                </td>
+                                <td class="duration-col">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tooltip Container -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

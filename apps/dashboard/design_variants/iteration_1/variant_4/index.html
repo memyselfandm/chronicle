@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Variant 4: High Contrast</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header Section -->
+    <header class="dashboard-header">
+        <div class="header-container">
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-indicator"></span>
+                <span class="status-text">CONNECTED</span>
+            </div>
+            <div class="header-content">
+                <h1 class="dashboard-title">CHRONICLE DASHBOARD</h1>
+                <p class="dashboard-subtitle">Real-time Event Monitoring & Analysis</p>
+            </div>
+            <div class="header-actions">
+                <button class="action-btn primary">Export Data</button>
+                <button class="action-btn secondary">Settings</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Content -->
+    <main class="dashboard-main">
+        <!-- Active Sessions Counter -->
+        <section class="sessions-section">
+            <div class="sessions-card alert-style">
+                <div class="sessions-header">
+                    <h2>ACTIVE SESSIONS</h2>
+                    <div class="alert-badge">ATTENTION</div>
+                </div>
+                <div class="sessions-content">
+                    <div class="counter-display">
+                        <span class="counter-number" id="activeSessionsCount">7</span>
+                        <span class="counter-label">Sessions Awaiting Review</span>
+                    </div>
+                    <div class="sessions-status">
+                        <div class="status-item">
+                            <span class="status-dot high"></span>
+                            <span>High Priority: 3</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-dot medium"></span>
+                            <span>Medium Priority: 2</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-dot low"></span>
+                            <span>Low Priority: 2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Event Graph -->
+        <section class="graph-section">
+            <div class="graph-card">
+                <div class="graph-header">
+                    <h2>LIVE EVENT STREAM</h2>
+                    <div class="graph-controls">
+                        <button class="control-btn active">1H</button>
+                        <button class="control-btn">6H</button>
+                        <button class="control-btn">24H</button>
+                    </div>
+                </div>
+                <div class="graph-container">
+                    <canvas id="eventChart" width="800" height="300"></canvas>
+                </div>
+                <div class="graph-legend">
+                    <div class="legend-item">
+                        <span class="legend-color tool-use"></span>
+                        <span>Tool Usage</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color user-prompt"></span>
+                        <span>User Prompts</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color session-start"></span>
+                        <span>Session Starts</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color error-event"></span>
+                        <span>Errors</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Event Feed -->
+        <section class="feed-section">
+            <div class="feed-card">
+                <div class="feed-header">
+                    <h2>RECENT EVENTS</h2>
+                    <div class="feed-controls">
+                        <select class="filter-select" id="eventTypeFilter">
+                            <option value="all">All Events</option>
+                            <option value="tool_use">Tool Usage</option>
+                            <option value="user_prompt">User Prompts</option>
+                            <option value="session_start">Session Starts</option>
+                            <option value="error">Errors</option>
+                        </select>
+                        <button class="control-btn">Refresh</button>
+                    </div>
+                </div>
+                <div class="feed-container" id="eventFeed">
+                    <!-- Events will be populated by JavaScript -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+        <div class="footer-content">
+            <p>Chronicle Dashboard v4.0 - High Contrast Design | Last Updated: <span id="lastUpdated"></span></p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

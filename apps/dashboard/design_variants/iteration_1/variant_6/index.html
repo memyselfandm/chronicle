@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Anomaly Detection</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="connection-health">
+                <div class="pattern-indicators">
+                    <div class="indicator normal" id="normalPattern"></div>
+                    <div class="indicator warning" id="warningPattern"></div>
+                    <div class="indicator critical" id="criticalPattern"></div>
+                </div>
+                <span class="health-status" id="healthStatus">Monitoring Active</span>
+            </div>
+            
+            <div class="header-center">
+                <h1>Chronicle Dashboard</h1>
+                <div class="subtitle">
+                    <span id="anomalyStatus">Pattern Analysis: Normal Flow</span>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="timestamp" id="timestamp"></div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content -->
+        <div class="dashboard-grid">
+            <!-- Active Sessions Counter -->
+            <div class="card sessions-card">
+                <h3>Active Sessions</h3>
+                <div class="sessions-counter">
+                    <span class="count" id="sessionCount">127</span>
+                    <div class="session-details">
+                        <div class="detail-item">
+                            <span class="label">Normal:</span>
+                            <span class="value normal" id="normalSessions">119</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Slow:</span>
+                            <span class="value warning" id="slowSessions">6</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Stalled:</span>
+                            <span class="value critical" id="stalledSessions">2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Event Heatmap -->
+            <div class="card heatmap-card">
+                <h3>Event Density Heatmap</h3>
+                <div class="heatmap-container">
+                    <canvas id="eventHeatmap" width="800" height="300"></canvas>
+                </div>
+                <div class="heatmap-legend">
+                    <span class="legend-item low">Low</span>
+                    <span class="legend-item normal">Normal</span>
+                    <span class="legend-item high">High</span>
+                    <span class="legend-item anomaly">Anomaly</span>
+                </div>
+            </div>
+
+            <!-- Anomaly Alerts -->
+            <div class="card alerts-card">
+                <h3>Active Anomalies</h3>
+                <div class="alerts-container" id="alertsContainer">
+                    <div class="alert-item critical">
+                        <div class="alert-icon">⚠️</div>
+                        <div class="alert-content">
+                            <div class="alert-title">Error Spike Detected</div>
+                            <div class="alert-details">15 errors in 30s (normal: 2/min)</div>
+                        </div>
+                        <div class="alert-time">2m ago</div>
+                    </div>
+                    <div class="alert-item warning">
+                        <div class="alert-icon">📊</div>
+                        <div class="alert-content">
+                            <div class="alert-title">Response Time Anomaly</div>
+                            <div class="alert-details">Average 850ms (normal: 200ms)</div>
+                        </div>
+                        <div class="alert-time">5m ago</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Smart Event Feed -->
+            <div class="card event-feed-card">
+                <h3>Live Event Stream</h3>
+                <div class="feed-container" id="eventFeed">
+                    <!-- Events will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Pattern Analysis Sidebar -->
+        <aside class="pattern-sidebar">
+            <h3>Pattern Analysis</h3>
+            <div class="pattern-metrics">
+                <div class="metric">
+                    <span class="metric-label">Baseline Events/min</span>
+                    <span class="metric-value">245</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Current Rate</span>
+                    <span class="metric-value anomaly">342</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Deviation</span>
+                    <span class="metric-value warning">+39%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Confidence</span>
+                    <span class="metric-value">87%</span>
+                </div>
+            </div>
+            
+            <div class="pattern-timeline">
+                <h4>Recent Patterns</h4>
+                <div class="timeline-item">
+                    <div class="timeline-dot critical"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">14:32</div>
+                        <div class="timeline-event">Error burst detected</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot warning"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">14:28</div>
+                        <div class="timeline-event">Latency spike</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot normal"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">14:15</div>
+                        <div class="timeline-event">Pattern normalized</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

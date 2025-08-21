@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Best of Breed Synthesis</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header with Performance Indicators (from V4) + Basic Metrics (from V1) -->
+    <header class="header">
+        <div class="header-left">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar (Ctrl+B)">
+                <span class="material-icons">menu</span>
+            </button>
+            <h1 class="header-title">Chronicle Dashboard</h1>
+            <!-- Performance Indicators from V4 -->
+            <div class="performance-indicators">
+                <div class="event-rate">
+                    <span class="material-icons">trending_up</span>
+                    <span id="eventRate">142/min</span>
+                    <canvas id="eventSparkline" width="60" height="16"></canvas>
+                </div>
+                <div class="latency-indicator">
+                    <span class="material-icons">speed</span>
+                    <span id="latency">24ms</span>
+                </div>
+                <div class="memory-warning" id="memoryWarning" style="display: none;">
+                    <span class="material-icons">warning</span>
+                    <span>High Memory</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="connection-status">
+                <div class="status-dot connected" id="connectionStatus"></div>
+                <span class="status-text">Connected</span>
+            </div>
+            <div class="header-metrics">
+                <span class="metric">
+                    <span class="material-icons">play_circle</span>
+                    <span id="activeCount">12</span>
+                    <span class="metric-label">Active</span>
+                </span>
+                <span class="metric awaiting">
+                    <span class="material-icons">pending</span>
+                    <span id="awaitingCount">3</span>
+                    <span class="metric-label">Awaiting</span>
+                </span>
+                <span class="metric">
+                    <span class="material-icons">timeline</span>
+                    <span id="eventsPerMin">142/min</span>
+                </span>
+            </div>
+            <!-- Keyboard Shortcuts Toggle from V3 -->
+            <button class="help-toggle" id="helpToggle" title="Keyboard Shortcuts (?)">
+                <span class="material-icons">help_outline</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Keyboard Shortcuts Panel from V3 -->
+    <div class="shortcuts-panel" id="shortcutsPanel">
+        <div class="shortcuts-content">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="shortcuts-grid">
+                <div class="shortcut-group">
+                    <h4>Navigation</h4>
+                    <div class="shortcut"><kbd>j</kbd> / <kbd>k</kbd> Navigate events</div>
+                    <div class="shortcut"><kbd>↑</kbd> / <kbd>↓</kbd> Navigate sessions</div>
+                    <div class="shortcut"><kbd>Enter</kbd> Select/expand</div>
+                    <div class="shortcut"><kbd>Esc</kbd> Clear selection</div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>Filters</h4>
+                    <div class="shortcut"><kbd>1-5</kbd> Filter presets</div>
+                    <div class="shortcut"><kbd>/</kbd> Search sessions</div>
+                    <div class="shortcut"><kbd>Ctrl+Click</kbd> Multi-select</div>
+                    <div class="shortcut"><kbd>Alt+C</kbd> Clear filters</div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>View</h4>
+                    <div class="shortcut"><kbd>Ctrl+B</kbd> Toggle sidebar</div>
+                    <div class="shortcut"><kbd>Ctrl+T</kbd> Toggle timeline</div>
+                    <div class="shortcut"><kbd>Space</kbd> Jump to now</div>
+                    <div class="shortcut"><kbd>?</kbd> Toggle help</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Sidebar with Enhanced Features (V1 foundation + V3 search + V4 virtual scroll) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <!-- Session Search from V3 -->
+                <div class="sidebar-search">
+                    <span class="material-icons search-icon">search</span>
+                    <input type="text" id="sessionSearch" placeholder="Search sessions..." title="Focus with / key">
+                    <button class="search-clear" id="searchClear" style="display: none;">
+                        <span class="material-icons">clear</span>
+                    </button>
+                </div>
+                
+                <!-- Filter Presets from V3 + Compact Mode from V4 -->
+                <div class="sidebar-controls">
+                    <div class="filter-presets">
+                        <button class="filter-presets-btn" id="filterPresetsBtn" title="Filter Presets">
+                            <span class="material-icons">filter_list</span>
+                            Presets
+                        </button>
+                        <div class="filter-presets-dropdown" id="filterPresetsDropdown">
+                            <button class="preset-option" data-preset="awaiting">Awaiting Input Only</button>
+                            <button class="preset-option" data-preset="errors">Recent Errors</button>
+                            <button class="preset-option" data-preset="active">Active Sessions</button>
+                            <button class="preset-option" data-preset="high-activity">High Activity</button>
+                            <button class="preset-option" data-preset="clear">Clear All Filters</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Compact Mode from V4 -->
+                    <button class="compact-toggle" id="compactToggle" title="Enter Compact Mode (reduces padding and spacing)">
+                        <span class="material-icons">view_list</span>
+                    </button>
+                    
+                    <!-- Bulk Selection from V4 -->
+                    <button class="bulk-actions" id="bulkActions" title="Bulk Actions">
+                        <span class="material-icons">select_all</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Virtual Scroll Container from V4 -->
+            <div class="virtual-scroll-container" id="virtualScrollContainer">
+                <div class="sessions-list" id="sessionsList">
+                    <!-- Sessions dynamically rendered here -->
+                </div>
+            </div>
+        </aside>
+
+        <div class="content-area">
+            <!-- Enhanced Timeline from V2 (280px height) -->
+            <div class="timeline-section" id="timelineSection">
+                <div class="timeline-header">
+                    <h3>Timeline</h3>
+                    <!-- Prominent Zoom Controls from V2 -->
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" data-zoom="1m">1m</button>
+                        <button class="zoom-btn active" data-zoom="5m">5m</button>
+                        <button class="zoom-btn" data-zoom="10m">10m</button>
+                        <button class="zoom-btn" data-zoom="30m">30m</button>
+                        <button class="zoom-btn" data-zoom="1h">1h</button>
+                    </div>
+                    <div class="timeline-controls">
+                        <button class="timeline-control" id="jumpToNow" title="Jump to Now (Space)">
+                            <span class="material-icons">schedule</span>
+                        </button>
+                        <button class="timeline-control" id="timelineToggle" title="Collapse Timeline (Ctrl+T)">
+                            <span class="material-icons">expand_less</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="timeline-content" id="timelineContent">
+                    <div class="timeline-labels" id="timelineLabels"></div>
+                    <div class="timeline-main" id="timelineMain">
+                        <!-- Current time indicator with glow from V2 -->
+                        <div class="current-time-indicator" id="currentTimeIndicator"></div>
+                        <div class="timeline-swimlanes" id="timelineSwimlanes"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Feed with V1 foundation + V3 filtering -->
+            <div class="event-feed-section">
+                <div class="event-feed-header">
+                    <h3>Event Feed</h3>
+                    <!-- Filter Controls from V3 -->
+                    <div class="filter-controls">
+                        <div class="event-type-filter">
+                            <button class="filter-dropdown-btn" id="eventTypeFilterBtn">
+                                <span class="material-icons">filter_list</span>
+                                <span id="eventTypeButtonText">Event Types</span>
+                            </button>
+                            <div class="filter-dropdown" id="eventTypeDropdown">
+                                <div class="filter-option">
+                                    <input type="checkbox" id="session_start" checked>
+                                    <label for="session_start">Session Start</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="user_prompt_submit" checked>
+                                    <label for="user_prompt_submit">User Prompt</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="pre_tool_use" checked>
+                                    <label for="pre_tool_use">Pre Tool Use</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="post_tool_use" checked>
+                                    <label for="post_tool_use">Post Tool Use</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="notification" checked>
+                                    <label for="notification">Notification</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="stop" checked>
+                                    <label for="stop">Stop</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="subagent_stop" checked>
+                                    <label for="subagent_stop">Sub-agent Stop</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="pre_compact" checked>
+                                    <label for="pre_compact">Pre Compact</label>
+                                </div>
+                                <div class="filter-option">
+                                    <input type="checkbox" id="error" checked>
+                                    <label for="error">Error</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Filter Badges next to filter button -->
+                        <div class="filter-badges" id="filterBadges"></div>
+                        <button class="clear-all-filters" id="clearAllFilters" style="display: none;">
+                            <span class="material-icons">clear_all</span>
+                            Clear All
+                        </button>
+                        
+                        <!-- Auto-scroll toggle -->
+                        <button class="auto-scroll-toggle" id="autoScrollToggle" title="Auto-scroll to new events">
+                            <span class="material-icons">vertical_align_bottom</span>
+                        </button>
+                        
+                        <!-- Pause button -->
+                        <button class="pause-toggle" id="pauseToggle" title="Pause event feed">
+                            <span class="material-icons">pause</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Event Feed Table with V1 density -->
+                <div class="event-feed" id="eventFeed">
+                    <div class="event-feed-header-row">
+                        <div class="event-header-time">Time</div>
+                        <div class="event-header-icon"></div>
+                        <div class="event-header-type">Event Type</div>
+                        <div class="event-header-session">Session</div>
+                        <div class="event-header-details">Details</div>
+                    </div>
+                    <div class="event-feed-content" id="eventFeedContent">
+                        <!-- Events rendered here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Reference Implementation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar (Ctrl+B)">
+                <i class="material-icons">menu</i>
+            </button>
+            <h1 class="app-title">Chronicle Dashboard</h1>
+        </div>
+        <div class="header-right">
+            <div class="connection-status">
+                <div class="status-indicator connected" id="connectionStatus"></div>
+                <span class="status-text">Connected</span>
+            </div>
+            <div class="stats">
+                <span class="stat">
+                    <i class="material-icons">play_circle</i>
+                    <span id="activeCount">8</span> active
+                </span>
+                <span class="stat">
+                    <i class="material-icons">pending</i>
+                    <span id="awaitingCount">3</span> awaiting
+                </span>
+                <span class="stat">
+                    <i class="material-icons">speed</i>
+                    <span id="eventsPerMin">47</span>/min
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Sessions</h3>
+                <div class="filter-controls">
+                    <button class="filter-btn clear-selection-btn" id="clearFilters" title="Clear selection (Ctrl+X)">
+                        <i class="material-icons">clear</i>
+                        <span>Clear Selection</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="search-box">
+                <i class="material-icons">search</i>
+                <input type="text" id="sessionSearch" placeholder="Search sessions..." />
+            </div>
+
+            <!-- Project Groups -->
+            <div class="project-groups" id="projectGroups">
+                <!-- Awaiting Input Group (Always on Top) -->
+                <div class="project-group awaiting-group">
+                    <div class="group-header">
+                        <i class="material-icons">pending</i>
+                        <span class="group-title">Awaiting Input</span>
+                        <span class="session-count">3</span>
+                    </div>
+                    <div class="session-list">
+                        <div class="session-item awaiting selected" data-session-id="sess_001" data-project="/Users/dev/chronicle">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">chronicle/main</div>
+                                <div class="session-detail">Needs input for file permissions</div>
+                            </div>
+                        </div>
+                        <div class="session-item awaiting" data-session-id="sess_007" data-project="/Users/dev/api-gateway">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">api-gateway/feature/auth</div>
+                                <div class="session-detail">Confirmation required</div>
+                            </div>
+                        </div>
+                        <div class="session-item awaiting" data-session-id="sess_012" data-project="/Users/dev/mobile-app">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">mobile-app/develop</div>
+                                <div class="session-detail">Database migration approval</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Projects -->
+                <div class="project-group">
+                    <div class="group-header expandable" data-expanded="true">
+                        <i class="material-icons expand-icon">keyboard_arrow_down</i>
+                        <i class="material-icons">folder</i>
+                        <span class="group-title">chronicle-dashboard</span>
+                        <span class="session-count">3</span>
+                    </div>
+                    <div class="session-list">
+                        <div class="session-item active" data-session-id="sess_002" data-project="/Users/dev/chronicle-dashboard">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">main</div>
+                                <div class="session-detail">Building UI components</div>
+                            </div>
+                            <!-- Sub-agent -->
+                            <div class="subagent-item" data-session-id="sub_002_1">
+                                <div class="session-status"></div>
+                                <div class="session-info">
+                                    <div class="session-name">CSS optimization</div>
+                                    <div class="session-detail">Compressing styles</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="session-item active" data-session-id="sess_003" data-project="/Users/dev/chronicle-dashboard">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">feature/timeline</div>
+                                <div class="session-detail">Implementing swimlanes</div>
+                            </div>
+                        </div>
+                        <div class="session-item idle" data-session-id="sess_004" data-project="/Users/dev/chronicle-dashboard">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">feature/filters</div>
+                                <div class="session-detail">Completed 2min ago</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="project-group">
+                    <div class="group-header expandable" data-expanded="true">
+                        <i class="material-icons expand-icon">keyboard_arrow_down</i>
+                        <i class="material-icons">folder</i>
+                        <span class="group-title">web-services</span>
+                        <span class="session-count">2</span>
+                    </div>
+                    <div class="session-list">
+                        <div class="session-item active" data-session-id="sess_005" data-project="/Users/dev/web-services">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">main</div>
+                                <div class="session-detail">Running tests</div>
+                            </div>
+                        </div>
+                        <div class="session-item idle" data-session-id="sess_006" data-project="/Users/dev/web-services">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">hotfix/security</div>
+                                <div class="session-detail">Idle 15min ago</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="project-group">
+                    <div class="group-header expandable" data-expanded="false">
+                        <i class="material-icons expand-icon">keyboard_arrow_right</i>
+                        <i class="material-icons">folder</i>
+                        <span class="group-title">data-pipeline</span>
+                        <span class="session-count">3</span>
+                    </div>
+                    <div class="session-list collapsed">
+                        <div class="session-item active" data-session-id="sess_008" data-project="/Users/dev/data-pipeline">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">main</div>
+                                <div class="session-detail">Processing data</div>
+                            </div>
+                        </div>
+                        <div class="session-item active" data-session-id="sess_009" data-project="/Users/dev/data-pipeline">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">feature/streaming</div>
+                                <div class="session-detail">Kafka integration</div>
+                            </div>
+                        </div>
+                        <div class="session-item idle" data-session-id="sess_010" data-project="/Users/dev/data-pipeline">
+                            <div class="session-status"></div>
+                            <div class="session-info">
+                                <div class="session-name">develop</div>
+                                <div class="session-detail">Waiting for review</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Timeline -->
+            <section class="timeline-section" id="timelineSection">
+                <div class="timeline-header">
+                    <div class="timeline-title">
+                        <h3>Activity Timeline</h3>
+                        <button class="timeline-toggle" id="timelineToggle" title="Toggle Timeline (Ctrl+T)">
+                            <i class="material-icons caret-icon">expand_more</i>
+                        </button>
+                    </div>
+                    <div class="timeline-controls">
+                        <button class="control-btn jump-to-now-btn" id="jumpToNow" title="Jump to now (Space)">
+                            <i class="material-icons">my_location</i>
+                            <span>Now</span>
+                        </button>
+                        <div class="zoom-controls">
+                            <button class="control-btn" id="zoomOut" title="Zoom out (-)">
+                                <i class="material-icons">zoom_out</i>
+                            </button>
+                            <button class="control-btn" id="zoomIn" title="Zoom in (+)">
+                                <i class="material-icons">zoom_in</i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-container" id="timelineContainer">
+                    <div class="time-markers" id="timeMarkers"></div>
+                    <div class="swimlanes" id="swimlanes">
+                        <!-- Generated by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Event Feed -->
+            <section class="event-feed-section">
+                <div class="feed-header">
+                    <h3>Event Feed</h3>
+                    <div class="feed-controls">
+                        <div class="filter-group compact">
+                            <select class="filter-select" id="eventTypeSelect" multiple title="Select event types to filter">
+                                <option value="session_start">Session Start</option>
+                                <option value="user_prompt_submit">User Prompt</option>
+                                <option value="pre_tool_use">Pre Tool Use</option>
+                                <option value="post_tool_use">Post Tool Use</option>
+                                <option value="notification">Notification</option>
+                                <option value="stop">Stop</option>
+                                <option value="subagent_stop">Subagent Stop</option>
+                                <option value="pre_compact">Pre Compact</option>
+                                <option value="error">Error</option>
+                            </select>
+                            <label class="filter-label">Event Types</label>
+                        </div>
+                        <div class="filter-group compact">
+                            <select class="filter-select" id="sessionSelect" multiple title="Select sessions to filter">
+                                <!-- Populated by JavaScript -->
+                            </select>
+                            <label class="filter-label">Sessions</label>
+                        </div>
+                        <button class="control-btn compact" id="pauseFeed" title="Pause feed (P)">
+                            <i class="material-icons">pause</i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="event-feed" id="eventFeed">
+                    <div class="feed-table">
+                        <div class="feed-header-row">
+                            <div class="col-time">Time</div>
+                            <div class="col-session">Session</div>
+                            <div class="col-type">Event</div>
+                            <div class="col-tool">Tool</div>
+                            <div class="col-details">Details</div>
+                        </div>
+                        <div class="feed-body" id="feedBody">
+                            <!-- Generated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Keyboard Shortcuts Help -->
+    <div class="shortcuts-help" id="shortcutsHelp">
+        <div class="shortcuts-content">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="shortcut-list">
+                <div class="shortcut"><kbd>j</kbd><span>Next event</span></div>
+                <div class="shortcut"><kbd>k</kbd><span>Previous event</span></div>
+                <div class="shortcut"><kbd>Space</kbd><span>Jump to now</span></div>
+                <div class="shortcut"><kbd>Ctrl+B</kbd><span>Toggle sidebar</span></div>
+                <div class="shortcut"><kbd>Ctrl+T</kbd><span>Toggle timeline</span></div>
+                <div class="shortcut"><kbd>Ctrl+X</kbd><span>Clear filters</span></div>
+                <div class="shortcut"><kbd>P</kbd><span>Pause feed</span></div>
+                <div class="shortcut"><kbd>1-9</kbd><span>Filter event types</span></div>
+                <div class="shortcut"><kbd>?</kbd><span>Show shortcuts</span></div>
+                <div class="shortcut"><kbd>Esc</kbd><span>Hide shortcuts</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

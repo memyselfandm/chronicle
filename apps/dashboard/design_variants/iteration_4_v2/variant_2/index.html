@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Enhanced Timeline Focus</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <span class="material-icons">menu</span>
+                </button>
+                <h1 class="dashboard-title">Chronicle Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <div class="connection-status connected">
+                    <div class="status-dot"></div>
+                    <span>Connected</span>
+                </div>
+                <div class="metrics">
+                    <span class="metric">
+                        <span class="metric-value" id="activeSessions">12</span>
+                        <span class="metric-label">Active</span>
+                    </span>
+                    <span class="metric">
+                        <span class="metric-value awaiting" id="awaitingSessions">3</span>
+                        <span class="metric-label">Awaiting</span>
+                    </span>
+                    <span class="metric">
+                        <span class="metric-value" id="eventsPerMin">47</span>
+                        <span class="metric-label">Events/min</span>
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-filter="projects" data-value="all">
+                                <span class="material-icons">folder</span>
+                                All Projects
+                            </button>
+                        </div>
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-filter="statuses" data-value="all">
+                                <span class="material-icons">circle</span>
+                                All Statuses
+                            </button>
+                        </div>
+                    </div>
+                    <div class="keyboard-shortcuts-tooltip" id="keyboardShortcutsTooltip">
+                        <span class="material-icons">keyboard</span>
+                        <div class="tooltip-content">
+                            <div class="tooltip-title">Keyboard Shortcuts</div>
+                            <div class="shortcut-item">
+                                <kbd>S</kbd>
+                                <span>Toggle sidebar</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>N</kbd>
+                                <span>Jump to now</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>1-5</kbd>
+                                <span>Set zoom level</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>J/K</kbd>
+                                <span>Navigate events</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="session-list" id="sessionList">
+                    <!-- Sessions will be populated by JavaScript -->
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <main class="content-area">
+                <!-- Enhanced Timeline Section -->
+                <section class="timeline-section" id="timelineSection">
+                    <div class="timeline-header">
+                        <div class="timeline-title">
+                            <span class="material-icons">timeline</span>
+                            <h2>Activity Timeline</h2>
+                            <button class="timeline-collapse" id="timelineCollapse">
+                                <span class="material-icons">expand_less</span>
+                            </button>
+                        </div>
+                        <div class="timeline-controls">
+                            <div class="zoom-controls">
+                                <button class="zoom-btn" data-zoom="1m">1m</button>
+                                <button class="zoom-btn active" data-zoom="5m">5m</button>
+                                <button class="zoom-btn" data-zoom="10m">10m</button>
+                                <button class="zoom-btn" data-zoom="30m">30m</button>
+                                <button class="zoom-btn" data-zoom="1h">1h</button>
+                            </div>
+                            <button class="jump-to-now" id="jumpToNow">
+                                <span class="material-icons">my_location</span>
+                                Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="timeline-container">
+                        <div class="timeline-labels">
+                            <!-- Session labels will be populated by JavaScript -->
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-grid" id="timelineGrid">
+                                <!-- Timeline grid and swimlanes -->
+                            </div>
+                            <div class="timeline-current-time" id="currentTimeLine"></div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-legend">
+                        <div class="legend-item">
+                            <span class="material-icons tool-icon read">description</span>
+                            <span>Read</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="material-icons tool-icon write">edit</span>
+                            <span>Write/Edit</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="material-icons tool-icon bash">terminal</span>
+                            <span>Bash</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="material-icons tool-icon task">account_tree</span>
+                            <span>Sub-agent</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="material-icons tool-icon notification">notifications</span>
+                            <span>Awaiting Input</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Event Feed -->
+                <section class="event-feed-section">
+                    <div class="event-feed-header">
+                        <h2>Event Feed</h2>
+                        <div class="feed-controls">
+                            <select class="filter-select" id="eventTypeFilter">
+                                <option value="all" selected>All Events</option>
+                                <option value="user_prompt_submit">User Prompts</option>
+                                <option value="pre_tool_use">Tool Use</option>
+                                <option value="notification">Notifications</option>
+                                <option value="error">Errors</option>
+                            </select>
+                            <button class="auto-scroll-btn active" id="autoScrollBtn">
+                                <span class="material-icons">vertical_align_bottom</span>
+                                Auto-scroll
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="event-feed" id="eventFeed">
+                        <div class="event-feed-table">
+                            <div class="event-header">
+                                <div class="col-time">Time</div>
+                                <div class="col-session">Session</div>
+                                <div class="col-type">Event</div>
+                                <div class="col-tool">Tool</div>
+                                <div class="col-details">Details</div>
+                            </div>
+                            <div class="event-rows" id="eventRows">
+                                <!-- Events will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Selection Overlay for Timeline -->
+    <div class="selection-overlay" id="selectionOverlay"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

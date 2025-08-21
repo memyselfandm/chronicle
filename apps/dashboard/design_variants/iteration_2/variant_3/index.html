@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Variant 3</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Minimal Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Chronicle</h1>
+                <span class="instance-count">8 instances</span>
+            </div>
+            <div class="header-right">
+                <div class="status-indicators">
+                    <span class="indicator waiting">3 waiting</span>
+                    <span class="indicator active">5 active</span>
+                </div>
+                <button class="pause-btn" id="pauseBtn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="3" y="2" width="3" height="12" />
+                        <rect x="10" y="2" width="3" height="12" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Timeline Controls -->
+        <div class="timeline-controls">
+            <div class="time-scale">
+                <button class="scale-btn active" data-scale="1m">1m</button>
+                <button class="scale-btn" data-scale="5m">5m</button>
+                <button class="scale-btn" data-scale="10m">10m</button>
+                <button class="scale-btn" data-scale="30m">30m</button>
+            </div>
+            <div class="filters">
+                <select id="eventFilter">
+                    <option value="all">All Events</option>
+                    <option value="user_input">User Input</option>
+                    <option value="tool_use">Tool Use</option>
+                    <option value="agent_response">Agent Response</option>
+                    <option value="error">Errors</option>
+                </select>
+                <select id="instanceFilter">
+                    <option value="all">All Instances</option>
+                    <option value="instance-1">Instance 1</option>
+                    <option value="instance-2">Instance 2</option>
+                    <option value="instance-3">Instance 3</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Horizontal Timeline -->
+        <div class="timeline-container">
+            <div class="timeline-header">
+                <div class="timeline-labels">
+                    <span class="time-marker">Now</span>
+                    <span class="time-marker">-1m</span>
+                    <span class="time-marker">-2m</span>
+                    <span class="time-marker">-3m</span>
+                    <span class="time-marker">-4m</span>
+                    <span class="time-marker">-5m</span>
+                </div>
+            </div>
+            
+            <div class="timeline-viewport" id="timelineViewport">
+                <!-- Instance Tracks -->
+                <div class="instance-track" data-instance="instance-1">
+                    <div class="track-label">
+                        <span class="instance-name">Inst-1</span>
+                        <span class="instance-status waiting">⏸</span>
+                    </div>
+                    <div class="track-content">
+                        <!-- Prompt Cycles will be inserted here -->
+                    </div>
+                </div>
+
+                <div class="instance-track" data-instance="instance-2">
+                    <div class="track-label">
+                        <span class="instance-name">Inst-2</span>
+                        <span class="instance-status active">▶</span>
+                    </div>
+                    <div class="track-content">
+                        <!-- Prompt Cycles will be inserted here -->
+                    </div>
+                </div>
+
+                <div class="instance-track" data-instance="instance-3">
+                    <div class="track-label">
+                        <span class="instance-name">Inst-3</span>
+                        <span class="instance-status active">▶</span>
+                    </div>
+                    <div class="track-content">
+                        <!-- Prompt Cycles will be inserted here -->
+                    </div>
+                </div>
+
+                <div class="instance-track" data-instance="instance-4">
+                    <div class="track-label">
+                        <span class="instance-name">Inst-4</span>
+                        <span class="instance-status waiting">⏸</span>
+                    </div>
+                    <div class="track-content">
+                        <!-- Prompt Cycles will be inserted here -->
+                    </div>
+                </div>
+
+                <div class="instance-track" data-instance="instance-5">
+                    <div class="track-label">
+                        <span class="instance-name">Inst-5</span>
+                        <span class="instance-status active">▶</span>
+                    </div>
+                    <div class="track-content">
+                        <!-- Prompt Cycles will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dense Event Feed -->
+        <div class="event-feed-container">
+            <div class="event-feed-header">
+                <h2>Live Event Feed</h2>
+                <div class="feed-controls">
+                    <button class="auto-scroll active" id="autoScrollBtn">Auto-scroll</button>
+                </div>
+            </div>
+            <div class="event-feed" id="eventFeed">
+                <!-- Events will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

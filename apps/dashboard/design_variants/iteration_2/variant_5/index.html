@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Iteration 2 Variant 5</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Minimal Header (40px thin) -->
+    <header class="dashboard-header">
+        <div class="header-left">
+            <h1>Chronicle Dashboard</h1>
+        </div>
+        <div class="header-right">
+            <span class="instance-count">12 instances</span>
+            <span class="active-sessions">3 awaiting input</span>
+            <span class="current-time" id="current-time"></span>
+        </div>
+    </header>
+
+    <!-- Sessions Awaiting Input (Compact) -->
+    <section class="awaiting-input-section">
+        <div class="awaiting-input-container">
+            <div class="session-card awaiting" data-session="session-7">
+                <span class="session-id">Session #7</span>
+                <span class="current-tool">📝 Edit</span>
+                <span class="waiting-time">2m 34s</span>
+            </div>
+            <div class="session-card awaiting" data-session="session-12">
+                <span class="session-id">Session #12</span>
+                <span class="current-tool">🔍 Grep</span>
+                <span class="waiting-time">4m 12s</span>
+            </div>
+            <div class="session-card awaiting" data-session="session-3">
+                <span class="session-id">Session #3</span>
+                <span class="current-tool">⚡ Bash</span>
+                <span class="waiting-time">1m 45s</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Event Feed Controls -->
+    <section class="event-controls">
+        <div class="controls-left">
+            <select id="event-filter" class="filter-dropdown">
+                <option value="all">All Events</option>
+                <option value="tool_use">Tool Use</option>
+                <option value="user_input">User Input</option>
+                <option value="agent_response">Agent Response</option>
+                <option value="error">Errors</option>
+            </select>
+            <select id="session-filter" class="filter-dropdown">
+                <option value="all">All Sessions</option>
+                <option value="active">Active</option>
+                <option value="awaiting">Awaiting Input</option>
+                <option value="completed">Completed</option>
+            </select>
+        </div>
+        <div class="controls-right">
+            <button id="pause-btn" class="pause-button">⏸️ Pause</button>
+            <select id="time-filter" class="filter-dropdown">
+                <option value="1h">Last Hour</option>
+                <option value="30m">Last 30 Min</option>
+                <option value="15m">Last 15 Min</option>
+                <option value="5m">Last 5 Min</option>
+            </select>
+        </div>
+    </section>
+
+    <!-- Tool Use Timeline (Icons Only) -->
+    <section class="tool-timeline">
+        <div class="timeline-container">
+            <div class="timeline-track">
+                <div class="tool-activity" data-session="1" data-tool="read" style="left: 5%;">📖</div>
+                <div class="tool-activity" data-session="1" data-tool="edit" style="left: 12%;">📝</div>
+                <div class="tool-activity" data-session="2" data-tool="bash" style="left: 18%;">⚡</div>
+                <div class="tool-activity" data-session="3" data-tool="grep" style="left: 25%;">🔍</div>
+                <div class="tool-activity" data-session="1" data-tool="write" style="left: 32%;">💾</div>
+                <div class="tool-activity" data-session="4" data-tool="ls" style="left: 45%;">📁</div>
+                <div class="tool-activity" data-session="2" data-tool="git" style="left: 52%;">🌿</div>
+                <div class="tool-activity" data-session="5" data-tool="read" style="left: 68%;">📖</div>
+                <div class="tool-activity" data-session="3" data-tool="edit" style="left: 78%;">📝</div>
+                <div class="tool-activity active" data-session="7" data-tool="edit" style="left: 92%;">📝</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dense Event Feed -->
+    <section class="event-feed">
+        <div class="event-list" id="event-list">
+            <!-- Event Lifecycle Group -->
+            <div class="event-group">
+                <div class="group-header">
+                    <span class="group-title">File Analysis & Edit Cycle</span>
+                    <span class="group-session">Session #7</span>
+                    <span class="group-duration">2m 34s</span>
+                </div>
+                
+                <div class="event-row pre-event" data-event-type="tool_use">
+                    <span class="event-time">14:23:12</span>
+                    <span class="event-icon">📖</span>
+                    <span class="tool-name">Read</span>
+                    <span class="event-detail">/src/components/Dashboard.tsx</span>
+                    <span class="session-tag">S7</span>
+                    <span class="sub-agent">main</span>
+                </div>
+                
+                <div class="event-row post-event" data-event-type="tool_response">
+                    <span class="event-time">14:23:14</span>
+                    <span class="event-icon">✅</span>
+                    <span class="tool-name">Read</span>
+                    <span class="event-detail">247 lines, TypeScript component</span>
+                    <span class="session-tag">S7</span>
+                    <span class="sub-agent">main</span>
+                </div>
+                
+                <div class="event-row pre-event" data-event-type="tool_use">
+                    <span class="event-time">14:25:31</span>
+                    <span class="event-icon">📝</span>
+                    <span class="tool-name">Edit</span>
+                    <span class="event-detail">Update useState hook implementation</span>
+                    <span class="session-tag">S7</span>
+                    <span class="sub-agent">main</span>
+                </div>
+                
+                <div class="event-row awaiting" data-event-type="waiting_input">
+                    <span class="event-time">14:25:46</span>
+                    <span class="event-icon">⏳</span>
+                    <span class="tool-name">Edit</span>
+                    <span class="event-detail">Awaiting user confirmation</span>
+                    <span class="session-tag">S7</span>
+                    <span class="sub-agent">main</span>
+                </div>
+            </div>
+
+            <!-- Another Event Group -->
+            <div class="event-group">
+                <div class="group-header">
+                    <span class="group-title">Search & Analysis</span>
+                    <span class="group-session">Session #12</span>
+                    <span class="group-duration">4m 12s</span>
+                </div>
+                
+                <div class="event-row pre-event" data-event-type="tool_use">
+                    <span class="event-time">14:19:23</span>
+                    <span class="event-icon">🔍</span>
+                    <span class="tool-name">Grep</span>
+                    <span class="event-detail">useState pattern in *.tsx files</span>
+                    <span class="session-tag">S12</span>
+                    <span class="sub-agent">main</span>
+                </div>
+                
+                <div class="event-row post-event" data-event-type="tool_response">
+                    <span class="event-time">14:19:25</span>
+                    <span class="event-icon">✅</span>
+                    <span class="tool-name">Grep</span>
+                    <span class="event-detail">Found 23 matches across 12 files</span>
+                    <span class="session-tag">S12</span>
+                    <span class="sub-agent">main</span>
+                </div>
+                
+                <div class="event-row pre-event" data-event-type="tool_use">
+                    <span class="event-time">14:21:45</span>
+                    <span class="event-icon">📖</span>
+                    <span class="tool-name">Read</span>
+                    <span class="event-detail">/src/hooks/useSessionData.tsx</span>
+                    <span class="session-tag">S12</span>
+                    <span class="sub-agent">main</span>
+                </div>
+                
+                <div class="event-row awaiting" data-event-type="waiting_input">
+                    <span class="event-time">14:23:35</span>
+                    <span class="event-icon">⏳</span>
+                    <span class="tool-name">Read</span>
+                    <span class="event-detail">Analysis complete, awaiting direction</span>
+                    <span class="session-tag">S12</span>
+                    <span class="sub-agent">main</span>
+                </div>
+            </div>
+
+            <!-- Standalone Events -->
+            <div class="event-row completed" data-event-type="user_input">
+                <span class="event-time">14:18:45</span>
+                <span class="event-icon">👤</span>
+                <span class="tool-name">User</span>
+                <span class="event-detail">"Add error handling to the API calls"</span>
+                <span class="session-tag">S3</span>
+                <span class="sub-agent">main</span>
+            </div>
+            
+            <div class="event-row completed" data-event-type="agent_response">
+                <span class="event-time">14:18:47</span>
+                <span class="event-icon">🤖</span>
+                <span class="tool-name">Claude</span>
+                <span class="event-detail">I'll add try-catch blocks and error boundaries</span>
+                <span class="session-tag">S3</span>
+                <span class="sub-agent">main</span>
+            </div>
+
+            <div class="event-row completed" data-event-type="tool_use">
+                <span class="event-time">14:17:22</span>
+                <span class="event-icon">⚡</span>
+                <span class="tool-name">Bash</span>
+                <span class="event-detail">npm test -- --coverage</span>
+                <span class="session-tag">S5</span>
+                <span class="sub-agent">testing</span>
+            </div>
+            
+            <div class="event-row error" data-event-type="error">
+                <span class="event-time">14:16:11</span>
+                <span class="event-icon">❌</span>
+                <span class="tool-name">Edit</span>
+                <span class="event-detail">File not found: /src/invalid/path.js</span>
+                <span class="session-tag">S9</span>
+                <span class="sub-agent">main</span>
+            </div>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle - Minimal Focus</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Minimal Header -->
+        <header class="header">
+            <div class="title">Chronicle</div>
+            <div class="status-indicator" id="statusIndicator"></div>
+        </header>
+
+        <!-- Main Content - Single Column -->
+        <main class="content">
+            
+            <!-- Agents Needing Input -->
+            <section class="blocked-agents" id="blockedAgents">
+                <div class="section-header">
+                    <span class="count" id="blockedCount">2</span>
+                    <span class="label">agents need input</span>
+                </div>
+                <div class="blocked-list" id="blockedList">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Currently Running Tools -->
+            <section class="active-tools" id="activeTools">
+                <div class="section-header">
+                    <span class="label">currently running</span>
+                </div>
+                <div class="tools-list" id="toolsList">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Recent Completions -->
+            <section class="recent-events" id="recentEvents">
+                <div class="section-header">
+                    <span class="label">recently completed</span>
+                </div>
+                <div class="events-list" id="eventsList">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

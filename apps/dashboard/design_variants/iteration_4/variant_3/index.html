@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Optimized Filtering</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar (Ctrl+B)">
+                <span class="material-icons">menu</span>
+            </button>
+            <h1 class="header-title">Chronicle Dashboard</h1>
+        </div>
+        <div class="header-right">
+            <div class="connection-status">
+                <span class="status-dot active"></span>
+                <span class="status-text">Connected</span>
+            </div>
+            <div class="header-metrics">
+                <span class="metric">
+                    <span class="metric-value" id="activeCount">8</span>
+                    <span class="metric-label">Active</span>
+                </span>
+                <span class="metric">
+                    <span class="metric-value awaiting" id="awaitingCount">3</span>
+                    <span class="metric-label">Awaiting</span>
+                </span>
+                <span class="metric">
+                    <span class="metric-value" id="eventRate">47</span>
+                    <span class="metric-label">Events/min</span>
+                </span>
+            </div>
+            <button class="help-toggle" id="helpToggle" title="Keyboard Shortcuts (?)">
+                <span class="material-icons">help_outline</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Keyboard Shortcuts Panel -->
+    <div class="shortcuts-panel" id="shortcutsPanel">
+        <div class="shortcuts-content">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="shortcuts-grid">
+                <div class="shortcut-group">
+                    <h4>Navigation</h4>
+                    <div class="shortcut"><kbd>j</kbd> / <kbd>k</kbd> Navigate events</div>
+                    <div class="shortcut"><kbd>↑</kbd> / <kbd>↓</kbd> Navigate sessions</div>
+                    <div class="shortcut"><kbd>Enter</kbd> Select/expand</div>
+                    <div class="shortcut"><kbd>Esc</kbd> Clear selection</div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>Filters</h4>
+                    <div class="shortcut"><kbd>1-9</kbd> Quick filter presets</div>
+                    <div class="shortcut"><kbd>/</kbd> Search sessions</div>
+                    <div class="shortcut"><kbd>Ctrl</kbd> + <kbd>Click</kbd> Multi-select</div>
+                    <div class="shortcut"><kbd>Alt</kbd> + <kbd>C</kbd> Clear all filters</div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>View</h4>
+                    <div class="shortcut"><kbd>Ctrl</kbd> + <kbd>B</kbd> Toggle sidebar</div>
+                    <div class="shortcut"><kbd>Ctrl</kbd> + <kbd>T</kbd> Toggle timeline</div>
+                    <div class="shortcut"><kbd>Space</kbd> Jump to now</div>
+                    <div class="shortcut"><kbd>?</kbd> Toggle this help</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-search">
+                    <span class="material-icons search-icon">search</span>
+                    <input type="text" placeholder="Search sessions..." id="sessionSearch" class="search-input">
+                    <button class="search-clear" id="searchClear" title="Clear search">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Filters Display -->
+            <div class="active-filters" id="activeFilters">
+                <div class="filter-badges" id="filterBadges">
+                    <!-- Filter badges will be dynamically added here -->
+                </div>
+                <button class="clear-all-filters" id="clearAllFilters" title="Clear all filters (Alt+C)">
+                    <span class="material-icons">clear_all</span>
+                    Clear All
+                </button>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="filter-section">
+                <div class="filter-group">
+                    <h3 class="filter-header">
+                        <span class="material-icons">filter_list</span>
+                        Filters
+                        <button class="filter-presets-btn" id="filterPresetsBtn" title="Filter Presets" aria-haspopup="menu" aria-expanded="false">
+                            <span class="material-icons">bookmark</span>
+                        </button>
+                    </h3>
+                    
+                    <!-- Filter Presets Dropdown -->
+                    <div class="filter-presets-dropdown" id="filterPresetsDropdown" role="menu" aria-label="Filter presets">
+                        <div class="preset-item" data-preset="awaiting" role="menuitem" tabindex="0">
+                            <span class="material-icons">notifications_active</span>
+                            Awaiting Input Only
+                        </div>
+                        <div class="preset-item" data-preset="errors" role="menuitem" tabindex="0">
+                            <span class="material-icons">error</span>
+                            Recent Errors
+                        </div>
+                        <div class="preset-item" data-preset="active" role="menuitem" tabindex="0">
+                            <span class="material-icons">play_circle</span>
+                            Active Sessions
+                        </div>
+                        <div class="preset-item" data-preset="high-activity" role="menuitem" tabindex="0">
+                            <span class="material-icons">speed</span>
+                            High Activity
+                        </div>
+                        <div class="preset-item" data-preset="custom" role="menuitem" tabindex="0">
+                            <span class="material-icons">tune</span>
+                            Custom Filter
+                        </div>
+                    </div>
+
+                    <!-- Event Types Filter -->
+                    <div class="filter-control">
+                        <label class="filter-label">
+                            <span class="material-icons">category</span>
+                            Event Types
+                            <span class="filter-count" id="eventTypeCount">(9)</span>
+                        </label>
+                        <div class="multi-select-dropdown" id="eventTypeDropdown">
+                            <div class="dropdown-header" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="selected-text" id="eventTypeSelected">All Types</span>
+                                <span class="material-icons dropdown-arrow">expand_more</span>
+                            </div>
+                            <div class="dropdown-content" id="eventTypeContent" role="listbox" aria-label="Event types filter">
+                                <div class="select-all-option">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="selectAllEventTypes" checked aria-label="Select all event types">
+                                        <span class="checkmark"></span>
+                                        Select All
+                                    </label>
+                                </div>
+                                <div class="option-item">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="user_prompt_submit" checked>
+                                        <span class="checkmark"></span>
+                                        <span class="material-icons option-icon">chat</span>
+                                        User Prompt <span class="option-count">(24)</span>
+                                    </label>
+                                </div>
+                                <div class="option-item">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="pre_tool_use" checked>
+                                        <span class="checkmark"></span>
+                                        <span class="material-icons option-icon">play_arrow</span>
+                                        Tool Start <span class="option-count">(156)</span>
+                                    </label>
+                                </div>
+                                <div class="option-item">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="post_tool_use" checked>
+                                        <span class="checkmark"></span>
+                                        <span class="material-icons option-icon">check_circle</span>
+                                        Tool Complete <span class="option-count">(153)</span>
+                                    </label>
+                                </div>
+                                <div class="option-item">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="notification" checked>
+                                        <span class="checkmark"></span>
+                                        <span class="material-icons option-icon">notifications</span>
+                                        Notification <span class="option-count">(8)</span>
+                                    </label>
+                                </div>
+                                <div class="option-item">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="error" checked>
+                                        <span class="checkmark"></span>
+                                        <span class="material-icons option-icon">error</span>
+                                        Error <span class="option-count">(3)</span>
+                                    </label>
+                                </div>
+                                <div class="option-item">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" value="stop" checked>
+                                        <span class="checkmark"></span>
+                                        <span class="material-icons option-icon">stop</span>
+                                        Session Stop <span class="option-count">(12)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tools Filter -->
+                    <div class="filter-control">
+                        <label class="filter-label">
+                            <span class="material-icons">build</span>
+                            Tools
+                            <span class="filter-count" id="toolCount">(15)</span>
+                        </label>
+                        <div class="tool-filter-grid" id="toolFilterGrid">
+                            <div class="tool-item active" data-tool="Read" title="Read">
+                                <span class="material-icons">description</span>
+                                <span class="tool-count">42</span>
+                            </div>
+                            <div class="tool-item active" data-tool="Edit" title="Edit">
+                                <span class="material-icons">edit</span>
+                                <span class="tool-count">28</span>
+                            </div>
+                            <div class="tool-item active" data-tool="Bash" title="Bash">
+                                <span class="material-icons">terminal</span>
+                                <span class="tool-count">35</span>
+                            </div>
+                            <div class="tool-item active" data-tool="Grep" title="Grep">
+                                <span class="material-icons">search</span>
+                                <span class="tool-count">19</span>
+                            </div>
+                            <div class="tool-item active" data-tool="Write" title="Write">
+                                <span class="material-icons">create</span>
+                                <span class="tool-count">14</span>
+                            </div>
+                            <div class="tool-item active" data-tool="Task" title="Task">
+                                <span class="material-icons">assignment</span>
+                                <span class="tool-count">8</span>
+                            </div>
+                            <div class="tool-item active" data-tool="Glob" title="Glob">
+                                <span class="material-icons">folder_open</span>
+                                <span class="tool-count">12</span>
+                            </div>
+                            <div class="tool-item active" data-tool="WebFetch" title="WebFetch">
+                                <span class="material-icons">language</span>
+                                <span class="tool-count">6</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Time Range Filter -->
+                    <div class="filter-control">
+                        <label class="filter-label">
+                            <span class="material-icons">schedule</span>
+                            Time Range
+                        </label>
+                        <div class="time-range-picker">
+                            <select class="time-select" id="timeRange">
+                                <option value="5m">Last 5 minutes</option>
+                                <option value="15m">Last 15 minutes</option>
+                                <option value="1h" selected>Last hour</option>
+                                <option value="4h">Last 4 hours</option>
+                                <option value="24h">Last 24 hours</option>
+                                <option value="custom">Custom range</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Session State Filter -->
+                    <div class="filter-control">
+                        <label class="filter-label">
+                            <span class="material-icons">traffic</span>
+                            Session State
+                        </label>
+                        <div class="state-filter-buttons">
+                            <button class="state-btn active" data-state="active" title="Active Sessions">
+                                <span class="material-icons">play_circle</span>
+                                Active <span class="state-count">(8)</span>
+                            </button>
+                            <button class="state-btn active" data-state="awaiting" title="Awaiting Input">
+                                <span class="material-icons">pause_circle</span>
+                                Awaiting <span class="state-count">(3)</span>
+                            </button>
+                            <button class="state-btn active" data-state="idle" title="Idle Sessions">
+                                <span class="material-icons">radio_button_unchecked</span>
+                                Idle <span class="state-count">(5)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Logic Toggle -->
+                    <div class="filter-control">
+                        <label class="filter-label">
+                            <span class="material-icons">hub</span>
+                            Filter Logic
+                        </label>
+                        <div class="logic-toggle">
+                            <button class="logic-btn active" data-logic="and" title="AND logic - must match all filters">
+                                AND
+                            </button>
+                            <button class="logic-btn" data-logic="or" title="OR logic - match any filter">
+                                OR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session List -->
+            <div class="session-list" id="sessionList">
+                <div class="session-group">
+                    <div class="group-header">
+                        <span class="material-icons group-icon">folder</span>
+                        <span class="group-name">chronicle-dashboard</span>
+                        <span class="group-branch">main</span>
+                        <span class="group-count">(4)</span>
+                    </div>
+                    <div class="session-item awaiting selected" data-session="sess-1">
+                        <div class="session-status awaiting"></div>
+                        <div class="session-info">
+                            <div class="session-name">Dashboard UI Refactor</div>
+                            <div class="session-details">
+                                <span class="session-time">14:23</span>
+                                <span class="session-activity">notification</span>
+                            </div>
+                        </div>
+                        <div class="session-indicators">
+                            <span class="material-icons notification-icon">notifications_active</span>
+                        </div>
+                    </div>
+                    <div class="session-item active" data-session="sess-2">
+                        <div class="session-status active"></div>
+                        <div class="session-info">
+                            <div class="session-name">API Integration</div>
+                            <div class="session-details">
+                                <span class="session-time">14:28</span>
+                                <span class="session-activity">Edit</span>
+                            </div>
+                        </div>
+                        <div class="session-indicators">
+                            <span class="material-icons activity-icon pulse">play_circle</span>
+                        </div>
+                    </div>
+                    <div class="session-item active" data-session="sess-3">
+                        <div class="session-status active"></div>
+                        <div class="session-info">
+                            <div class="session-name">Database Migration</div>
+                            <div class="session-details">
+                                <span class="session-time">14:30</span>
+                                <span class="session-activity">Bash</span>
+                            </div>
+                        </div>
+                        <div class="session-indicators">
+                            <span class="material-icons activity-icon pulse">terminal</span>
+                        </div>
+                    </div>
+                    <div class="session-item idle" data-session="sess-4">
+                        <div class="session-status idle"></div>
+                        <div class="session-info">
+                            <div class="session-name">Documentation Update</div>
+                            <div class="session-details">
+                                <span class="session-time">13:45</span>
+                                <span class="session-activity">stop</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="session-group">
+                    <div class="group-header">
+                        <span class="material-icons group-icon">folder</span>
+                        <span class="group-name">ai-toolkit</span>
+                        <span class="group-branch">feature/enhanced-parsing</span>
+                        <span class="group-count">(3)</span>
+                    </div>
+                    <div class="session-item awaiting" data-session="sess-5">
+                        <div class="session-status awaiting"></div>
+                        <div class="session-info">
+                            <div class="session-name">Parser Enhancement</div>
+                            <div class="session-details">
+                                <span class="session-time">14:15</span>
+                                <span class="session-activity">notification</span>
+                            </div>
+                        </div>
+                        <div class="session-indicators">
+                            <span class="material-icons notification-icon">notifications_active</span>
+                        </div>
+                    </div>
+                    <div class="session-item active" data-session="sess-6">
+                        <div class="session-status active"></div>
+                        <div class="session-info">
+                            <div class="session-name">Unit Tests</div>
+                            <div class="session-details">
+                                <span class="session-time">14:25</span>
+                                <span class="session-activity">Read</span>
+                            </div>
+                        </div>
+                        <div class="session-indicators">
+                            <span class="material-icons activity-icon pulse">description</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Timeline -->
+            <div class="timeline-container" id="timelineContainer">
+                <div class="timeline-header">
+                    <div class="timeline-controls">
+                        <button class="timeline-toggle" id="timelineToggle" title="Toggle Timeline (Ctrl+T)">
+                            <span class="material-icons">timeline</span>
+                        </button>
+                        <div class="time-zoom">
+                            <button class="zoom-btn" data-zoom="out" title="Zoom Out">
+                                <span class="material-icons">zoom_out</span>
+                            </button>
+                            <span class="zoom-level">1h</span>
+                            <button class="zoom-btn" data-zoom="in" title="Zoom In">
+                                <span class="material-icons">zoom_in</span>
+                            </button>
+                        </div>
+                        <button class="jump-to-now" id="jumpToNow" title="Jump to Now (Space)">
+                            <span class="material-icons">my_location</span>
+                            Now
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="timeline-swimlanes" id="timelineSwimlanes">
+                    <div class="time-markers" id="timeMarkers">
+                        <div class="time-marker" data-time="14:00">14:00</div>
+                        <div class="time-marker" data-time="14:15">14:15</div>
+                        <div class="time-marker current" data-time="14:30">14:30</div>
+                        <div class="time-marker future" data-time="14:45">14:45</div>
+                    </div>
+                    
+                    <div class="swimlane" data-session="sess-1">
+                        <div class="swimlane-label">
+                            <span class="session-indicator awaiting"></span>
+                            <span class="session-name">Dashboard UI</span>
+                        </div>
+                        <div class="swimlane-track">
+                            <div class="event-marker user-prompt" style="left: 20%" title="User Prompt: Refactor dashboard">
+                                <span class="material-icons">chat</span>
+                            </div>
+                            <div class="event-marker tool-use" style="left: 25%" title="Read: styles.css">
+                                <span class="material-icons">description</span>
+                            </div>
+                            <div class="event-marker tool-use" style="left: 35%" title="Edit: components/Header.tsx">
+                                <span class="material-icons">edit</span>
+                            </div>
+                            <div class="event-marker notification current" style="left: 70%" title="Awaiting confirmation">
+                                <span class="material-icons">notifications_active</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="swimlane" data-session="sess-2">
+                        <div class="swimlane-label">
+                            <span class="session-indicator active"></span>
+                            <span class="session-name">API Integration</span>
+                        </div>
+                        <div class="swimlane-track">
+                            <div class="event-marker tool-use" style="left: 40%" title="Bash: npm install">
+                                <span class="material-icons">terminal</span>
+                            </div>
+                            <div class="event-marker tool-use" style="left: 60%" title="Write: api/endpoints.ts">
+                                <span class="material-icons">create</span>
+                            </div>
+                            <div class="event-marker tool-use current pulse" style="left: 85%" title="Edit: Currently running">
+                                <span class="material-icons">edit</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="swimlane" data-session="sess-3">
+                        <div class="swimlane-label">
+                            <span class="session-indicator active"></span>
+                            <span class="session-name">Database Migration</span>
+                        </div>
+                        <div class="swimlane-track">
+                            <div class="event-marker tool-use" style="left: 50%" title="Read: schema.sql">
+                                <span class="material-icons">description</span>
+                            </div>
+                            <div class="event-marker tool-use" style="left: 70%" title="Bash: psql migration">
+                                <span class="material-icons">terminal</span>
+                            </div>
+                            <div class="event-marker tool-use current pulse" style="left: 90%" title="Bash: Currently running">
+                                <span class="material-icons">terminal</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Feed -->
+            <div class="event-feed" id="eventFeed">
+                <div class="event-feed-header">
+                    <div class="feed-title">
+                        <span class="material-icons">list</span>
+                        Event Feed
+                        <span class="event-count">(1,247 events)</span>
+                    </div>
+                    <div class="feed-controls">
+                        <button class="auto-scroll active" id="autoScroll" title="Auto-scroll to new events">
+                            <span class="material-icons">vertical_align_bottom</span>
+                        </button>
+                        <button class="pause-feed" id="pauseFeed" title="Pause live updates">
+                            <span class="material-icons">pause</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="event-table">
+                    <div class="event-header">
+                        <div class="col-time">Time</div>
+                        <div class="col-session">Session</div>
+                        <div class="col-type">Type</div>
+                        <div class="col-tool">Tool</div>
+                        <div class="col-details">Details</div>
+                        <div class="col-duration">Duration</div>
+                    </div>
+                    
+                    <div class="event-rows" id="eventRows">
+                        <div class="event-row current" data-session="sess-1" data-type="notification">
+                            <div class="col-time">14:30:45</div>
+                            <div class="col-session">
+                                <span class="session-indicator awaiting"></span>
+                                Dashboard UI
+                            </div>
+                            <div class="col-type">
+                                <span class="material-icons type-icon notification">notifications</span>
+                                Notification
+                            </div>
+                            <div class="col-tool">-</div>
+                            <div class="col-details">Confirm header layout changes before proceeding?</div>
+                            <div class="col-duration">-</div>
+                        </div>
+                        
+                        <div class="event-row running" data-session="sess-2" data-type="pre_tool_use">
+                            <div class="col-time">14:30:42</div>
+                            <div class="col-session">
+                                <span class="session-indicator active"></span>
+                                API Integration
+                            </div>
+                            <div class="col-type">
+                                <span class="material-icons type-icon tool-start">play_arrow</span>
+                                Tool Start
+                            </div>
+                            <div class="col-tool">
+                                <span class="material-icons tool-icon">edit</span>
+                                Edit
+                            </div>
+                            <div class="col-details">Updating API endpoint configurations...</div>
+                            <div class="col-duration">
+                                <span class="duration-running">3.2s</span>
+                            </div>
+                        </div>
+                        
+                        <div class="event-row" data-session="sess-3" data-type="post_tool_use">
+                            <div class="col-time">14:30:38</div>
+                            <div class="col-session">
+                                <span class="session-indicator active"></span>
+                                Database Migration
+                            </div>
+                            <div class="col-type">
+                                <span class="material-icons type-icon tool-complete">check_circle</span>
+                                Tool Complete
+                            </div>
+                            <div class="col-tool">
+                                <span class="material-icons tool-icon">terminal</span>
+                                Bash
+                            </div>
+                            <div class="col-details">Migration script executed successfully</div>
+                            <div class="col-duration">2.1s</div>
+                        </div>
+                        
+                        <div class="event-row" data-session="sess-3" data-type="pre_tool_use">
+                            <div class="col-time">14:30:36</div>
+                            <div class="col-session">
+                                <span class="session-indicator active"></span>
+                                Database Migration
+                            </div>
+                            <div class="col-type">
+                                <span class="material-icons type-icon tool-start">play_arrow</span>
+                                Tool Start
+                            </div>
+                            <div class="col-tool">
+                                <span class="material-icons tool-icon">terminal</span>
+                                Bash
+                            </div>
+                            <div class="col-details">psql -f migrations/002_add_indexes.sql</div>
+                            <div class="col-duration">-</div>
+                        </div>
+                        
+                        <div class="event-row" data-session="sess-2" data-type="post_tool_use">
+                            <div class="col-time">14:30:28</div>
+                            <div class="col-session">
+                                <span class="session-indicator active"></span>
+                                API Integration
+                            </div>
+                            <div class="col-type">
+                                <span class="material-icons type-icon tool-complete">check_circle</span>
+                                Tool Complete
+                            </div>
+                            <div class="col-tool">
+                                <span class="material-icons tool-icon">create</span>
+                                Write
+                            </div>
+                            <div class="col-details">Created api/endpoints.ts (342 lines)</div>
+                            <div class="col-duration">1.8s</div>
+                        </div>
+                        
+                        <div class="event-row" data-session="sess-1" data-type="post_tool_use">
+                            <div class="col-time">14:30:15</div>
+                            <div class="col-session">
+                                <span class="session-indicator awaiting"></span>
+                                Dashboard UI
+                            </div>
+                            <div class="col-type">
+                                <span class="material-icons type-icon tool-complete">check_circle</span>
+                                Tool Complete
+                            </div>
+                            <div class="col-tool">
+                                <span class="material-icons tool-icon">edit</span>
+                                Edit
+                            </div>
+                            <div class="col-details">Modified components/Header.tsx (12 changes)</div>
+                            <div class="col-duration">0.8s</div>
+                        </div>
+                        
+                        <div class="event-row" data-session="sess-6" data-type="user_prompt_submit">
+                            <div class="col-time">14:29:45</div>
+                            <div class="col-session">
+                                <span class="session-indicator active"></span>
+                                Unit Tests
+                            </div>
+                            <div class="col-type">
+                                <span class="material-icons type-icon user-prompt">chat</span>
+                                User Prompt
+                            </div>
+                            <div class="col-tool">-</div>
+                            <div class="col-details">Add comprehensive test coverage for parser functions</div>
+                            <div class="col-duration">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

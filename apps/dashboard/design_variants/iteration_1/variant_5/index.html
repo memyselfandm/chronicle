@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Timeline Variant</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header with Connection Timeline -->
+        <header class="main-header">
+            <div class="connection-timeline">
+                <div class="timeline-indicator">
+                    <div class="pulse-dot active"></div>
+                    <span class="connection-status">Live Connection</span>
+                </div>
+                <div class="timeline-segments">
+                    <div class="segment active" data-time="0-30s"></div>
+                    <div class="segment active" data-time="30-60s"></div>
+                    <div class="segment active" data-time="60-90s"></div>
+                    <div class="segment fading" data-time="90-120s"></div>
+                    <div class="segment inactive" data-time="120s+"></div>
+                </div>
+            </div>
+            <div class="header-content">
+                <h1 class="dashboard-title">Chronicle Dashboard</h1>
+                <p class="subtitle">Real-time Event Timeline - <span id="current-time"></span></p>
+            </div>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="events-count">1,247</span>
+                    <span class="stat-label">Events Today</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="rate-indicator">+23/min</span>
+                    <span class="stat-label">Event Rate</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Active Sessions Counter -->
+        <section class="sessions-section">
+            <h2 class="section-title">Active Sessions</h2>
+            <div class="sessions-grid" id="sessions-grid">
+                <!-- Sessions will be dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Live Event Graph -->
+        <section class="chart-section">
+            <h2 class="section-title">Event Density Timeline</h2>
+            <div class="chart-container">
+                <canvas id="eventChart"></canvas>
+            </div>
+            <div class="chart-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--gradient-blue)"></div>
+                    <span>Tool Executions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--gradient-green)"></div>
+                    <span>User Interactions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--gradient-purple)"></div>
+                    <span>System Events</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--gradient-orange)"></div>
+                    <span>Notifications</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Event Feed Timeline -->
+        <section class="timeline-section">
+            <h2 class="section-title">Event Timeline</h2>
+            <div class="timeline-controls">
+                <button class="timeline-btn active" data-range="5m">5 Minutes</button>
+                <button class="timeline-btn" data-range="15m">15 Minutes</button>
+                <button class="timeline-btn" data-range="1h">1 Hour</button>
+                <button class="timeline-btn" data-range="6h">6 Hours</button>
+            </div>
+            <div class="timeline-container">
+                <div class="timeline-track" id="timeline-track">
+                    <!-- Time markers will be generated dynamically -->
+                </div>
+                <div class="event-timeline" id="event-timeline">
+                    <!-- Event cards will be positioned along the timeline -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Detailed Event Inspector -->
+        <section class="inspector-section" id="inspector-section" style="display: none;">
+            <h2 class="section-title">Event Inspector</h2>
+            <div class="inspector-content" id="inspector-content">
+                <!-- Event details will be populated here -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Event Detail Modal -->
+    <div class="modal-overlay" id="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Event Details</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Event details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Grid Layout Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="header-title">Chronicle Dashboard</h1>
+                <span class="header-subtitle">Grid Layout Monitor</span>
+            </div>
+            <div class="header-right">
+                <div class="metric">
+                    <span class="metric-label">Active Sessions</span>
+                    <span class="metric-value" id="activeSessionsCount">12</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Awaiting Input</span>
+                    <span class="metric-value awaiting" id="awaitingInputCount">3</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Events/min</span>
+                    <span class="metric-value" id="eventsPerMin">147</span>
+                </div>
+                <div class="connection-status active">
+                    <span class="material-icons">wifi</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Session Grid -->
+        <section class="session-grid-container">
+            <div class="grid-header">
+                <h2>Session Overview</h2>
+                <div class="grid-controls">
+                    <button class="btn-secondary" id="selectAll">Select All</button>
+                    <button class="btn-secondary" id="clearSelection">Clear</button>
+                    <span class="selection-info" id="selectionInfo">2 of 12 selected</span>
+                </div>
+            </div>
+            <div class="session-grid" id="sessionGrid">
+                <!-- Session cards will be populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Horizontal Timeline -->
+        <section class="timeline-container">
+            <div class="timeline-header">
+                <h3>Activity Timeline</h3>
+                <div class="timeline-controls">
+                    <button class="btn-icon" id="timelinePause" title="Pause/Resume">
+                        <span class="material-icons">pause</span>
+                    </button>
+                    <button class="btn-icon" id="timelineZoomOut" title="Zoom Out">
+                        <span class="material-icons">zoom_out</span>
+                    </button>
+                    <button class="btn-icon" id="timelineZoomIn" title="Zoom In">
+                        <span class="material-icons">zoom_in</span>
+                    </button>
+                </div>
+            </div>
+            <div class="timeline" id="timeline">
+                <!-- Timeline swimlanes will be populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Event Feed -->
+        <section class="event-feed-container">
+            <div class="feed-header">
+                <h3>Event Feed</h3>
+                <div class="feed-controls">
+                    <select class="filter-dropdown" id="eventTypeFilter">
+                        <option value="">All Event Types</option>
+                        <option value="user_prompt_submit">User Prompts</option>
+                        <option value="pre_tool_use">Tool Executions</option>
+                        <option value="notification">Notifications</option>
+                        <option value="stop">Completions</option>
+                        <option value="error">Errors</option>
+                    </select>
+                    <select class="filter-dropdown" id="toolFilter">
+                        <option value="">All Tools</option>
+                        <option value="Read">Read</option>
+                        <option value="Edit">Edit</option>
+                        <option value="Bash">Bash</option>
+                        <option value="Task">Task (Sub-agent)</option>
+                        <option value="Grep">Grep</option>
+                        <option value="Write">Write</option>
+                    </select>
+                    <button class="btn-icon" id="feedPause" title="Pause/Resume Feed">
+                        <span class="material-icons">pause</span>
+                    </button>
+                    <button class="btn-icon" id="autoScroll" title="Auto-scroll" class="active">
+                        <span class="material-icons">vertical_align_bottom</span>
+                    </button>
+                </div>
+            </div>
+            <div class="event-feed" id="eventFeed">
+                <div class="event-feed-table">
+                    <div class="event-header">
+                        <div class="col-time">Time</div>
+                        <div class="col-session">Session</div>
+                        <div class="col-event">Event</div>
+                        <div class="col-tool">Tool</div>
+                        <div class="col-details">Details</div>
+                        <div class="col-duration">Duration</div>
+                    </div>
+                    <div class="event-rows" id="eventRows">
+                        <!-- Event rows will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

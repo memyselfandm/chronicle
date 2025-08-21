@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Ultra Dense Monitoring</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot status-connected"></span>
+                    <span class="status-text">CONNECTED</span>
+                </div>
+                <div class="header-info">
+                    <h1 class="dashboard-title">Chronicle Dashboard</h1>
+                    <span class="dashboard-subtitle">Real-time monitoring</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="timestamp" id="currentTime"></div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Active Sessions Counter -->
+            <div class="sessions-counter">
+                <div class="counter-value" id="activeSessions">3</div>
+                <div class="counter-label">sessions awaiting input</div>
+                <div class="counter-detail">Last notification events requiring user response</div>
+            </div>
+
+            <!-- Live Event Graph -->
+            <div class="live-graph">
+                <div class="graph-header">
+                    <h2>Event Activity - Last 10 Minutes</h2>
+                    <div class="graph-legend">
+                        <div class="legend-item">
+                            <span class="legend-color user-prompt"></span>
+                            <span>User Prompt</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color tool-use"></span>
+                            <span>Tool Use</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color error"></span>
+                            <span>Error</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color notification"></span>
+                            <span>Notification</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="eventChart" width="800" height="120"></canvas>
+                </div>
+            </div>
+
+            <!-- Event Feed -->
+            <div class="event-feed">
+                <div class="feed-header">
+                    <h2>Live Event Stream</h2>
+                    <div class="feed-controls">
+                        <button class="control-btn active" data-filter="all">ALL</button>
+                        <button class="control-btn" data-filter="user_prompt">PROMPTS</button>
+                        <button class="control-btn" data-filter="tool_use">TOOLS</button>
+                        <button class="control-btn" data-filter="error">ERRORS</button>
+                        <button class="control-btn" data-filter="notification">NOTIFS</button>
+                    </div>
+                </div>
+                <div class="feed-container" id="eventFeed">
+                    <!-- Events will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

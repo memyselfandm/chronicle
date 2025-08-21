@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Productivity Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Minimal Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Chronicle Dashboard</h1>
+                <span class="instance-count">8 instances active</span>
+            </div>
+            <div class="header-right">
+                <span class="last-updated">Last updated: <span id="lastUpdated">--</span></span>
+                <button id="pauseBtn" class="pause-btn">⏸️ Pause</button>
+            </div>
+        </header>
+
+        <!-- Agents Needing Input - Prominent Section -->
+        <section class="blocked-agents">
+            <h2 class="section-title">🚨 Agents Needing Input</h2>
+            <div class="blocked-list" id="blockedList">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Agent Status Board - Grid View -->
+        <section class="agent-grid">
+            <h2 class="section-title">Agent Status Board</h2>
+            <div class="grid-container" id="agentGrid">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Filters and Controls -->
+        <section class="controls">
+            <div class="filter-bar">
+                <select id="statusFilter" class="filter-dropdown">
+                    <option value="">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="waiting">Waiting</option>
+                    <option value="error">Error</option>
+                    <option value="idle">Idle</option>
+                </select>
+
+                <select id="eventFilter" class="filter-dropdown">
+                    <option value="">All Events</option>
+                    <option value="tool_use">Tool Use</option>
+                    <option value="user_input">User Input</option>
+                    <option value="completion">Completion</option>
+                    <option value="error">Error</option>
+                </select>
+
+                <input type="checkbox" id="blockedOnly" class="filter-checkbox">
+                <label for="blockedOnly">Show only blocked agents</label>
+
+                <div class="time-filter">
+                    <label for="timeRange">Time range:</label>
+                    <select id="timeRange">
+                        <option value="5m">Last 5 minutes</option>
+                        <option value="15m" selected>Last 15 minutes</option>
+                        <option value="1h">Last hour</option>
+                        <option value="4h">Last 4 hours</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dense Event Feed -->
+        <section class="event-feed">
+            <h2 class="section-title">Live Event Feed</h2>
+            <div class="event-list" id="eventList">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Queue of Pending Responses -->
+        <section class="pending-queue">
+            <h2 class="section-title">Pending Response Queue</h2>
+            <div class="queue-list" id="queueList">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

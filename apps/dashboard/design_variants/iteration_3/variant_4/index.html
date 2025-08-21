@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Top Navigation Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+        <div class="nav-left">
+            <h1 class="logo">Chronicle</h1>
+            <div class="instance-selector">
+                <select id="instanceSelect">
+                    <option value="all">All Instances (24)</option>
+                    <option value="local-dev">Local Dev Machine</option>
+                    <option value="prod-server-1">Prod Server 1</option>
+                    <option value="staging-env">Staging Environment</option>
+                    <option value="ci-runner-3">CI Runner 3</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="nav-center">
+            <!-- Session Tabs -->
+            <div class="session-tabs">
+                <div class="session-tab active" data-session="s1">
+                    <span class="status-dot active"></span>
+                    <span class="session-info">
+                        <span class="project-name">chronicle-dashboard</span>
+                        <span class="branch-name">feature/top-nav</span>
+                    </span>
+                    <button class="close-tab" aria-label="Close session">×</button>
+                </div>
+                <div class="session-tab waiting" data-session="s2">
+                    <span class="status-dot waiting"></span>
+                    <span class="session-info">
+                        <span class="project-name">api-gateway</span>
+                        <span class="branch-name">main</span>
+                    </span>
+                    <button class="close-tab" aria-label="Close session">×</button>
+                </div>
+                <div class="session-tab" data-session="s3">
+                    <span class="status-dot"></span>
+                    <span class="session-info">
+                        <span class="project-name">user-service</span>
+                        <span class="branch-name">fix/auth-bug</span>
+                    </span>
+                    <button class="close-tab" aria-label="Close session">×</button>
+                </div>
+                <div class="session-tab overflow-indicator">
+                    <span class="material-icons">more_horiz</span>
+                    <span class="overflow-count">+3</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-right">
+            <div class="global-filters">
+                <select id="eventTypeFilter">
+                    <option value="all">All Events</option>
+                    <option value="tool_use">Tool Use</option>
+                    <option value="user_prompt">User Prompts</option>
+                    <option value="notification">Notifications</option>
+                    <option value="error">Errors</option>
+                </select>
+                <button class="filter-btn" id="pauseBtn">
+                    <span class="material-icons">pause</span>
+                </button>
+                <button class="filter-btn" id="settingsBtn">
+                    <span class="material-icons">settings</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Awaiting Input Banner -->
+    <div class="awaiting-input-banner" id="awaitingBanner">
+        <div class="banner-content">
+            <span class="material-icons">warning</span>
+            <span class="banner-text">2 sessions awaiting input:</span>
+            <div class="awaiting-sessions">
+                <button class="awaiting-session" data-session="s2">
+                    api-gateway (permission needed)
+                </button>
+                <button class="awaiting-session" data-session="s4">
+                    user-service (confirmation required)
+                </button>
+            </div>
+        </div>
+        <button class="dismiss-banner" id="dismissBanner">
+            <span class="material-icons">close</span>
+        </button>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <!-- Full-Width Timeline -->
+        <section class="timeline-section">
+            <div class="timeline-header">
+                <h2>Activity Timeline</h2>
+                <div class="timeline-controls">
+                    <button class="zoom-btn" data-zoom="1h">1H</button>
+                    <button class="zoom-btn active" data-zoom="30m">30M</button>
+                    <button class="zoom-btn" data-zoom="10m">10M</button>
+                    <button class="zoom-btn" data-zoom="5m">5M</button>
+                </div>
+            </div>
+            
+            <div class="timeline-container" id="timelineContainer">
+                <div class="timeline-swimlanes">
+                    <!-- Session 1 Swimlane -->
+                    <div class="swimlane" data-session="s1">
+                        <div class="swimlane-header">
+                            <span class="session-label">S1</span>
+                            <span class="project-name">chronicle-dashboard</span>
+                            <span class="status-indicator active">Active</span>
+                        </div>
+                        <div class="swimlane-track">
+                            <div class="activity-item read" style="left: 5%;" title="Read: package.json">
+                                <span class="material-icons">description</span>
+                            </div>
+                            <div class="activity-item edit" style="left: 15%;" title="Edit: src/dashboard.js">
+                                <span class="material-icons">edit</span>
+                            </div>
+                            <div class="activity-item bash" style="left: 25%;" title="Bash: npm test">
+                                <span class="material-icons">terminal</span>
+                            </div>
+                            <div class="activity-item task current" style="left: 35%;" title="Task: Sub-agent analyzing styles">
+                                <span class="material-icons">psychology</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Session 2 Swimlane (Awaiting Input) -->
+                    <div class="swimlane awaiting" data-session="s2">
+                        <div class="swimlane-header">
+                            <span class="session-label">S2</span>
+                            <span class="project-name">api-gateway</span>
+                            <span class="status-indicator waiting">Awaiting Input</span>
+                        </div>
+                        <div class="swimlane-track">
+                            <div class="activity-item read" style="left: 10%;" title="Read: config/database.js">
+                                <span class="material-icons">description</span>
+                            </div>
+                            <div class="activity-item notification" style="left: 20%;" title="Notification: Permission needed for DB access">
+                                <span class="material-icons">notification_important</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Session 3 Swimlane -->
+                    <div class="swimlane" data-session="s3">
+                        <div class="swimlane-header">
+                            <span class="session-label">S3</span>
+                            <span class="project-name">user-service</span>
+                            <span class="status-indicator idle">Idle</span>
+                        </div>
+                        <div class="swimlane-track">
+                            <div class="activity-item grep" style="left: 8%;" title="Grep: Searching auth patterns">
+                                <span class="material-icons">search</span>
+                            </div>
+                            <div class="activity-item read" style="left: 18%;" title="Read: auth/middleware.js">
+                                <span class="material-icons">description</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dense Event Feed -->
+        <section class="event-feed-section">
+            <div class="event-feed-header">
+                <h2>Event Feed</h2>
+                <div class="feed-controls">
+                    <span class="event-count">Showing 247 events</span>
+                    <button class="auto-scroll-btn active" id="autoScrollBtn">
+                        <span class="material-icons">vertical_align_bottom</span>
+                        Auto-scroll
+                    </button>
+                </div>
+            </div>
+
+            <div class="event-feed" id="eventFeed">
+                <table class="events-table">
+                    <thead>
+                        <tr>
+                            <th class="time-col">Time</th>
+                            <th class="session-col">Session</th>
+                            <th class="type-col">Type</th>
+                            <th class="tool-col">Tool</th>
+                            <th class="details-col">Details</th>
+                            <th class="status-col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventTableBody">
+                        <!-- Recent Events -->
+                        <tr class="event-row current" data-session="s1">
+                            <td class="time-col">14:32:45</td>
+                            <td class="session-col">
+                                <span class="session-pill">S1</span>
+                                <span class="project-name">chronicle-dashboard</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type pre-tool">pre_tool_use</span>
+                            </td>
+                            <td class="tool-col">Task</td>
+                            <td class="details-col">Analyzing CSS architecture for component styles</td>
+                            <td class="status-col">
+                                <span class="status-indicator running">Running</span>
+                            </td>
+                        </tr>
+
+                        <tr class="event-row" data-session="s1">
+                            <td class="time-col">14:32:42</td>
+                            <td class="session-col">
+                                <span class="session-pill">S1</span>
+                                <span class="project-name">chronicle-dashboard</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type post-tool">post_tool_use</span>
+                            </td>
+                            <td class="tool-col">Bash</td>
+                            <td class="details-col">npm test -- completed successfully (247ms)</td>
+                            <td class="status-col">
+                                <span class="status-indicator success">Success</span>
+                            </td>
+                        </tr>
+
+                        <tr class="event-row indented" data-session="s1">
+                            <td class="time-col">14:32:40</td>
+                            <td class="session-col">
+                                <span class="session-pill">S1</span>
+                                <span class="project-name">chronicle-dashboard</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type pre-tool">pre_tool_use</span>
+                            </td>
+                            <td class="tool-col">Bash</td>
+                            <td class="details-col">npm test</td>
+                            <td class="status-col">
+                                <span class="status-indicator pending">Started</span>
+                            </td>
+                        </tr>
+
+                        <tr class="event-row notification-row" data-session="s2">
+                            <td class="time-col">14:31:15</td>
+                            <td class="session-col">
+                                <span class="session-pill awaiting">S2</span>
+                                <span class="project-name">api-gateway</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type notification">notification</span>
+                            </td>
+                            <td class="tool-col">-</td>
+                            <td class="details-col">Permission required: Access to production database configuration</td>
+                            <td class="status-col">
+                                <span class="status-indicator awaiting">Awaiting Input</span>
+                            </td>
+                        </tr>
+
+                        <tr class="event-row" data-session="s2">
+                            <td class="time-col">14:31:12</td>
+                            <td class="session-col">
+                                <span class="session-pill">S2</span>
+                                <span class="project-name">api-gateway</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type post-tool">post_tool_use</span>
+                            </td>
+                            <td class="tool-col">Read</td>
+                            <td class="details-col">config/database.js (1,247 bytes)</td>
+                            <td class="status-col">
+                                <span class="status-indicator success">Success</span>
+                            </td>
+                        </tr>
+
+                        <tr class="event-row indented" data-session="s2">
+                            <td class="time-col">14:31:10</td>
+                            <td class="session-col">
+                                <span class="session-pill">S2</span>
+                                <span class="project-name">api-gateway</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type pre-tool">pre_tool_use</span>
+                            </td>
+                            <td class="tool-col">Read</td>
+                            <td class="details-col">config/database.js</td>
+                            <td class="status-col">
+                                <span class="status-indicator pending">Started</span>
+                            </td>
+                        </tr>
+
+                        <tr class="event-row" data-session="s3">
+                            <td class="time-col">14:30:45</td>
+                            <td class="session-col">
+                                <span class="session-pill">S3</span>
+                                <span class="project-name">user-service</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type post-tool">post_tool_use</span>
+                            </td>
+                            <td class="tool-col">Grep</td>
+                            <td class="details-col">Found 12 matches for "authenticate" in 8 files</td>
+                            <td class="status-col">
+                                <span class="status-indicator success">Success</span>
+                            </td>
+                        </tr>
+
+                        <tr class="event-row indented" data-session="s3">
+                            <td class="time-col">14:30:42</td>
+                            <td class="session-col">
+                                <span class="session-pill">S3</span>
+                                <span class="project-name">user-service</span>
+                            </td>
+                            <td class="type-col">
+                                <span class="event-type pre-tool">pre_tool_use</span>
+                            </td>
+                            <td class="tool-col">Grep</td>
+                            <td class="details-col">Searching for "authenticate" patterns</td>
+                            <td class="status-col">
+                                <span class="status-indicator pending">Started</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Data Rich Variant</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header with connection status and detailed info -->
+        <header class="header">
+            <div class="header-left">
+                <div class="connection-status" id="connectionStatus">
+                    <div class="status-indicator connected"></div>
+                    <div class="connection-details">
+                        <div class="connection-text">Connected</div>
+                        <div class="latency">12ms</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <h1 class="title">Chronicle Dashboard</h1>
+                <div class="subtitle">
+                    Real-time observability for Claude Code sessions • 
+                    <span id="totalEvents">1,247</span> events tracked • 
+                    <span id="activeSessionsCount">3</span> active sessions • 
+                    <span id="uptime">2h 34m</span> uptime
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="system-metrics">
+                    <div class="metric">
+                        <div class="metric-value" id="eventsPerMin">23</div>
+                        <div class="metric-label">events/min</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="avgDuration">247ms</div>
+                        <div class="metric-label">avg duration</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Active Sessions Counter with preview -->
+        <section class="active-sessions">
+            <div class="section-header">
+                <h2>Active Sessions</h2>
+                <div class="session-count-badge" id="sessionCountBadge">3</div>
+            </div>
+            <div class="sessions-preview" id="sessionsPreview">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Live Event Graph with detailed tooltips -->
+        <section class="event-graph-section">
+            <div class="section-header">
+                <h2>Live Event Activity</h2>
+                <div class="graph-controls">
+                    <button class="time-range-btn active" data-range="5m">5m</button>
+                    <button class="time-range-btn" data-range="15m">15m</button>
+                    <button class="time-range-btn" data-range="1h">1h</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="eventChart" width="400" height="120"></canvas>
+            </div>
+            <div class="chart-legend" id="chartLegend">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- Event Feed with comprehensive inline details -->
+        <section class="event-feed-section">
+            <div class="section-header">
+                <h2>Live Event Feed</h2>
+                <div class="feed-controls">
+                    <div class="event-type-filters" id="eventTypeFilters">
+                        <!-- Populated by JS -->
+                    </div>
+                    <div class="feed-actions">
+                        <button class="pause-btn" id="pauseBtn">⏸️ Pause</button>
+                        <button class="clear-btn" id="clearBtn">🗑️ Clear</button>
+                    </div>
+                </div>
+            </div>
+            <div class="event-feed" id="eventFeed">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

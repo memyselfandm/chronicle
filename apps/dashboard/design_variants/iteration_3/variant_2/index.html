@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Enhanced Timeline</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Chronicle Dashboard</h1>
+                <div class="status-indicator">
+                    <span class="material-icons">circle</span>
+                    <span>Live</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="metric">
+                    <span class="metric-label">Active Sessions</span>
+                    <span class="metric-value">24</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Awaiting Input</span>
+                    <span class="metric-value awaiting">7</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Events/min</span>
+                    <span class="metric-value">142</span>
+                </div>
+                <div class="controls">
+                    <button class="control-btn" id="pauseBtn">
+                        <span class="material-icons">pause</span>
+                    </button>
+                    <button class="control-btn" id="settingsBtn">
+                        <span class="material-icons">settings</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Sessions</h3>
+                    <div class="sidebar-controls">
+                        <button class="sidebar-btn" id="expandAllBtn" title="Expand All">
+                            <span class="material-icons">expand_more</span>
+                        </button>
+                        <button class="sidebar-btn" id="collapseAllBtn" title="Collapse All">
+                            <span class="material-icons">expand_less</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-content">
+                    <!-- Awaiting Input Section -->
+                    <div class="awaiting-section">
+                        <div class="section-header awaiting">
+                            <span class="material-icons">notification_important</span>
+                            <span>Awaiting Input</span>
+                            <span class="count-badge awaiting">7</span>
+                        </div>
+                        <div class="session-list">
+                            <div class="session-item awaiting" data-session="s1">
+                                <div class="session-main">
+                                    <span class="session-icon">
+                                        <span class="material-icons">terminal</span>
+                                    </span>
+                                    <div class="session-info">
+                                        <span class="session-name">chronicle-dashboard</span>
+                                        <span class="session-branch">main</span>
+                                    </div>
+                                    <span class="session-status">
+                                        <span class="material-icons">pause_circle</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="session-item awaiting" data-session="s2">
+                                <div class="session-main">
+                                    <span class="session-icon">
+                                        <span class="material-icons">terminal</span>
+                                    </span>
+                                    <div class="session-info">
+                                        <span class="session-name">api-gateway</span>
+                                        <span class="session-branch">feature/auth</span>
+                                    </div>
+                                    <span class="session-status">
+                                        <span class="material-icons">pause_circle</span>
+                                    </span>
+                                </div>
+                                <div class="sub-agent-list">
+                                    <div class="sub-agent-item awaiting" data-session="s2-sub1">
+                                        <span class="sub-agent-icon">
+                                            <span class="material-icons">subdirectory_arrow_right</span>
+                                        </span>
+                                        <span class="sub-agent-name">Database Migration</span>
+                                        <span class="sub-agent-status">
+                                            <span class="material-icons">pause_circle</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Projects Section -->
+                    <div class="project-section">
+                        <div class="section-header" data-project="chronicle">
+                            <span class="material-icons expand-icon">expand_more</span>
+                            <span class="material-icons">folder</span>
+                            <span>Chronicle</span>
+                            <span class="count-badge">8</span>
+                        </div>
+                        <div class="session-list">
+                            <div class="session-item active selected" data-session="s3">
+                                <div class="session-main">
+                                    <span class="session-icon">
+                                        <span class="material-icons">play_circle</span>
+                                    </span>
+                                    <div class="session-info">
+                                        <span class="session-name">ch-design-sprints</span>
+                                        <span class="session-branch">feat/iteration-3</span>
+                                    </div>
+                                    <span class="session-status">
+                                        <span class="material-icons">sync</span>
+                                    </span>
+                                </div>
+                                <div class="sub-agent-list">
+                                    <div class="sub-agent-item active" data-session="s3-sub1">
+                                        <span class="sub-agent-icon">
+                                            <span class="material-icons">subdirectory_arrow_right</span>
+                                        </span>
+                                        <span class="sub-agent-name">File Analysis</span>
+                                        <span class="sub-agent-status">
+                                            <span class="material-icons">play_circle</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="session-item active" data-session="s4">
+                                <div class="session-main">
+                                    <span class="session-icon">
+                                        <span class="material-icons">play_circle</span>
+                                    </span>
+                                    <div class="session-info">
+                                        <span class="session-name">ch-backend</span>
+                                        <span class="session-branch">main</span>
+                                    </div>
+                                    <span class="session-status">
+                                        <span class="material-icons">sync</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="project-section">
+                        <div class="section-header" data-project="ecommerce">
+                            <span class="material-icons expand-icon">expand_more</span>
+                            <span class="material-icons">folder</span>
+                            <span>E-Commerce Platform</span>
+                            <span class="count-badge">5</span>
+                        </div>
+                        <div class="session-list">
+                            <div class="session-item active" data-session="s5">
+                                <div class="session-main">
+                                    <span class="session-icon">
+                                        <span class="material-icons">play_circle</span>
+                                    </span>
+                                    <div class="session-info">
+                                        <span class="session-name">user-service</span>
+                                        <span class="session-branch">refactor/auth</span>
+                                    </div>
+                                    <span class="session-status">
+                                        <span class="material-icons">sync</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Timeline Area -->
+            <main class="timeline-area">
+                <div class="timeline-header">
+                    <div class="timeline-controls">
+                        <div class="view-toggle">
+                            <button class="toggle-btn active" data-view="timeline">
+                                <span class="material-icons">timeline</span>
+                                Timeline
+                            </button>
+                            <button class="toggle-btn" data-view="events">
+                                <span class="material-icons">list</span>
+                                Events
+                            </button>
+                        </div>
+                        <div class="timeline-filters">
+                            <select class="filter-select" id="toolFilter">
+                                <option value="">All Tools</option>
+                                <option value="Read">Read</option>
+                                <option value="Write">Write</option>
+                                <option value="Edit">Edit</option>
+                                <option value="Bash">Bash</option>
+                                <option value="Task">Task</option>
+                            </select>
+                            <select class="filter-select" id="statusFilter">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="awaiting">Awaiting</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="timeline-zoom">
+                            <button class="zoom-btn" data-zoom="30s">30s</button>
+                            <button class="zoom-btn active" data-zoom="2m">2m</button>
+                            <button class="zoom-btn" data-zoom="5m">5m</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Timeline -->
+                <div class="timeline-container" id="timelineView">
+                    <div class="timeline-time-ruler">
+                        <div class="time-marker">14:32:00</div>
+                        <div class="time-marker">14:32:30</div>
+                        <div class="time-marker">14:33:00</div>
+                        <div class="time-marker">14:33:30</div>
+                        <div class="time-marker">14:34:00</div>
+                        <div class="time-marker">14:34:30</div>
+                    </div>
+
+                    <div class="timeline-swimlanes">
+                        <!-- Session S3 - Selected -->
+                        <div class="swimlane selected" data-session="s3">
+                            <div class="swimlane-header">
+                                <div class="swimlane-info">
+                                    <span class="material-icons">terminal</span>
+                                    <span class="swimlane-title">ch-design-sprints</span>
+                                    <span class="swimlane-branch">feat/iteration-3</span>
+                                </div>
+                                <div class="swimlane-status">
+                                    <span class="material-icons active">sync</span>
+                                </div>
+                            </div>
+                            <div class="swimlane-track">
+                                <div class="tool-event" data-tool="Read" style="left: 10%;" title="Read: package.json">
+                                    <span class="material-icons">description</span>
+                                </div>
+                                <div class="tool-event" data-tool="Edit" style="left: 25%;" title="Edit: styles.css">
+                                    <span class="material-icons">edit</span>
+                                </div>
+                                <div class="tool-event active" data-tool="Task" style="left: 40%;" title="Task: File Analysis">
+                                    <span class="material-icons">task_alt</span>
+                                </div>
+                                <div class="tool-event" data-tool="Bash" style="left: 65%;" title="Bash: npm install">
+                                    <span class="material-icons">terminal</span>
+                                </div>
+                                <div class="tool-cluster" style="left: 80%; width: 15%;" title="Multiple Read operations">
+                                    <span class="material-icons">burst_mode</span>
+                                    <span class="cluster-count">8</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sub-agent of S3 -->
+                        <div class="swimlane sub-agent" data-session="s3-sub1">
+                            <div class="swimlane-header">
+                                <div class="swimlane-info indented">
+                                    <span class="material-icons">subdirectory_arrow_right</span>
+                                    <span class="swimlane-title">File Analysis</span>
+                                    <span class="swimlane-status-text">Sub-agent</span>
+                                </div>
+                                <div class="swimlane-status">
+                                    <span class="material-icons active">play_circle</span>
+                                </div>
+                            </div>
+                            <div class="swimlane-track">
+                                <div class="tool-event" data-tool="Glob" style="left: 42%;" title="Glob: **/*.js">
+                                    <span class="material-icons">search</span>
+                                </div>
+                                <div class="tool-event" data-tool="Read" style="left: 50%;" title="Read: script.js">
+                                    <span class="material-icons">description</span>
+                                </div>
+                                <div class="tool-event active" data-tool="Grep" style="left: 60%;" title="Grep: function">
+                                    <span class="material-icons">search</span>
+                                </div>
+                                <div class="tool-cluster" style="left: 75%; width: 20%;" title="Analysis operations">
+                                    <span class="material-icons">analytics</span>
+                                    <span class="cluster-count">12</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Session S1 - Awaiting Input -->
+                        <div class="swimlane awaiting" data-session="s1">
+                            <div class="swimlane-header">
+                                <div class="swimlane-info">
+                                    <span class="material-icons">terminal</span>
+                                    <span class="swimlane-title">chronicle-dashboard</span>
+                                    <span class="swimlane-branch">main</span>
+                                </div>
+                                <div class="swimlane-status">
+                                    <span class="material-icons awaiting">pause_circle</span>
+                                </div>
+                            </div>
+                            <div class="swimlane-track">
+                                <div class="tool-event completed" data-tool="Read" style="left: 5%;" title="Read: README.md">
+                                    <span class="material-icons">description</span>
+                                </div>
+                                <div class="tool-event completed" data-tool="Write" style="left: 20%;" title="Write: config.json">
+                                    <span class="material-icons">create</span>
+                                </div>
+                                <div class="notification-marker" style="left: 35%;" title="Awaiting user input">
+                                    <span class="material-icons">notification_important</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Session S4 -->
+                        <div class="swimlane" data-session="s4">
+                            <div class="swimlane-header">
+                                <div class="swimlane-info">
+                                    <span class="material-icons">terminal</span>
+                                    <span class="swimlane-title">ch-backend</span>
+                                    <span class="swimlane-branch">main</span>
+                                </div>
+                                <div class="swimlane-status">
+                                    <span class="material-icons active">sync</span>
+                                </div>
+                            </div>
+                            <div class="swimlane-track">
+                                <div class="tool-event" data-tool="Bash" style="left: 15%;" title="Bash: docker build">
+                                    <span class="material-icons">terminal</span>
+                                </div>
+                                <div class="tool-event" data-tool="Read" style="left: 35%;" title="Read: Dockerfile">
+                                    <span class="material-icons">description</span>
+                                </div>
+                                <div class="tool-event active" data-tool="Edit" style="left: 55%;" title="Edit: app.py">
+                                    <span class="material-icons">edit</span>
+                                </div>
+                                <div class="tool-cluster" style="left: 70%; width: 25%;" title="Test operations">
+                                    <span class="material-icons">science</span>
+                                    <span class="cluster-count">6</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Feed (Hidden by default) -->
+                <div class="event-feed hidden" id="eventsView">
+                    <div class="event-feed-header">
+                        <div class="feed-info">
+                            <span>Showing events for: <strong>ch-design-sprints</strong></span>
+                            <span class="feed-count">247 events</span>
+                        </div>
+                    </div>
+                    <div class="event-list">
+                        <div class="event-row current">
+                            <div class="event-time">14:33:42</div>
+                            <div class="event-session">ch-design-sprints</div>
+                            <div class="event-type">pre_tool_use</div>
+                            <div class="event-tool">
+                                <span class="material-icons">search</span>
+                                Grep
+                            </div>
+                            <div class="event-details">Searching for "function" in *.js files</div>
+                            <div class="event-status active">
+                                <span class="material-icons">hourglass_empty</span>
+                            </div>
+                        </div>
+                        <div class="event-row sub-event">
+                            <div class="event-time">14:33:39</div>
+                            <div class="event-session">└─ File Analysis</div>
+                            <div class="event-type">post_tool_use</div>
+                            <div class="event-tool">
+                                <span class="material-icons">description</span>
+                                Read
+                            </div>
+                            <div class="event-details">Read script.js (1.2KB, 45 lines)</div>
+                            <div class="event-status success">
+                                <span class="material-icons">check_circle</span>
+                            </div>
+                        </div>
+                        <div class="event-row sub-event">
+                            <div class="event-time">14:33:37</div>
+                            <div class="event-session">└─ File Analysis</div>
+                            <div class="event-type">pre_tool_use</div>
+                            <div class="event-tool">
+                                <span class="material-icons">description</span>
+                                Read
+                            </div>
+                            <div class="event-details">Reading script.js for analysis</div>
+                            <div class="event-status success">
+                                <span class="material-icons">check_circle</span>
+                            </div>
+                        </div>
+                        <div class="event-row">
+                            <div class="event-time">14:33:35</div>
+                            <div class="event-session">ch-design-sprints</div>
+                            <div class="event-type">pre_tool_use</div>
+                            <div class="event-tool">
+                                <span class="material-icons">task_alt</span>
+                                Task
+                            </div>
+                            <div class="event-details">Launching sub-agent: File Analysis</div>
+                            <div class="event-status success">
+                                <span class="material-icons">check_circle</span>
+                            </div>
+                        </div>
+                        <div class="event-row">
+                            <div class="event-time">14:33:22</div>
+                            <div class="event-session">ch-design-sprints</div>
+                            <div class="event-type">post_tool_use</div>
+                            <div class="event-tool">
+                                <span class="material-icons">edit</span>
+                                Edit
+                            </div>
+                            <div class="event-details">Modified styles.css (+47 lines, -12 lines)</div>
+                            <div class="event-status success">
+                                <span class="material-icons">check_circle</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

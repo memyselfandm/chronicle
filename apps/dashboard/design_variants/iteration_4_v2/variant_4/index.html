@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Scalability Refined</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>Chronicle Dashboard</h1>
+            <div class="connection-status">
+                <div class="status-dot connected" id="connection-status"></div>
+                <span>Connected</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="metrics">
+                <span class="metric">
+                    <span class="material-icons">play_circle_filled</span>
+                    <span id="active-count">12</span>
+                </span>
+                <span class="metric awaiting">
+                    <span class="material-icons">notification_important</span>
+                    <span id="awaiting-count">3</span>
+                </span>
+            </div>
+            <div class="latency-indicator">
+                <span class="material-icons">speed</span>
+                <span id="latency">24ms</span>
+            </div>
+            <div class="event-rate-sparkline">
+                <div class="event-rate">
+                    <span class="material-icons">trending_up</span>
+                    <span id="event-rate">142/min</span>
+                </div>
+                <canvas id="event-sparkline" width="80" height="20"></canvas>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-controls">
+                    <button class="compact-toggle" id="compact-toggle" title="Toggle Compact Mode">
+                        <span class="material-icons">view_list</span>
+                    </button>
+                    <button class="bulk-actions" id="bulk-actions" title="Bulk Actions">
+                        <span class="material-icons">select_all</span>
+                    </button>
+                    <div class="search-box">
+                        <span class="material-icons">search</span>
+                        <input type="text" id="session-search" placeholder="Search sessions...">
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="status-filter" multiple>
+                            <option value="awaiting">Awaiting Input (3)</option>
+                            <option value="active">Active (12)</option>
+                            <option value="idle">Idle (8)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Projects</label>
+                        <select id="project-filter" multiple>
+                            <option value="chronicle">Chronicle (8)</option>
+                            <option value="dashboard">Dashboard (5)</option>
+                            <option value="api">API (4)</option>
+                            <option value="docs">Docs (6)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Virtual Scrollable Session List -->
+            <div class="session-list-container" id="session-list-container">
+                <div class="virtual-scroll-content" id="virtual-scroll-content">
+                    <!-- Sessions will be virtualized here -->
+                </div>
+            </div>
+
+            <!-- Bulk Actions Menu -->
+            <div class="bulk-menu" id="bulk-menu" style="display: none;">
+                <button class="bulk-action" data-action="select-awaiting">
+                    <span class="material-icons">notification_important</span>
+                    Select All Awaiting
+                </button>
+                <button class="bulk-action" data-action="select-project">
+                    <span class="material-icons">folder</span>
+                    Select All in Project
+                </button>
+                <button class="bulk-action" data-action="clear-selection">
+                    <span class="material-icons">clear</span>
+                    Clear Selection
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Toggle Sidebar Button -->
+            <button class="sidebar-toggle" id="sidebar-toggle">
+                <span class="material-icons">menu</span>
+            </button>
+
+            <!-- Timeline Section -->
+            <section class="timeline-section" id="timeline-section">
+                <div class="timeline-header">
+                    <h3>Activity Timeline</h3>
+                    <div class="timeline-controls">
+                        <button class="timeline-btn" id="zoom-out">
+                            <span class="material-icons">zoom_out</span>
+                        </button>
+                        <button class="timeline-btn" id="zoom-in">
+                            <span class="material-icons">zoom_in</span>
+                        </button>
+                        <button class="timeline-btn" id="jump-to-now">
+                            <span class="material-icons">skip_next</span>
+                            Now
+                        </button>
+                        <button class="timeline-btn" id="collapse-timeline">
+                            <span class="material-icons">expand_less</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="timeline-container" id="timeline-container">
+                    <div class="time-markers" id="time-markers"></div>
+                    <div class="swimlanes" id="swimlanes">
+                        <!-- Swimlanes will be rendered here -->
+                    </div>
+                </div>
+                <div class="timeline-legend">
+                    <div class="legend-item">
+                        <span class="material-icons">description</span>
+                        <span>File Ops</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="material-icons">terminal</span>
+                        <span>Shell</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="material-icons">web</span>
+                        <span>Web</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="material-icons">assignment</span>
+                        <span>Task</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Event Feed Section -->
+            <section class="event-feed-section">
+                <div class="event-feed-header">
+                    <h3>Event Feed</h3>
+                    <div class="feed-controls">
+                        <div class="stream-info">
+                            <span id="stream-status">Live Stream: Active</span>
+                            <span id="events-buffered">Events buffered: 0</span>
+                        </div>
+                        <div class="feed-actions">
+                            <button class="feed-btn active" id="auto-scroll-toggle">
+                                <span class="material-icons">play_arrow</span>
+                                Auto-scroll
+                            </button>
+                            <button class="feed-btn" id="pause-stream">
+                                <span class="material-icons">pause</span>
+                                Pause Stream
+                            </button>
+                            <button class="feed-btn" id="clear-events">
+                                <span class="material-icons">clear_all</span>
+                                Clear Events
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="event-table-container" id="event-table-container">
+                    <table class="event-table">
+                        <thead>
+                            <tr>
+                                <th class="col-time">Time</th>
+                                <th class="col-session">Session/Project</th>
+                                <th class="col-branch">Git Branch</th>
+                                <th class="col-type">Event Type</th>
+                                <th class="col-tool">Tool</th>
+                                <th class="col-details">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="event-table-body">
+                            <!-- Events will be loaded here via continuous scrolling -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="stream-controls">
+                    <div class="stream-stats">
+                        <span class="stat-item">
+                            <span class="material-icons">speed</span>
+                            <span id="events-per-second">2.4/sec</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="material-icons">visibility</span>
+                            <span id="visible-events">50 visible</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="material-icons">history</span>
+                            <span id="buffer-size">1000 buffered</span>
+                        </span>
+                    </div>
+                    <div class="stream-actions">
+                        <button class="stream-btn" id="jump-to-top">
+                            <span class="material-icons">keyboard_arrow_up</span>
+                            Jump to Top
+                        </button>
+                        <button class="stream-btn" id="jump-to-bottom">
+                            <span class="material-icons">keyboard_arrow_down</span>
+                            Jump to Latest
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+
+    <script src="script.js"></script>
+</body>
+</html>

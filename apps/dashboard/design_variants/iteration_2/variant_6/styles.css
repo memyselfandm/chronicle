@@ -1,0 +1,269 @@
+/* Ultra-Minimal Dashboard - Maximum Negative Space */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+    background-color: #1a1d23;
+    color: #e5e7eb;
+    line-height: 1.5;
+    font-size: 14px;
+    overflow-x: hidden;
+}
+
+.dashboard {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    min-height: 100vh;
+}
+
+/* Minimal Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #2d3748;
+}
+
+.title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #f7fafc;
+    letter-spacing: -0.025em;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+    transition: all 0.2s ease;
+}
+
+.status-indicator.disconnected {
+    background-color: #ef4444;
+}
+
+/* Content Sections */
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+}
+
+section {
+    display: block;
+}
+
+.section-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.count {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fbbf24;
+    line-height: 1;
+}
+
+.label {
+    font-size: 0.875rem;
+    color: #9ca3af;
+    text-transform: lowercase;
+    font-weight: 400;
+}
+
+/* Blocked Agents Section */
+.blocked-agents {
+    min-height: 80px;
+}
+
+.blocked-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.blocked-item {
+    padding: 1rem;
+    background-color: #252a35;
+    border-left: 3px solid #fbbf24;
+    border-radius: 0 4px 4px 0;
+    transition: background-color 0.2s ease;
+}
+
+.blocked-item:hover {
+    background-color: #2d3748;
+}
+
+.blocked-item .instance-name {
+    font-weight: 500;
+    color: #f7fafc;
+    margin-bottom: 0.25rem;
+}
+
+.blocked-item .waiting-for {
+    font-size: 0.8125rem;
+    color: #9ca3af;
+}
+
+.blocked-item .timestamp {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+/* Active Tools Section */
+.active-tools .tools-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tool-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #374151;
+}
+
+.tool-item:last-child {
+    border-bottom: none;
+}
+
+.tool-name {
+    color: #10b981;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.tool-instance {
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+.tool-duration {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Recent Events Section */
+.recent-events .events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.event-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.event-item.fading {
+    opacity: 0.4;
+}
+
+.event-item.hidden {
+    display: none;
+}
+
+.event-description {
+    color: #d1d5db;
+    font-size: 0.8125rem;
+}
+
+.event-time {
+    color: #6b7280;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.event-success {
+    color: #10b981;
+}
+
+.event-error {
+    color: #ef4444;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 2rem 0;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.empty-state.good {
+    color: #10b981;
+}
+
+/* Subtle Animations */
+.blocked-item,
+.tool-item,
+.event-item {
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .dashboard {
+        padding: 1rem 0.75rem;
+    }
+    
+    .content {
+        gap: 2rem;
+    }
+    
+    .header {
+        margin-bottom: 2rem;
+    }
+    
+    .count {
+        font-size: 1.75rem;
+    }
+}
+
+/* Focus States */
+.blocked-item:focus,
+.tool-item:focus,
+.event-item:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

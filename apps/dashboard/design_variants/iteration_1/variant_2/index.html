@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-left">
+                <div class="connection-status">
+                    <div class="status-dot connected" id="statusDot"></div>
+                    <span class="status-text" id="statusText">Connected</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <h1 class="dashboard-title">Chronicle Dashboard</h1>
+                <p class="dashboard-subtitle">Real-time AI interaction monitoring</p>
+            </div>
+            <div class="header-right">
+                <div class="sessions-counter">
+                    <span class="counter-badge" id="sessionsCounter">3 sessions awaiting input</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Live Event Graph Section -->
+            <section class="graph-section">
+                <div class="section-header">
+                    <h2>Live Activity</h2>
+                    <div class="graph-legend">
+                        <div class="legend-item">
+                            <div class="legend-color tool-use"></div>
+                            <span>Tool Use</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color user-input"></div>
+                            <span>User Input</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color system-event"></div>
+                            <span>System</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="graph-container">
+                    <canvas id="eventChart" width="800" height="120"></canvas>
+                    <div class="graph-time-labels">
+                        <span>10m</span>
+                        <span>8m</span>
+                        <span>6m</span>
+                        <span>4m</span>
+                        <span>2m</span>
+                        <span>now</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Event Feed Section -->
+            <section class="feed-section">
+                <div class="section-header">
+                    <h2>Event Feed</h2>
+                    <div class="feed-controls">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="tool-use">Tools</button>
+                        <button class="filter-btn" data-filter="user-input">Input</button>
+                        <button class="filter-btn" data-filter="system">System</button>
+                    </div>
+                </div>
+                <div class="event-feed" id="eventFeed">
+                    <!-- Events will be populated by JavaScript -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

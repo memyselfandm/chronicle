@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Dashboard - Ultimate Integration</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Unified Header -->
+    <header class="unified-header">
+        <div class="header-core">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar (Ctrl+B)">
+                <span class="material-icons">menu</span>
+            </button>
+            <h1 class="app-title">Chronicle Dashboard</h1>
+            
+            <!-- Inline Performance Metrics -->
+            <div class="inline-metrics">
+                <div class="metric-badge active">
+                    <span class="material-icons">play_circle</span>
+                    <span id="activeCount">12</span>
+                </div>
+                <div class="metric-badge awaiting pulse">
+                    <span class="material-icons">pending</span>
+                    <span id="awaitingCount">3</span>
+                </div>
+                <div class="metric-badge">
+                    <span class="material-icons">speed</span>
+                    <span id="eventRate">142</span>
+                    <canvas id="eventSparkline" width="40" height="16"></canvas>
+                </div>
+                <div class="metric-badge" id="latencyBadge">
+                    <span class="material-icons">wifi</span>
+                    <span id="latency">24ms</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="header-actions">
+            <button class="help-button" id="helpButton" title="Keyboard Shortcuts (?)">
+                <span class="material-icons">help_outline</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout with Resizable Panes -->
+    <div class="unified-layout" id="mainLayout">
+        <!-- Unified Sidebar -->
+        <aside class="unified-sidebar" id="unifiedSidebar">
+            <!-- Sidebar Header with Integrated Search -->
+            <div class="sidebar-header">
+                <div class="integrated-search">
+                    <span class="material-icons">search</span>
+                    <input type="text" id="searchInput" placeholder="Search sessions, projects..." />
+                    <button class="search-clear" id="searchClear">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+                
+                <!-- Unified Filter Controls -->
+                <div class="unified-filter-controls">
+                    <button class="filter-toggle" id="filterToggle" title="Filter Options">
+                        <span class="material-icons">tune</span>
+                    </button>
+                    <button class="compact-toggle" id="compactToggle" title="Compact Mode">
+                        <span class="material-icons">view_list</span>
+                    </button>
+                    <button class="clear-filters" id="clearFilters" title="Clear All (Ctrl+X)">
+                        <span class="material-icons">clear</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Collapsible Filter Panel -->
+            <div class="filter-panel" id="filterPanel">
+                <!-- Filter Presets -->
+                <div class="filter-presets">
+                    <button class="preset-btn" data-preset="awaiting">
+                        <span class="material-icons">pending</span>
+                        Awaiting Only
+                    </button>
+                    <button class="preset-btn" data-preset="active">
+                        <span class="material-icons">play_circle</span>
+                        Active Only
+                    </button>
+                    <button class="preset-btn" data-preset="errors">
+                        <span class="material-icons">error</span>
+                        Errors
+                    </button>
+                </div>
+                
+                <!-- Inline Filter Badges -->
+                <div class="active-filter-badges" id="activeFilterBadges">
+                    <!-- Dynamic filter badges appear here -->
+                </div>
+            </div>
+
+            <!-- Virtual Scrollable Session List -->
+            <div class="session-list-container" id="sessionContainer">
+                <div class="virtual-sessions" id="virtualSessions">
+                    <!-- Project Groups with Sessions -->
+                    <div class="project-group" data-project="chronicle">
+                        <div class="group-header">
+                            <span class="material-icons expand-icon">keyboard_arrow_down</span>
+                            <span class="material-icons project-icon">folder</span>
+                            <span class="project-name">chronicle-dashboard</span>
+                            <span class="session-count">4</span>
+                        </div>
+                        <div class="group-sessions">
+                            <div class="session-item awaiting selected" data-session="sess-1">
+                                <div class="session-status-indicator awaiting"></div>
+                                <div class="session-content">
+                                    <div class="session-title">Dashboard UI Refactor</div>
+                                    <div class="session-meta">
+                                        <span class="branch">main</span>
+                                        <span class="last-activity">2m ago</span>
+                                        <span class="activity-icon">
+                                            <span class="material-icons pulse">notifications_active</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="session-item active" data-session="sess-2">
+                                <div class="session-status-indicator active"></div>
+                                <div class="session-content">
+                                    <div class="session-title">API Integration</div>
+                                    <div class="session-meta">
+                                        <span class="branch">feature/auth</span>
+                                        <span class="last-activity">active</span>
+                                        <span class="activity-icon">
+                                            <span class="material-icons pulse">edit</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Resize Handle -->
+        <div class="resize-handle sidebar-resize" id="sidebarResize"></div>
+
+        <!-- Unified Content Area -->
+        <main class="unified-content">
+            <!-- Unified Timeline with Adjustable Height -->
+            <section class="unified-timeline" id="unifiedTimeline">
+                <div class="timeline-header">
+                    <div class="timeline-title">
+                        <span class="material-icons">timeline</span>
+                        <h3>Activity Timeline</h3>
+                        <button class="timeline-collapse" id="timelineCollapse" title="Toggle Timeline (Ctrl+T)">
+                            <span class="material-icons">expand_less</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Integrated Timeline Controls -->
+                    <div class="timeline-controls">
+                        <div class="time-range-picker">
+                            <select id="timeRange">
+                                <option value="5m">5m</option>
+                                <option value="15m">15m</option>
+                                <option value="1h" selected>1h</option>
+                                <option value="4h">4h</option>
+                            </select>
+                        </div>
+                        <button class="jump-to-now" id="jumpToNow" title="Jump to Now (Space)">
+                            <span class="material-icons">my_location</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="timeline-container" id="timelineContainer">
+                    <div class="time-markers" id="timeMarkers"></div>
+                    <div class="swimlanes-container">
+                        <div class="swimlane" data-session="sess-1">
+                            <div class="swimlane-label">
+                                <span class="session-indicator awaiting"></span>
+                                <span class="session-name">Dashboard UI</span>
+                                <!-- Integrated Performance Sparkline -->
+                                <canvas class="session-sparkline" width="30" height="12"></canvas>
+                            </div>
+                            <div class="swimlane-track">
+                                <div class="event-cluster" style="left: 20%; width: 15%">
+                                    <span class="material-icons event-icon">chat</span>
+                                    <div class="cluster-tooltip">User Prompt + 3 tools</div>
+                                </div>
+                                <div class="event-marker notification current pulse" style="left: 70%">
+                                    <span class="material-icons">notifications_active</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="swimlane" data-session="sess-2">
+                            <div class="swimlane-label">
+                                <span class="session-indicator active"></span>
+                                <span class="session-name">API Integration</span>
+                                <canvas class="session-sparkline" width="30" height="12"></canvas>
+                            </div>
+                            <div class="swimlane-track">
+                                <div class="event-marker tool-use current pulse" style="left: 85%">
+                                    <span class="material-icons">edit</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Timeline Resize Handle -->
+            <div class="resize-handle timeline-resize" id="timelineResize"></div>
+
+            <!-- Unified Event Feed -->
+            <section class="unified-event-feed">
+                <div class="feed-header">
+                    <div class="feed-title">
+                        <span class="material-icons">list</span>
+                        <h3>Event Feed</h3>
+                        <span class="event-count" id="eventCount">(1,247 events)</span>
+                    </div>
+                    
+                    <!-- Integrated Feed Controls -->
+                    <div class="feed-controls">
+                        <div class="inline-filter-checkboxes">
+                            <label class="filter-checkbox">
+                                <input type="checkbox" checked data-type="all">
+                                <span>All</span>
+                            </label>
+                            <label class="filter-checkbox">
+                                <input type="checkbox" data-type="notification">
+                                <span class="material-icons">notifications</span>
+                            </label>
+                            <label class="filter-checkbox">
+                                <input type="checkbox" data-type="error">
+                                <span class="material-icons">error</span>
+                            </label>
+                        </div>
+                        
+                        <button class="auto-scroll active" id="autoScroll" title="Auto-scroll">
+                            <span class="material-icons">vertical_align_bottom</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="event-table-wrapper" id="eventTableWrapper">
+                    <div class="event-table">
+                        <div class="table-header">
+                            <div class="col-time">Time</div>
+                            <div class="col-session">Session</div>
+                            <div class="col-type">Type</div>
+                            <div class="col-tool">Tool</div>
+                            <div class="col-details">Details</div>
+                            <div class="col-duration">Duration</div>
+                        </div>
+                        
+                        <div class="table-body" id="eventTableBody">
+                            <!-- Current Events -->
+                            <div class="event-row current" data-session="sess-1" data-type="notification">
+                                <div class="col-time">14:30:45</div>
+                                <div class="col-session">
+                                    <span class="session-indicator awaiting"></span>
+                                    <span class="session-name">Dashboard UI</span>
+                                </div>
+                                <div class="col-type">
+                                    <span class="material-icons type-icon notification">notifications</span>
+                                    <span class="type-label">Notification</span>
+                                </div>
+                                <div class="col-tool">-</div>
+                                <div class="col-details">Confirm header layout changes?</div>
+                                <div class="col-duration">-</div>
+                            </div>
+
+                            <div class="event-row running" data-session="sess-2" data-type="tool">
+                                <div class="col-time">14:30:42</div>
+                                <div class="col-session">
+                                    <span class="session-indicator active"></span>
+                                    <span class="session-name">API Integration</span>
+                                </div>
+                                <div class="col-type">
+                                    <span class="material-icons type-icon tool">play_arrow</span>
+                                    <span class="type-label">Tool Start</span>
+                                </div>
+                                <div class="col-tool">
+                                    <span class="material-icons">edit</span>
+                                    <span>Edit</span>
+                                </div>
+                                <div class="col-details">Updating API configurations...</div>
+                                <div class="col-duration">
+                                    <span class="duration-running">3.2s</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Auto-loading Pagination -->
+                    <div class="load-more-trigger" id="loadMoreTrigger">
+                        <div class="loading-indicator">
+                            <span class="material-icons rotating">refresh</span>
+                            Loading more events...
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Keyboard Shortcuts Help -->
+    <div class="shortcuts-overlay" id="shortcutsOverlay">
+        <div class="shortcuts-content">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="shortcuts-grid">
+                <div class="shortcut-group">
+                    <h4>Navigation</h4>
+                    <div class="shortcut"><kbd>j</kbd> / <kbd>k</kbd> Navigate events</div>
+                    <div class="shortcut"><kbd>↑</kbd> / <kbd>↓</kbd> Navigate sessions</div>
+                    <div class="shortcut"><kbd>Space</kbd> Jump to now</div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>View</h4>
+                    <div class="shortcut"><kbd>Ctrl+B</kbd> Toggle sidebar</div>
+                    <div class="shortcut"><kbd>Ctrl+T</kbd> Toggle timeline</div>
+                    <div class="shortcut"><kbd>Ctrl+X</kbd> Clear filters</div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>Filters</h4>
+                    <div class="shortcut"><kbd>1-3</kbd> Quick presets</div>
+                    <div class="shortcut"><kbd>/</kbd> Focus search</div>
+                    <div class="shortcut"><kbd>?</kbd> Show this help</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
