@@ -8,11 +8,12 @@
   --text-primary: #ffffff;   /* Primary text */
   --text-secondary: #a0a9c0; /* Secondary text */
   --text-muted: #6b7280;     /* Muted text */
-  --accent-green: #10b981;   /* Success states */
-  --accent-blue: #3b82f6;    /* Info states */
-  --accent-yellow: #f59e0b;  /* Warning states */
-  --accent-red: #ef4444;     /* Error states */
-  --accent-purple: #8b5cf6;  /* Special events */
+  --status-active: #10b981;  /* Active/success states */
+  --status-awaiting: #f59e0b; /* Awaiting/warning states */
+  --status-idle: #6b7280;    /* Idle states */
+  --status-error: #ef4444;   /* Error states */
+  --status-info: #3b82f6;    /* Info states */
+  --status-special: #8b5cf6; /* Special events */
   --border-color: #374151;   /* Borders and dividers */
 }
 
@@ -24,11 +25,12 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
-  --color-accent-green: var(--accent-green);
-  --color-accent-blue: var(--accent-blue);
-  --color-accent-yellow: var(--accent-yellow);
-  --color-accent-red: var(--accent-red);
-  --color-accent-purple: var(--accent-purple);
+  --color-status-active: var(--status-active);
+  --color-status-awaiting: var(--status-awaiting);
+  --color-status-idle: var(--status-idle);
+  --color-status-error: var(--status-error);
+  --color-status-info: var(--status-info);
+  --color-status-special: var(--status-special);
   --color-border: var(--border-color);
   
   /* Font configuration */
