@@ -3,9 +3,19 @@ import type { Database } from './types';
 import { config, configUtils } from './config';
 import { logger } from './utils';
 
-// Get Supabase URL and key, with fallbacks for client-side loading
-const supabaseUrl = config.supabase.url || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = config.supabase.anonKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Get Supabase URL and key, prioritizing env vars for client-side
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || config.supabase.url || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || config.supabase.anonKey || '';
+
+// Debug: Log what we're using
+console.log('🔧 Supabase Client Initialization:', {
+  url: supabaseUrl,
+  keyPrefix: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'missing',
+  hasEnvUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  hasEnvKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  hasConfigUrl: !!config.supabase.url,
+  hasConfigKey: !!config.supabase.anonKey,
+});
 
 // Validate we have required config before creating client
 if (!supabaseUrl || !supabaseAnonKey) {

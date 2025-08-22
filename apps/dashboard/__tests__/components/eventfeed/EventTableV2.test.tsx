@@ -1,81 +1,28 @@
-/**
- * Tests for EventTableV2 component
- * High-performance dense event table with virtual scrolling
- */
-
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
-import { EventTableV2 } from '@/components/eventfeed/EventTableV2';
-import { Event } from '@/types/events';
+import { screen, waitFor, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { renderWithProviders, checkAccessibility } from '../../../src/test-utils/renderHelpers';
+import { 
+  createMockEvents, 
+  createLargeEventDataset,
+  createHighFrequencyEventStream 
+} from '../../../src/test-utils/mockData';
+import { PerformanceMonitor, PERFORMANCE_BENCHMARKS } from '../../../src/test-utils/performanceHelpers';
+import { EventTableV2 } from '../../../src/components/eventfeed/EventTableV2';
 
-// Mock react-window
-jest.mock('react-window', () => ({
-  FixedSizeList: React.forwardRef(({ children, itemCount, itemSize, height, width, itemData }: any, ref: any) => (
-    <div 
-      ref={ref}
-      data-testid="virtual-list"
-      style={{ height, width }}
-      data-item-count={itemCount}
-      data-item-size={itemSize}
-    >
-      {Array.from({ length: Math.min(itemCount, 10) }, (_, index) => (
-        <div key={index}>
-          {children({ index, style: { height: itemSize }, data: itemData })}
-        </div>
-      ))}
-    </div>
-  ))
-}));
-
-const mockEvents: Event[] = [
-  {
-    id: 'event-1',
-    session_id: 'session-1',
-    event_type: 'user_prompt_submit',
-    timestamp: '2024-01-01T10:00:00Z',
-    metadata: { prompt: 'Test prompt' },
-    created_at: '2024-01-01T10:00:00Z'
-  },
-  {
-    id: 'event-2',
-    session_id: 'session-1',
-    event_type: 'pre_tool_use',
-    timestamp: '2024-01-01T10:00:01Z',
-    metadata: { tool_input: {} },
-    tool_name: 'Read',
-    created_at: '2024-01-01T10:00:01Z'
-  },
-  {
-    id: 'event-3',
-    session_id: 'session-1',
-    event_type: 'post_tool_use',
-    timestamp: '2024-01-01T10:00:02Z',
-    metadata: { tool_response: { success: true } },
-    tool_name: 'Read',
-    duration_ms: 150,
-    created_at: '2024-01-01T10:00:02Z'
-  }
-];
-
-const mockSessions = [
-  {
-    id: 'session-1',
-    claude_session_id: 'claude-1',
-    project_path: '/test/project',
-    git_branch: 'main',
-    start_time: '2024-01-01T09:00:00Z',
-    metadata: {},
-    created_at: '2024-01-01T09:00:00Z'
-  }
-];
-
-describe('EventTableV2', () => {
+describe('EventTableV2 Component', () => {
+  const mockEvents = createMockEvents(20, 'session_test');
+  
   const defaultProps = {
     events: mockEvents,
-    sessions: mockSessions,
-    height: 400,
-    width: 800
+    loading: false,
+    error: null,
+    onEventSelect: jest.fn(),
+    onLoadMore: jest.fn(),
+    hasMore: true,
+    selectedEventId: null,
+    autoScroll: true,
+    onAutoScrollToggle: jest.fn(),
   };
 
   beforeEach(() => {
@@ -83,206 +30,174 @@ describe('EventTableV2', () => {
   });
 
   describe('Rendering', () => {
-    it('renders the table with correct structure', () => {
-      render(<EventTableV2 {...defaultProps} />);
+    it('should render event table with all events', () => {
+      renderWithProviders(<EventTableV2 {...defaultProps} />);
       
-      expect(screen.getByTestId('event-table-v2')).toBeInTheDocument();
-      expect(screen.getByTestId('virtual-list')).toBeInTheDocument();
-    });
-
-    it('renders table headers with correct columns', () => {
-      render(<EventTableV2 {...defaultProps} />);
-      
-      expect(screen.getByText('Time')).toBeInTheDocument();
+      expect(screen.getByRole('table')).toBeInTheDocument();
+      expect(screen.getByText('Event Type')).toBeInTheDocument();
+      expect(screen.getByText('Timestamp')).toBeInTheDocument();
       expect(screen.getByText('Session')).toBeInTheDocument();
-      expect(screen.getByText('Type')).toBeInTheDocument();
-      expect(screen.getByText('Tool')).toBeInTheDocument();
-      expect(screen.getByText('Details')).toBeInTheDocument();
+      
+      // Should render all event rows
+      const eventRows = screen.getAllByTestId(/^event-row-/);
+      expect(eventRows).toHaveLength(20);
     });
 
-    it('configures virtual list with correct parameters', () => {
-      render(<EventTableV2 {...defaultProps} />);
+    it('should show loading state', () => {
+      renderWithProviders(
+        <EventTableV2 
+          {...defaultProps} 
+          loading={true}
+          events={[]}
+        />
+      );
       
-      const virtualList = screen.getByTestId('virtual-list');
-      expect(virtualList).toHaveAttribute('data-item-count', '3');
-      expect(virtualList).toHaveAttribute('data-item-size', '24');
-      expect(virtualList).toHaveStyle({ height: '376px' }); // 400 - 24px header
+      expect(screen.getByTestId('table-loading')).toBeInTheDocument();
+      expect(screen.getAllByTestId('skeleton-row')).toHaveLength(10); // Default skeleton rows
+    });
+
+    it('should display empty state when no events', () => {
+      renderWithProviders(
+        <EventTableV2 
+          {...defaultProps} 
+          events={[]}
+          loading={false}
+        />
+      );
+      
+      expect(screen.getByText('No events found')).toBeInTheDocument();
+      expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+    });
+
+    it('should show error state', () => {
+      renderWithProviders(
+        <EventTableV2 
+          {...defaultProps} 
+          error="Failed to load events"
+          events={[]}
+        />
+      );
+      
+      expect(screen.getByText('Failed to load events')).toBeInTheDocument();
+      expect(screen.getByTestId('error-state')).toBeInTheDocument();
     });
   });
 
-  describe('Dense Layout', () => {
-    it('uses 24px row height for density', () => {
-      render(<EventTableV2 {...defaultProps} />);
+  describe('Event Selection', () => {
+    it('should highlight selected event', () => {
+      const selectedEvent = mockEvents[5];
+      renderWithProviders(
+        <EventTableV2 
+          {...defaultProps} 
+          selectedEventId={selectedEvent.id}
+        />
+      );
       
-      const virtualList = screen.getByTestId('virtual-list');
-      expect(virtualList).toHaveAttribute('data-item-size', '24');
+      const selectedRow = screen.getByTestId(`event-row-${selectedEvent.id}`);
+      expect(selectedRow).toHaveClass('selected');
     });
 
-    it('applies correct column widths from PRD', () => {
-      render(<EventTableV2 {...defaultProps} />);
+    it('should call onEventSelect when event is clicked', async () => {
+      const user = userEvent.setup();
+      const mockOnEventSelect = jest.fn();
       
-      const table = screen.getByTestId('event-table-v2');
-      const computedStyle = window.getComputedStyle(table);
+      renderWithProviders(
+        <EventTableV2 
+          {...defaultProps} 
+          onEventSelect={mockOnEventSelect}
+        />
+      );
       
-      // Should use grid template columns: 85px 140px 110px 90px 1fr
-      expect(computedStyle.gridTemplateColumns).toBe('85px 140px 110px 90px 1fr');
+      const firstEventRow = screen.getByTestId(`event-row-${mockEvents[0].id}`);
+      await user.click(firstEventRow);
+      
+      expect(mockOnEventSelect).toHaveBeenCalledWith(mockEvents[0].id);
     });
 
-    it('uses 13px monospace typography for data', () => {
-      render(<EventTableV2 {...defaultProps} />);
+    it('should support keyboard navigation', async () => {
+      const user = userEvent.setup();
+      const mockOnEventSelect = jest.fn();
       
-      const table = screen.getByTestId('event-table-v2');
-      expect(table).toHaveClass('font-mono', 'text-xs'); // text-xs = 12px, close to 13px
-    });
-  });
-
-  describe('Virtual Scrolling', () => {
-    it('handles large datasets efficiently', () => {
-      const largeEventSet = Array.from({ length: 1000 }, (_, i) => ({
-        ...mockEvents[0],
-        id: `event-${i}`,
-        timestamp: new Date(Date.now() + i * 1000).toISOString()
-      }));
-
-      render(<EventTableV2 {...defaultProps} events={largeEventSet} />);
+      renderWithProviders(
+        <EventTableV2 
+          {...defaultProps} 
+          onEventSelect={mockOnEventSelect}
+        />
+      );
       
-      const virtualList = screen.getByTestId('virtual-list');
-      expect(virtualList).toHaveAttribute('data-item-count', '1000');
+      const firstEventRow = screen.getByTestId(`event-row-${mockEvents[0].id}`);
+      firstEventRow.focus();
       
-      // Should only render visible items (10 in our mock)
-      const renderedItems = screen.getAllByText(/event-/);
-      expect(renderedItems.length).toBeLessThanOrEqual(10);
-    });
-
-    it('maintains scroll position during updates', async () => {
-      const { rerender } = render(<EventTableV2 {...defaultProps} />);
+      await user.keyboard('{Enter}');
+      expect(mockOnEventSelect).toHaveBeenCalledWith(mockEvents[0].id);
       
-      // Add new events
-      const updatedEvents = [
-        ...mockEvents,
-        {
-          ...mockEvents[0],
-          id: 'event-4',
-          timestamp: '2024-01-01T10:00:03Z',
-          created_at: '2024-01-01T10:00:03Z'
-        }
-      ];
-
-      rerender(<EventTableV2 {...defaultProps} events={updatedEvents} />);
-      
-      await waitFor(() => {
-        const virtualList = screen.getByTestId('virtual-list');
-        expect(virtualList).toHaveAttribute('data-item-count', '4');
-      });
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{Enter}');
+      expect(mockOnEventSelect).toHaveBeenCalledWith(mockEvents[1].id);
     });
   });
 
   describe('Performance', () => {
-    it('handles real-time updates without performance degradation', () => {
-      const { rerender } = render(<EventTableV2 {...defaultProps} />);
+    it('should handle large datasets efficiently', async () => {
+      const { events } = createLargeEventDataset(1000, 30);
+      const performanceMonitor = new PerformanceMonitor();
+      
+      performanceMonitor.startMeasurement();
+      renderWithProviders(
+        <EventTableV2 
+          {...defaultProps} 
+          events={events}
+        />
+      );
+      const renderTime = performanceMonitor.endMeasurement();
+      
+      const benchmark = PERFORMANCE_BENCHMARKS.sessionLoad;
+      const validation = performanceMonitor.validateBenchmark(benchmark, renderTime);
+      
+      expect(validation.passed).toBe(true);
+      expect(renderTime).toBeLessThan(300); // 300ms for large dataset
+    });
+
+    it('should handle high-frequency updates efficiently', async () => {
+      const { rerender } = renderWithProviders(<EventTableV2 {...defaultProps} />);
+      const performanceMonitor = new PerformanceMonitor();
+      
+      performanceMonitor.startMeasurement();
       
       // Simulate rapid event updates
-      for (let i = 0; i < 50; i++) {
-        const newEvents = [
-          ...mockEvents,
-          {
-            ...mockEvents[0],
-            id: `rapid-event-${i}`,
-            timestamp: new Date(Date.now() + i * 100).toISOString()
-          }
-        ];
-        rerender(<EventTableV2 {...defaultProps} events={newEvents} />);
+      for (let i = 0; i < 20; i++) {
+        const newEvents = [...mockEvents, ...createMockEvents(5, `session_${i}`)];
+        rerender(
+          <EventTableV2 
+            {...defaultProps} 
+            events={newEvents}
+          />
+        );
       }
       
-      // Should still be responsive
-      expect(screen.getByTestId('virtual-list')).toBeInTheDocument();
-    });
-
-    it('uses React.memo for performance optimization', () => {
-      // Check that component is memoized
-      expect(EventTableV2.displayName).toContain('memo');
-    });
-  });
-
-  describe('Auto-scroll functionality', () => {
-    it('provides auto-scroll toggle control', () => {
-      render(<EventTableV2 {...defaultProps} />);
-      
-      const autoScrollToggle = screen.getByTestId('auto-scroll-toggle');
-      expect(autoScrollToggle).toBeInTheDocument();
-    });
-
-    it('auto-scrolls to top when enabled and new events arrive', async () => {
-      const { rerender } = render(<EventTableV2 {...defaultProps} autoScroll={true} />);
-      
-      const newEvents = [
-        {
-          ...mockEvents[0],
-          id: 'new-event',
-          timestamp: '2024-01-01T10:00:10Z'
-        },
-        ...mockEvents
-      ];
-
-      rerender(<EventTableV2 {...defaultProps} events={newEvents} autoScroll={true} />);
-      
-      // Should scroll to top (index 0)
-      await waitFor(() => {
-        const virtualList = screen.getByTestId('virtual-list');
-        expect(virtualList).toHaveAttribute('data-scroll-to-item', '0');
-      });
-    });
-
-    it('preserves manual scroll position when auto-scroll is disabled', () => {
-      render(<EventTableV2 {...defaultProps} autoScroll={false} />);
-      
-      const virtualList = screen.getByTestId('virtual-list');
-      expect(virtualList).not.toHaveAttribute('data-scroll-to-item');
-    });
-  });
-
-  describe('Error handling', () => {
-    it('handles empty events array gracefully', () => {
-      render(<EventTableV2 {...defaultProps} events={[]} />);
-      
-      expect(screen.getByTestId('event-table-v2')).toBeInTheDocument();
-      // Should show empty state instead of virtual list when no events
-      expect(screen.getByTestId('empty-state')).toBeInTheDocument();
-    });
-
-    it('handles missing session data gracefully', () => {
-      render(<EventTableV2 {...defaultProps} sessions={[]} />);
-      
-      expect(screen.getByTestId('event-table-v2')).toBeInTheDocument();
-      // Should still render events, just without session context
-    });
-
-    it('handles invalid event data gracefully', () => {
-      const invalidEvents = [
-        { id: 'invalid' }, // Missing required fields
-        ...mockEvents
-      ];
-
-      render(<EventTableV2 {...defaultProps} events={invalidEvents as any} />);
-      
-      // Should filter out invalid events
-      const virtualList = screen.getByTestId('virtual-list');
-      expect(virtualList).toHaveAttribute('data-item-count', '3'); // Only valid events
+      const updateTime = performanceMonitor.endMeasurement();
+      expect(updateTime).toBeLessThan(200); // Should handle rapid updates
     });
   });
 
   describe('Accessibility', () => {
-    it('provides proper ARIA labels', () => {
-      render(<EventTableV2 {...defaultProps} />);
-      
-      expect(screen.getByRole('table')).toHaveAttribute('aria-label', 'Event feed table');
+    it('should be accessible', () => {
+      const { container } = renderWithProviders(<EventTableV2 {...defaultProps} />);
+      const issues = checkAccessibility(container);
+      expect(issues).toHaveLength(0);
     });
 
-    it('supports keyboard navigation', () => {
-      render(<EventTableV2 {...defaultProps} />);
+    it('should have proper table structure', () => {
+      renderWithProviders(<EventTableV2 {...defaultProps} />);
       
-      const table = screen.getByTestId('event-table-v2');
-      expect(table).toHaveAttribute('tabIndex', '0');
+      const table = screen.getByRole('table');
+      expect(table).toHaveAttribute('aria-label', 'Events table');
+      
+      const columnHeaders = screen.getAllByRole('columnheader');
+      expect(columnHeaders).toHaveLength(4); // Type, Timestamp, Session, Actions
+      
+      const rows = screen.getAllByRole('row');
+      expect(rows.length).toBeGreaterThan(1); // Header + data rows
     });
   });
 });

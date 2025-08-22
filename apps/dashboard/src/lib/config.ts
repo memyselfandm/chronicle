@@ -98,9 +98,8 @@ export interface AppConfig {
  * Validates required environment variables
  */
 function validateEnvironment(): void {
-  // Only validate on server-side or in development
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-    // Skip validation on client-side in production
+  // Skip validation on client-side - Next.js populates env vars after initial load
+  if (typeof window !== 'undefined') {
     return;
   }
   

@@ -146,9 +146,9 @@ export const useSupabaseConnection = (options: UseSupabaseConnectionOptions = {}
    */
   const performHealthCheck = useCallback(async (): Promise<boolean> => {
     try {
-      // Simple query to test connection
+      // Simple query to test connection - use sessions table which we know works
       const { error } = await supabase
-        .from('chronicle_events')
+        .from('chronicle_sessions')
         .select('id')
         .limit(1);
 

@@ -1,0 +1,481 @@
+/**
+ * Responsive Design System - Chronicle Dashboard
+ * 
+ * Breakpoints:
+ * - Mobile: < 768px
+ * - Tablet: 768px - 1024px  
+ * - Desktop: > 1024px
+ * 
+ * Features:
+ * - CSS Grid responsive layouts
+ * - Touch-friendly interactions
+ * - Optimized spacing and sizing
+ * - Performance-focused animations
+ * - Accessibility improvements
+ */
+
+/* CSS Custom Properties for Responsive Design */
+:root {
+  /* Breakpoints */
+  --breakpoint-mobile: 768px;
+  --breakpoint-tablet: 1024px;
+  
+  /* Layout Dimensions */
+  --header-height: 40px;
+  --sidebar-width-expanded: 220px;
+  --sidebar-width-collapsed: 48px;
+  --sidebar-width-mobile: 280px;
+  
+  /* Spacing Scale */
+  --spacing-xs: 0.25rem;  /* 4px */
+  --spacing-sm: 0.5rem;   /* 8px */
+  --spacing-md: 1rem;     /* 16px */
+  --spacing-lg: 1.5rem;   /* 24px */
+  --spacing-xl: 2rem;     /* 32px */
+  --spacing-2xl: 3rem;    /* 48px */
+  
+  /* Typography Scale */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  
+  /* Touch Targets */
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+  
+  /* Animation Durations */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  
+  /* Z-Index Scale */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+}
+
+/* Base Responsive Grid */
+.responsive-grid {
+  display: grid;
+  min-height: 100vh;
+  width: 100%;
+  transition: all var(--duration-normal) ease-in-out;
+}
+
+/* Grid Areas */
+.header-area {
+  grid-area: header;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  height: var(--header-height);
+}
+
+.sidebar-area {
+  grid-area: sidebar;
+  position: relative;
+  overflow: hidden;
+  transition: width var(--duration-normal) ease-in-out;
+}
+
+.main-area {
+  grid-area: main;
+  overflow: hidden;
+  min-width: 0; /* Prevent flex/grid overflow */
+}
+
+/* Desktop Layout (> 1024px) */
+@media (min-width: 1025px) {
+  .responsive-grid {
+    grid-template-areas: 
+      "header header"
+      "sidebar main";
+    grid-template-rows: var(--header-height) 1fr;
+  }
+  
+  .responsive-grid[data-sidebar-collapsed="false"] {
+    grid-template-columns: var(--sidebar-width-expanded) 1fr;
+  }
+  
+  .responsive-grid[data-sidebar-collapsed="true"] {
+    grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+  }
+  
+  /* Desktop sidebar */
+  .sidebar-area {
+    position: relative;
+    transform: translateX(0);
+  }
+  
+  /* Desktop main content */
+  .main-area {
+    padding: var(--spacing-md);
+  }
+}
+
+/* Tablet Layout (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .responsive-grid {
+    grid-template-areas: 
+      "header header"
+      "sidebar main";
+    grid-template-rows: var(--header-height) 1fr;
+  }
+  
+  .responsive-grid[data-sidebar-collapsed="false"] {
+    grid-template-columns: var(--sidebar-width-expanded) 1fr;
+  }
+  
+  .responsive-grid[data-sidebar-collapsed="true"] {
+    grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+  }
+  
+  /* Tablet-specific adjustments */
+  .main-area {
+    padding: var(--spacing-sm);
+  }
+  
+  /* Slightly larger touch targets for tablet */
+  .touch-target {
+    min-height: var(--touch-target-comfortable);
+    min-width: var(--touch-target-comfortable);
+  }
+}
+
+/* Mobile Layout (< 768px) */
+@media (max-width: 767px) {
+  .responsive-grid {
+    grid-template-areas: 
+      "header"
+      "main";
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--header-height) 1fr;
+  }
+  
+  /* Mobile sidebar - overlay style */
+  .sidebar-area {
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    height: calc(100vh - var(--header-height));
+    width: var(--sidebar-width-mobile);
+    z-index: var(--z-modal);
+    transform: translateX(-100%);
+    transition: transform var(--duration-normal) ease-in-out;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .responsive-grid[data-sidebar-collapsed="false"] .sidebar-area {
+    transform: translateX(0);
+  }
+  
+  /* Mobile main content */
+  .main-area {
+    padding: var(--spacing-sm);
+    width: 100%;
+  }
+  
+  /* Mobile touch targets */
+  .touch-target {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    padding: var(--spacing-sm);
+  }
+  
+  /* Mobile text scaling */
+  .responsive-text {
+    font-size: var(--text-sm);
+  }
+  
+  /* Hide non-essential elements on mobile */
+  .mobile-hidden {
+    display: none;
+  }
+  
+  /* Compact spacing on mobile */
+  .mobile-compact {
+    padding: var(--spacing-xs);
+    margin: var(--spacing-xs);
+  }
+}
+
+/* Component-Specific Responsive Styles */
+
+/* Header Responsive */
+.header-responsive {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+@media (max-width: 767px) {
+  .header-responsive {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .header-responsive .header-title {
+    font-size: var(--text-lg);
+  }
+  
+  .header-responsive .header-subtitle {
+    display: none;
+  }
+}
+
+/* Event Feed Responsive */
+.event-feed-responsive {
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .event-feed-responsive {
+    /* Smaller row heights on mobile */
+    --event-row-height: 32px;
+  }
+  
+  .event-feed-responsive .event-details {
+    display: none; /* Hide detailed metadata on mobile */
+  }
+  
+  .event-feed-responsive .event-timestamp {
+    font-size: var(--text-xs);
+  }
+}
+
+/* Sidebar Responsive */
+.sidebar-responsive {
+  transition: all var(--duration-normal) ease-in-out;
+}
+
+@media (max-width: 767px) {
+  .sidebar-responsive {
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+  }
+  
+  .sidebar-responsive .sidebar-section {
+    padding: var(--spacing-md);
+  }
+  
+  .sidebar-responsive .sidebar-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--spacing-sm);
+  }
+}
+
+/* Button Responsive */
+.button-responsive {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--spacing-xs);
+  transition: all var(--duration-fast) ease-in-out;
+}
+
+@media (max-width: 767px) {
+  .button-responsive {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    padding: var(--spacing-sm) var(--spacing-lg);
+  }
+}
+
+/* Card Responsive */
+.card-responsive {
+  border-radius: var(--spacing-sm);
+  padding: var(--spacing-md);
+  margin: var(--spacing-sm);
+}
+
+@media (max-width: 767px) {
+  .card-responsive {
+    padding: var(--spacing-sm);
+    margin: var(--spacing-xs);
+    border-radius: var(--spacing-xs);
+  }
+}
+
+/* Modal Responsive */
+.modal-responsive {
+  max-width: 90vw;
+  max-height: 90vh;
+  margin: var(--spacing-md);
+}
+
+@media (max-width: 767px) {
+  .modal-responsive {
+    max-width: 95vw;
+    max-height: 95vh;
+    margin: var(--spacing-sm);
+  }
+}
+
+/* Form Responsive */
+.form-responsive .form-field {
+  margin-bottom: var(--spacing-md);
+}
+
+@media (max-width: 767px) {
+  .form-responsive .form-field {
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .form-responsive .form-label {
+    font-size: var(--text-sm);
+  }
+  
+  .form-responsive .form-input {
+    min-height: var(--touch-target-min);
+    font-size: var(--text-base); /* Prevent zoom on iOS */
+  }
+}
+
+/* Utility Classes */
+
+/* Responsive spacing */
+.space-responsive {
+  padding: var(--spacing-md);
+}
+
+@media (max-width: 767px) {
+  .space-responsive {
+    padding: var(--spacing-sm);
+  }
+}
+
+/* Responsive text */
+.text-responsive {
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+@media (max-width: 767px) {
+  .text-responsive {
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+}
+
+/* Responsive visibility */
+.desktop-only {
+  display: block;
+}
+
+.tablet-up {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .desktop-only {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .tablet-up {
+    display: none;
+  }
+  
+  .mobile-only {
+    display: block;
+  }
+}
+
+/* Responsive grid containers */
+.grid-responsive {
+  display: grid;
+  gap: var(--spacing-md);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+@media (max-width: 767px) {
+  .grid-responsive {
+    gap: var(--spacing-sm);
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Flexbox responsive utilities */
+.flex-responsive {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .flex-responsive {
+    gap: var(--spacing-sm);
+    flex-direction: column;
+  }
+}
+
+/* Scroll behavior */
+.scroll-responsive {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+/* Focus states for accessibility */
+.focus-responsive:focus {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .focus-responsive:focus {
+    outline-width: 3px; /* Thicker outline on mobile */
+  }
+}
+
+/* Animation performance */
+@media (prefers-reduced-motion: reduce) {
+  .responsive-grid,
+  .sidebar-area,
+  .button-responsive,
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .responsive-grid {
+    border: 1px solid currentColor;
+  }
+  
+  .sidebar-area {
+    border-right: 2px solid currentColor;
+  }
+}
+
+/* Dark mode responsive adjustments */
+@media (prefers-color-scheme: dark) {
+  .responsive-grid {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+}
+
+/* Print styles */
+@media print {
+  .responsive-grid {
+    display: block;
+  }
+  
+  .sidebar-area {
+    display: none;
+  }
+  
+  .main-area {
+    width: 100%;
+  }
+}
