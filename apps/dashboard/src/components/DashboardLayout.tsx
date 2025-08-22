@@ -69,16 +69,34 @@ export function DashboardLayout({
   // Update store when data changes
   useEffect(() => {
     if (sessions && sessions.length > 0) {
-      // Convert sessions to store format
-      const storeSessions = sessions.map(s => ({
-        id: s.id,
-        status: s.end_time ? 'completed' as const : 'active' as const,
-        startTime: new Date(s.start_time),
-        endTime: s.end_time ? new Date(s.end_time) : undefined,
-        toolsUsed: 0, // Will be populated from events
-        eventsCount: 0, // Will be populated from events
-        lastActivity: new Date(s.start_time)
-      }));
+      // Convert sessions to store format with enhanced fields
+      const storeSessions = sessions.map(s => {
+        // Determine status based on last event time and type
+        let status: 'active' | 'idle' | 'completed' | 'error' = 'active';
+        
+        if (s.end_time) {
+          status = 'completed';
+        } else if (s.minutes_since_last_event && s.minutes_since_last_event > 5) {
+          status = 'idle';
+        } else if (s.is_awaiting) {
+          status = 'idle'; // Awaiting sessions are technically idle
+        }
+        
+        return {
+          id: s.id,
+          status,
+          projectPath: s.project_path || 'Unknown Project',
+          gitBranch: s.git_branch || 'main',
+          startTime: new Date(s.start_time),
+          endTime: s.end_time ? new Date(s.end_time) : undefined,
+          lastActivity: s.last_event_time ? new Date(s.last_event_time) : new Date(s.start_time),
+          minutesSinceLastEvent: s.minutes_since_last_event || 0,
+          isAwaiting: s.is_awaiting || false,
+          lastEventType: s.last_event_type || null,
+          toolsUsed: 0, // Will be populated from events
+          eventsCount: 0, // Will be populated from events
+        };
+      });
       setSessions(storeSessions);
       console.log('✅ Updated store with', storeSessions.length, 'sessions');
     }

@@ -18,6 +18,7 @@ interface UseSessionsState {
   loading: boolean;
   error: Error | null;
   retry: () => Promise<void>;
+  fetchSessions: (timeRangeMinutes?: number) => Promise<void>;
   getSessionDuration: (session: Session) => number | null;
   getSessionSuccessRate: (sessionId: string) => number | null;
   isSessionActive: (sessionId: string) => Promise<boolean>;
@@ -99,19 +100,73 @@ export const useSessions = (): UseSessionsState => {
   }, []);
 
   /**
-   * Fetches sessions from Supabase
+   * Fetches sessions from Supabase based on recent event activity
    */
-  const fetchSessions = useCallback(async (): Promise<void> => {
+  const fetchSessions = useCallback(async (timeRangeMinutes: number = 20): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all sessions, excluding any that might be test data
-      console.log('🔍 Fetching sessions from Supabase...');
+      // Step 1: Get events from the specified time range
+      const timeAgo = new Date();
+      timeAgo.setMinutes(timeAgo.getMinutes() - timeRangeMinutes);
+      
+      console.log(`🔍 Fetching events from last ${timeRangeMinutes} minutes...`);
+      const { data: recentEvents, error: eventsError } = await supabase
+        .from('chronicle_events')
+        .select('session_id, timestamp, event_type, metadata')
+        .gte('timestamp', timeAgo.toISOString())
+        .order('timestamp', { ascending: false });
+
+      if (eventsError) {
+        console.error('Error fetching recent events:', eventsError);
+        throw eventsError;
+      }
+
+      // Step 2: Get unique session IDs from recent events
+      const activeSessionIds = [...new Set(recentEvents?.map(e => e.session_id) || [])];
+      
+      console.log(`📊 Found ${activeSessionIds.length} active sessions from ${recentEvents?.length || 0} recent events`);
+      console.log('Recent events sample:', recentEvents?.slice(0, 3));
+
+      if (activeSessionIds.length === 0) {
+        console.log('⚠️ No active sessions found in the last', timeRangeMinutes, 'minutes');
+        console.log('💡 Falling back to fetching ALL sessions for debugging...');
+        
+        // Fallback: fetch all sessions to debug the issue
+        const { data: allSessions, error: allSessionsError } = await supabase
+          .from('chronicle_sessions')
+          .select('*')
+          .neq('project_path', 'test')
+          .order('start_time', { ascending: false })
+          .limit(10); // Limit to 10 for debugging
+        
+        console.log('All sessions (limited to 10):', allSessions);
+        
+        if (allSessions && allSessions.length > 0) {
+          // Map them with default values since we don't have event data
+          const sessionsWithDefaults = allSessions.map(session => ({
+            ...session,
+            last_event_time: session.start_time,
+            minutes_since_last_event: Math.floor((Date.now() - new Date(session.start_time).getTime()) / 60000),
+            is_awaiting: false,
+            last_event_type: null
+          }));
+          setSessions(sessionsWithDefaults);
+        } else {
+          setSessions([]);
+        }
+        
+        setLoading(false); // Make sure to clear loading state
+        return;
+      }
+
+      // Step 3: Fetch only those sessions that have recent activity
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('chronicle_sessions')
         .select('*')
-        .neq('project_path', 'test') // Exclude test sessions
+        .in('id', activeSessionIds)
+        .neq('project_path', 'test') // Still exclude test sessions
         .order('start_time', { ascending: false });
 
       console.log('📊 Sessions query result:', {
@@ -124,13 +179,37 @@ export const useSessions = (): UseSessionsState => {
         throw sessionsError;
       }
 
-      const fetchedSessions = sessionsData || [];
-      setSessions(fetchedSessions);
+      // Step 4: Enhance sessions with last event time and status
+      const sessionsWithLastEvent = (sessionsData || []).map(session => {
+        const sessionEvents = recentEvents?.filter(e => e.session_id === session.id) || [];
+        const lastEvent = sessionEvents[0];
+        const lastEventTime = lastEvent?.timestamp || session.start_time;
+        const minutesSinceLastEvent = Math.floor((Date.now() - new Date(lastEventTime).getTime()) / 60000);
+        
+        // Determine if session is awaiting input
+        const isAwaiting = lastEvent?.event_type === 'notification' && 
+          lastEvent?.metadata?.requires_response === true;
+        
+        return {
+          ...session,
+          last_event_time: lastEventTime,
+          minutes_since_last_event: minutesSinceLastEvent,
+          is_awaiting: isAwaiting,
+          last_event_type: lastEvent?.event_type || null
+        };
+      });
+
+      // Sort by last event time (most recent first)
+      const sortedSessions = sessionsWithLastEvent.sort((a, b) => {
+        return new Date(b.last_event_time).getTime() - new Date(a.last_event_time).getTime();
+      });
+
+      setSessions(sortedSessions);
 
       // Don't wait for summaries - they can load async
       // This prevents the loading state from being stuck
-      if (fetchedSessions.length > 0) {
-        const sessionIds = fetchedSessions.map(s => s.id);
+      if (sortedSessions.length > 0) {
+        const sessionIds = sortedSessions.map(s => s.id);
         // Fire and forget - summaries will load in background
         fetchSessionSummaries(sessionIds).then(summaries => {
           const summaryMap = new Map<string, SessionSummary>();
@@ -272,9 +351,9 @@ export const useSessions = (): UseSessionsState => {
     return !session.end_time;
   });
 
-  // Initial data fetch
+  // Initial data fetch with default 20-minute time range
   useEffect(() => {
-    fetchSessions();
+    fetchSessions(20); // Default to last 20 minutes
   }, []); // Remove dependencies to prevent infinite loop
 
   // Update session end times after sessions are loaded
@@ -291,6 +370,7 @@ export const useSessions = (): UseSessionsState => {
     loading,
     error,
     retry,
+    fetchSessions,
     getSessionDuration,
     getSessionSuccessRate,
     isSessionActive,

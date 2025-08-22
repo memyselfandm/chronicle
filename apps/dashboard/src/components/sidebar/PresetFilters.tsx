@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useDashboardStore } from '@/stores/dashboardStore';
+import { useSessions } from '@/hooks/useSessions';
 
 /**
  * Preset filter buttons for quick access
@@ -16,6 +17,9 @@ export function PresetFilters() {
     getFilteredSessions,
     getFilteredEvents
   } = useDashboardStore();
+  
+  const { fetchSessions } = useSessions();
+  const [selectedTimeRange, setSelectedTimeRange] = useState(20); // Default 20 minutes
 
   // Define filter presets
   const presets = [
@@ -150,8 +154,49 @@ export function PresetFilters() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // Time range options
+  const timeRanges = [
+    { label: 'Active (5m)', value: 5, icon: '⚡' },
+    { label: 'Recent (20m)', value: 20, icon: '🕐' },
+    { label: 'Hour', value: 60, icon: '⏰' },
+    { label: 'Today', value: 1440, icon: '📅' },
+  ];
+
+  // Handle time range change
+  const handleTimeRangeChange = useCallback(async (minutes: number) => {
+    setSelectedTimeRange(minutes);
+    updateFilters({ timeRangeMinutes: minutes });
+    await fetchSessions(minutes); // Refetch sessions with new time range
+  }, [updateFilters, fetchSessions]);
+
   return (
     <div className="p-3">
+      {/* Time Range Selector */}
+      <h3 className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
+        Activity Range
+      </h3>
+      
+      <div className="grid grid-cols-2 gap-1 mb-4">
+        {timeRanges.map((range) => (
+          <button
+            key={range.value}
+            onClick={() => handleTimeRangeChange(range.value)}
+            className={`
+              px-2 py-1.5 text-xs rounded-md transition-colors
+              ${
+                selectedTimeRange === range.value
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }
+            `}
+            title={`Show sessions active in last ${range.label}`}
+          >
+            <span className="mr-1">{range.icon}</span>
+            {range.label}
+          </button>
+        ))}
+      </div>
+
       <h3 className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
         Quick Filters
       </h3>

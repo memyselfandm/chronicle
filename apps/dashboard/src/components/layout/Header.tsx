@@ -39,7 +39,7 @@ export function Header() {
     const checkConnection = async () => {
       try {
         const start = Date.now();
-        const { data, error } = await supabase.from('sessions').select('id').limit(1);
+        const { error } = await supabase.from('sessions').select('id').limit(1);
         const end = Date.now();
         
         if (!error) {

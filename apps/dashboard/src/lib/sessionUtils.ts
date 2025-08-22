@@ -11,13 +11,13 @@ import { Session } from '../types/events';
  * Uses project_path and git_branch from session metadata or database fields
  */
 export function formatSessionDisplay(session: SessionData | Session): string {
-  // Handle both SessionData and Session types
-  const projectPath = 'project_path' in session 
-    ? session.project_path 
-    : session.metadata?.project_path;
-  const gitBranch = 'git_branch' in session 
-    ? session.git_branch 
-    : session.metadata?.git_branch;
+  // Handle both SessionData (from store) and Session (from DB) types
+  const projectPath = 'projectPath' in session 
+    ? session.projectPath 
+    : ('project_path' in session ? session.project_path : session.metadata?.project_path);
+  const gitBranch = 'gitBranch' in session 
+    ? session.gitBranch 
+    : ('git_branch' in session ? session.git_branch : session.metadata?.git_branch);
 
   // Extract folder name from project path
   const folderName = projectPath 
@@ -138,7 +138,7 @@ export function filterSessionsBySearch(
  */
 export function groupSessionsByProject(sessions: SessionData[]): Record<string, SessionData[]> {
   return sessions.reduce((groups, session) => {
-    const projectPath = session.metadata?.project_path as string;
+    const projectPath = session.projectPath || (session.metadata?.project_path as string);
     const folder = extractProjectFolder(projectPath);
     
     if (!groups[folder]) {
@@ -185,12 +185,13 @@ export interface SessionDisplayProps {
 }
 
 export function getSessionDisplayProps(session: SessionData | Session): SessionDisplayProps {
-  const projectPath = 'project_path' in session 
-    ? session.project_path 
-    : session.metadata?.project_path;
-  const gitBranch = 'git_branch' in session 
-    ? session.git_branch 
-    : session.metadata?.git_branch;
+  // Handle both SessionData (from store) and Session (from DB) types
+  const projectPath = 'projectPath' in session 
+    ? session.projectPath 
+    : ('project_path' in session ? session.project_path : session.metadata?.project_path);
+  const gitBranch = 'gitBranch' in session 
+    ? session.gitBranch 
+    : ('git_branch' in session ? session.git_branch : session.metadata?.git_branch);
   const status = 'status' in session 
     ? session.status 
     : 'completed'; // Default for Session type

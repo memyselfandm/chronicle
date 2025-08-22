@@ -29,15 +29,17 @@ export function SidebarContainer() {
   
   console.log('📊 SidebarContainer - sessions from store:', sessions?.length, sessions);
 
-  // Group sessions by project path
+  // Group sessions by project path and branch
   const sessionsByProject = React.useMemo(() => {
     const filtered = getFilteredSessions();
     console.log('🔍 SidebarContainer - filtered sessions:', filtered.length, filtered);
     const grouped = new Map<string, typeof filtered>();
     
     filtered.forEach(session => {
-      const projectKey = session.id; // Using session ID for now, will need to update when we have project_path
-      const projectName = `Project ${session.id.slice(0, 8)}`; // Placeholder until we have real project data
+      // Use project path and git branch as the grouping key
+      const projectPath = session.projectPath || 'Unknown';
+      const gitBranch = session.gitBranch || 'main';
+      const projectKey = `${projectPath}:${gitBranch}`;
       
       if (!grouped.has(projectKey)) {
         grouped.set(projectKey, []);
@@ -50,37 +52,25 @@ export function SidebarContainer() {
       .map(([projectKey, sessions]) => {
         // Sort sessions within project - awaiting first, then by last activity
         const sortedSessions = [...sessions].sort((a, b) => {
-          // Get last event for each session to determine if awaiting
-          const aLastEvent = events
-            .filter(e => e.sessionId === a.id)
-            .sort((x, y) => new Date(y.timestamp).getTime() - new Date(x.timestamp).getTime())[0];
-          const bLastEvent = events
-            .filter(e => e.sessionId === b.id)
-            .sort((x, y) => new Date(y.timestamp).getTime() - new Date(x.timestamp).getTime())[0];
-          
-          const aAwaiting = aLastEvent?.type === 'notification' && 
-            aLastEvent?.metadata?.requires_response === true;
-          const bAwaiting = bLastEvent?.type === 'notification' && 
-            bLastEvent?.metadata?.requires_response === true;
-          
-          if (aAwaiting && !bAwaiting) return -1;
-          if (!aAwaiting && bAwaiting) return 1;
+          // Awaiting sessions first
+          if (a.isAwaiting && !b.isAwaiting) return -1;
+          if (!a.isAwaiting && b.isAwaiting) return 1;
           
           // Then by last activity time
           return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
         });
 
-        const awaitingCount = sortedSessions.filter(session => {
-          const lastEvent = events
-            .filter(e => e.sessionId === session.id)
-            .sort((x, y) => new Date(y.timestamp).getTime() - new Date(x.timestamp).getTime())[0];
-          return lastEvent?.type === 'notification' && 
-            lastEvent?.metadata?.requires_response === true;
-        }).length;
+        const awaitingCount = sortedSessions.filter(session => session.isAwaiting === true).length;
 
+        // Extract folder name and branch from the key
+        const [projectPath, gitBranch] = projectKey.split(':');
+        const folderName = projectPath.split('/').pop() || projectPath;
+        
         return {
           projectKey,
-          projectName: `Project ${projectKey.slice(0, 8)}`,
+          projectName: `${folderName} / ${gitBranch}`,
+          projectPath,
+          gitBranch,
           sessions: sortedSessions,
           awaitingCount,
           totalCount: sortedSessions.length
@@ -97,14 +87,8 @@ export function SidebarContainer() {
 
   // Get sessions currently awaiting input for the priority section
   const awaitingSessions = React.useMemo(() => {
-    return getFilteredSessions().filter(session => {
-      const lastEvent = events
-        .filter(e => e.sessionId === session.id)
-        .sort((x, y) => new Date(y.timestamp).getTime() - new Date(x.timestamp).getTime())[0];
-      return lastEvent?.type === 'notification' && 
-        lastEvent?.metadata?.requires_response === true;
-    });
-  }, [getFilteredSessions, events]);
+    return getFilteredSessions().filter(session => session.isAwaiting === true);
+  }, [getFilteredSessions]);
 
   // Keyboard shortcut for Cmd+B to toggle sidebar
   const handleKeyDown = useCallback((event: KeyboardEvent) => {

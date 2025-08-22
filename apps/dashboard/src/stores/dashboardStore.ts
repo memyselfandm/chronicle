@@ -22,12 +22,17 @@ import {
 // Types for dashboard state
 export interface SessionData {
   id: string;
-  status: 'active' | 'idle' | 'completed';
+  status: 'active' | 'idle' | 'completed' | 'error';
+  projectPath: string;
+  gitBranch: string;
   startTime: Date;
   endTime?: Date;
   toolsUsed: number;
   eventsCount: number;
   lastActivity: Date;
+  minutesSinceLastEvent?: number;
+  isAwaiting?: boolean;
+  lastEventType?: string | null;
 }
 
 export interface EventData {
@@ -44,6 +49,7 @@ export interface FilterOptions {
     start?: Date;
     end?: Date;
   };
+  timeRangeMinutes: number; // Time range for activity-based filtering
   eventTypes: string[];
   sessionStatus: string[];
   searchTerm: string;
@@ -149,6 +155,7 @@ interface DashboardStore {
 // Default state values
 const defaultFilters: FilterOptions = {
   dateRange: {},
+  timeRangeMinutes: 20, // Default to last 20 minutes
   eventTypes: [],
   sessionStatus: [],
   searchTerm: '',
