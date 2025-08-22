@@ -343,9 +343,9 @@ export const useDashboardStore = create<DashboardStore>()(
         let filtered = [...events];
         
         // Filter by selected sessions first
-        if (filters.selectedSessions.size > 0) {
+        if (filters.selectedSessions.length > 0) {
           filtered = filtered.filter((event) =>
-            filters.selectedSessions.has(event.sessionId)
+            filters.selectedSessions.includes(event.sessionId)
           );
         }
         
@@ -658,7 +658,7 @@ export const useDashboardStore = create<DashboardStore>()(
           partialize: (state) => ({
             filters: {
               ...state.filters,
-              selectedSessions: Array.from(state.filters.selectedSessions), // Convert Set to Array for persistence
+              selectedSessions: state.filters.selectedSessions, // Already an array
             },
             ui: {
               ...state.ui,
@@ -670,8 +670,10 @@ export const useDashboardStore = create<DashboardStore>()(
           
           // Handle rehydration of Set from Array
           onRehydrateStorage: () => (state) => {
-            if (state && state.filters && Array.isArray(state.filters.selectedSessions)) {
-              state.filters.selectedSessions = new Set(state.filters.selectedSessions as string[]);
+            // selectedSessions is already an array, no conversion needed
+            if (state && state.filters && !Array.isArray(state.filters.selectedSessions)) {
+              // Handle legacy data that might be stored as something else
+              state.filters.selectedSessions = [];
             }
           },
         }

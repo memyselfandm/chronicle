@@ -42,15 +42,8 @@ export const useSessions = (): UseSessionsState => {
     if (sessionIds.length === 0) return [];
 
     try {
-      // Try to use RPC function first (assumes it exists in the database)
-      const { data: rpcData, error: rpcError } = await supabase
-        .rpc('get_session_summaries', { session_ids: sessionIds });
-
-      if (!rpcError && rpcData) {
-        return rpcData;
-      }
-
-      // Fallback to manual aggregation if RPC doesn't exist
+      // Skip RPC call - function doesn't exist in Supabase (see CHR-83)
+      // Go straight to manual aggregation
       const summaries: SessionSummary[] = [];
 
       for (const sessionId of sessionIds) {
@@ -114,11 +107,18 @@ export const useSessions = (): UseSessionsState => {
       setError(null);
 
       // Fetch all sessions, excluding any that might be test data
+      console.log('🔍 Fetching sessions from Supabase...');
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('chronicle_sessions')
         .select('*')
         .neq('project_path', 'test') // Exclude test sessions
         .order('start_time', { ascending: false });
+
+      console.log('📊 Sessions query result:', {
+        error: sessionsError,
+        dataCount: sessionsData?.length || 0,
+        firstSession: sessionsData?.[0]
+      });
 
       if (sessionsError) {
         throw sessionsError;
@@ -127,24 +127,32 @@ export const useSessions = (): UseSessionsState => {
       const fetchedSessions = sessionsData || [];
       setSessions(fetchedSessions);
 
-      // Fetch summaries for all sessions
+      // Don't wait for summaries - they can load async
+      // This prevents the loading state from being stuck
       if (fetchedSessions.length > 0) {
         const sessionIds = fetchedSessions.map(s => s.id);
-        const summaries = await fetchSessionSummaries(sessionIds);
-        
-        const summaryMap = new Map<string, SessionSummary>();
-        summaries.forEach(summary => {
-          summaryMap.set(summary.session_id, summary);
+        // Fire and forget - summaries will load in background
+        fetchSessionSummaries(sessionIds).then(summaries => {
+          const summaryMap = new Map<string, SessionSummary>();
+          summaries.forEach(summary => {
+            summaryMap.set(summary.session_id, summary);
+          });
+          setSessionSummaries(summaryMap);
+        }).catch(err => {
+          logger.warn('Failed to fetch some session summaries', {
+            component: 'useSessions',
+            action: 'fetchSessions'
+          });
         });
-        
-        setSessionSummaries(summaryMap);
       }
 
     } catch (err) {
       const errorObj = err instanceof Error ? err : new Error('Failed to fetch sessions');
       setError(errorObj);
       setSessions([]);
+      setLoading(false); // Ensure loading is cleared on error
     } finally {
+      // Always clear loading state after sessions are fetched
       setLoading(false);
     }
   }, [fetchSessionSummaries]);
@@ -264,12 +272,17 @@ export const useSessions = (): UseSessionsState => {
     return !session.end_time;
   });
 
-  // Initial data fetch and session end time updates
+  // Initial data fetch
   useEffect(() => {
-    fetchSessions().then(() => {
+    fetchSessions();
+  }, []); // Remove dependencies to prevent infinite loop
+
+  // Update session end times after sessions are loaded
+  useEffect(() => {
+    if (sessions.length > 0 && !loading) {
       updateSessionEndTimes();
-    });
-  }, [fetchSessions, updateSessionEndTimes]);
+    }
+  }, [sessions.length, loading]); // Only depend on sessions.length and loading state
 
   return {
     sessions,

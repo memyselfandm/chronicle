@@ -26,10 +26,13 @@ export function SidebarContainer() {
     events,
     getFilteredSessions,
   } = useDashboardStore();
+  
+  console.log('📊 SidebarContainer - sessions from store:', sessions?.length, sessions);
 
   // Group sessions by project path
   const sessionsByProject = React.useMemo(() => {
     const filtered = getFilteredSessions();
+    console.log('🔍 SidebarContainer - filtered sessions:', filtered.length, filtered);
     const grouped = new Map<string, typeof filtered>();
     
     filtered.forEach(session => {
