@@ -156,24 +156,6 @@ export function SidebarContainer() {
         </div>
       </div>
 
-      {/* Search box */}
-      <div className="px-3 py-2 border-b border-gray-800">
-        <div className="relative">
-          <span className="material-icons absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Search sessions..."
-            className="w-full pl-7 pr-3 py-1.5 text-xs bg-gray-800/50 text-gray-300 placeholder-gray-500 rounded border border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-colors"
-            onChange={(e) => {
-              // Search functionality to be implemented
-              const searchTerm = e.target.value;
-              console.log('Search:', searchTerm);
-            }}
-          />
-        </div>
-      </div>
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto bg-gray-950">

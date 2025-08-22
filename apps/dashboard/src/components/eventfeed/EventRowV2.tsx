@@ -27,34 +27,34 @@ export interface EventRowV2Props {
 }
 
 /**
- * Get semantic color classes for event type
+ * Get semantic color classes for event type matching I4V2-V3 reference design
  */
 const getEventColorClasses = (eventType: string) => {
   switch (eventType) {
     case 'user_prompt_submit':
       return {
-        border: 'border-l-accent-purple',
-        background: 'rgba(139, 92, 246, 0.08)' // #8b5cf6 with 8% opacity
+        border: 'border-l-[#8b5cf6]',
+        background: 'rgba(139, 92, 246, 0.08)' // Purple for user prompts
       };
     case 'pre_tool_use':
       return {
-        border: 'border-l-accent-blue',
-        background: 'rgba(59, 130, 246, 0.08)' // #3b82f6 with 8% opacity
+        border: 'border-l-[#3b82f6]',
+        background: 'rgba(59, 130, 246, 0.08)' // Blue for tool use
       };
     case 'post_tool_use':
       return {
-        border: 'border-l-accent-green',
-        background: 'rgba(74, 222, 128, 0.08)' // #4ade80 with 8% opacity
+        border: 'border-l-[#4ade80]',
+        background: 'rgba(74, 222, 128, 0.08)' // Green for completions
       };
     case 'notification':
       return {
-        border: 'border-l-accent-yellow',
-        background: 'rgba(251, 191, 36, 0.08)' // #fbbf24 with 8% opacity
+        border: 'border-l-[#fbbf24]',
+        background: 'rgba(251, 191, 36, 0.08)' // Yellow for notifications/awaiting
       };
     case 'error':
       return {
-        border: 'border-l-accent-red',
-        background: 'rgba(239, 68, 68, 0.08)' // #ef4444 with 8% opacity
+        border: 'border-l-[#ef4444]',
+        background: 'rgba(239, 68, 68, 0.08)' // Red for errors only
       };
     case 'stop':
     case 'subagent_stop':
@@ -62,8 +62,8 @@ const getEventColorClasses = (eventType: string) => {
     case 'pre_compact':
     default:
       return {
-        border: 'border-l-text-muted',
-        background: 'rgba(107, 114, 128, 0.08)' // #6b7280 with 8% opacity
+        border: 'border-l-[#6b7280]',
+        background: 'rgba(107, 114, 128, 0.08)' // Gray for system events
       };
   }
 };
@@ -226,26 +226,28 @@ export const EventRowV2 = memo<EventRowV2Props>(({ event, session, index }) => {
   return (
     <div
       className={cn(
-        // Base layout and sizing
+        // Base layout and sizing - dense 24px height matching I4V2-V5
         'grid grid-cols-[85px_140px_110px_90px_1fr] gap-3 items-center',
-        'h-6 text-xs font-mono', // Exactly 24px height
+        'h-6 min-h-[24px] max-h-[24px]', // Exactly 24px height
+        'text-xs leading-tight font-mono', // Dense typography matching V5
         
-        // Padding per PRD (8px x 12px)
-        'py-2',
+        // Padding for 24px height - tighter than before
+        'py-1',
         isSubAgent ? 'pl-8 pr-3' : 'px-3', // 20px extra left padding for sub-agents
         
-        // Color coding
-        'border-l-4',
+        // Color coding with 3px border per I4V2-V3
+        'border-l-[3px]',
         colorClasses.border,
         
         // Hover effects
-        'hover:bg-bg-tertiary/50 transition-colors duration-150',
+        'hover:bg-black/10 transition-colors duration-150',
         
-        // Alternating row background for readability
-        index % 2 === 0 ? 'bg-bg-primary' : 'bg-bg-secondary/20'
+        // Remove alternating backgrounds for cleaner look per V3
       )}
       style={{
-        backgroundColor: colorClasses.background
+        backgroundColor: colorClasses.background,
+        fontSize: '12px', // Explicit font size matching V5
+        lineHeight: '1.2' // Tight line height for density
       }}
       data-testid="event-row-v2"
       data-event-type={event.event_type}

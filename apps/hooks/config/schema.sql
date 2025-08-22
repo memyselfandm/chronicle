@@ -149,8 +149,10 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- If this is a stop event (session ends), update the session's end_time
-    IF NEW.event_type = 'stop' THEN
+    -- Only update end_time if this is an actual session termination stop event
+    -- AND the event contains a flag indicating intentional session end
+    IF NEW.event_type = 'stop' AND 
+       (NEW.metadata->>'session_termination')::boolean = true THEN
         UPDATE chronicle_sessions 
         SET end_time = NEW.timestamp 
         WHERE id = NEW.session_id 

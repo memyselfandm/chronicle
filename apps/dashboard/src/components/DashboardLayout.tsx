@@ -66,14 +66,57 @@ export function DashboardLayout({
     error: sessionsError 
   } = useSessions();
 
-  // Update store when data changes
+  // Update store when data changes from Supabase
   useEffect(() => {
     if (sessions && sessions.length > 0) {
       // Helper to extract git repo name from project path
       const extractGitRepoName = (projectPath: string): string | undefined => {
-        // Extract the last part of the path which is usually the repo name
-        // e.g., /Users/m/code/chronicle -> chronicle
+        // Look for common repo patterns in the path
         const parts = projectPath.split('/').filter(Boolean);
+        
+        // Check for known patterns where the git repo is likely located
+        // For chronicle project, look for "chronicle" in the path
+        const chronicleIndex = parts.findIndex(p => p === 'chronicle' || p.startsWith('chr-'));
+        if (chronicleIndex !== -1) {
+          return parts[chronicleIndex];
+        }
+        
+        // Check for ai-workspace pattern (common dev folder structure)
+        const aiWorkspaceIndex = parts.findIndex(p => p === 'ai-workspace');
+        if (aiWorkspaceIndex !== -1 && aiWorkspaceIndex < parts.length - 1) {
+          // Return the folder after ai-workspace
+          return parts[aiWorkspaceIndex + 1];
+        }
+        
+        // Check for common code/projects folder patterns
+        const codeIndex = parts.findIndex(p => ['code', 'projects', 'repos', 'dev', 'src'].includes(p.toLowerCase()));
+        if (codeIndex !== -1 && codeIndex < parts.length - 1) {
+          // Return the folder after the code folder
+          return parts[codeIndex + 1];
+        }
+        
+        // Fallback: if path contains more than 3 parts from home, 
+        // assume the repo is 2-3 levels deep from home
+        if (parts.length > 3 && parts[0] === 'Users') {
+          // Skip Users/username and take the next meaningful folder
+          // that's not a common subfolder name
+          const commonSubfolders = ['Documents', 'Desktop', 'Downloads', 'workspace', 'dev', 'code'];
+          for (let i = 2; i < Math.min(parts.length - 1, 4); i++) {
+            if (!commonSubfolders.includes(parts[i])) {
+              return parts[i];
+            }
+          }
+        }
+        
+        // Last resort: return the last part that isn't a common subfolder
+        const ignoreFolders = ['src', 'apps', 'packages', 'lib', 'components', 'pages', 'dashboard'];
+        for (let i = parts.length - 1; i >= 0; i--) {
+          if (!ignoreFolders.includes(parts[i])) {
+            return parts[i];
+          }
+        }
+        
+        // Ultimate fallback
         return parts[parts.length - 1];
       };
 
@@ -142,11 +185,13 @@ export function DashboardLayout({
         
         if (s.end_time) {
           status = 'completed';
-        } else if (s.minutes_since_last_event && s.minutes_since_last_event > 5) {
-          status = 'idle';
         } else if (s.is_awaiting) {
-          status = 'idle'; // Awaiting sessions are technically idle
+          // Keep awaiting status separate - don't mark as idle
+          status = 'active'; // Awaiting sessions are still active, just waiting for input
+        } else if (s.minutes_since_last_event && s.minutes_since_last_event > 30) {
+          status = 'idle'; // Only mark idle after 30 minutes of inactivity
         }
+        
 
         const titles = displayTitles.get(s.id) || { title: 'Unknown', subtitle: 'Unknown' };
         const gitRepoName = s.git_branch && s.git_branch !== 'no git' 
@@ -165,8 +210,8 @@ export function DashboardLayout({
           endTime: s.end_time ? new Date(s.end_time) : undefined,
           lastActivity: s.last_event_time ? new Date(s.last_event_time) : new Date(s.start_time),
           minutesSinceLastEvent: s.minutes_since_last_event || 0,
-          // Mock some sessions as awaiting for testing (30% chance)
-          isAwaiting: s.is_awaiting || Math.random() > 0.7,
+          // Use actual awaiting status from the session data
+          isAwaiting: s.is_awaiting || false,
           lastEventType: s.last_event_type || null,
           toolsUsed: 0, // Will be populated from events
           eventsCount: 0, // Will be populated from events
@@ -302,7 +347,7 @@ export function DashboardLayout({
             <div className="flex-1 overflow-hidden">
               <EventFeedV2
                 sessions={sessions}
-                initialEvents={events}
+                initialEvents={events || []}
                 height={undefined} // Let it fill the container
                 className="h-full"
                 enableBatching={true}

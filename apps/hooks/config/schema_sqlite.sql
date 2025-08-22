@@ -88,7 +88,8 @@ ORDER BY e.timestamp DESC;
 CREATE TRIGGER IF NOT EXISTS trigger_update_session_end_time
 AFTER INSERT ON events
 FOR EACH ROW
-WHEN NEW.event_type = 'stop'
+WHEN NEW.event_type = 'stop' AND 
+     json_extract(NEW.data, '$.session_termination') = 1
 BEGIN
     UPDATE sessions 
     SET end_time = NEW.timestamp 

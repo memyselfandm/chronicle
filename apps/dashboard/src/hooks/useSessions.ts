@@ -101,10 +101,14 @@ export const useSessions = (): UseSessionsState => {
 
   /**
    * Fetches sessions from Supabase based on recent event activity
+   * @param timeRangeMinutes - Time range to fetch sessions from
+   * @param silent - If true, won't trigger loading state (for background updates)
    */
-  const fetchSessions = useCallback(async (timeRangeMinutes: number = 20): Promise<void> => {
+  const fetchSessions = useCallback(async (timeRangeMinutes: number = 20, silent: boolean = false): Promise<void> => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       // Step 1: Get events from the specified time range
@@ -133,16 +137,18 @@ export const useSessions = (): UseSessionsState => {
         console.log('⚠️ No active sessions found in the last', timeRangeMinutes, 'minutes');
         console.log('💡 Falling back to fetching ALL sessions for debugging...');
         
-        // Fallback: fetch all sessions to debug the issue
+        // Fallback: fetch recent sessions (increased limit and better ordering)
         const { data: allSessions, error: allSessionsError } = await supabase
           .from('chronicle_sessions')
           .select('*')
           .neq('project_path', 'test')
+          // Removed the end_time filter - we want to see ALL recent sessions
+          // including ones that may have been incorrectly marked as ended
           .order('start_time', { ascending: false })
-          .limit(10); // Limit to 10 for debugging
+          .limit(50); // Increased limit to get more sessions
         
-        console.log('All sessions (limited to 10):', allSessions);
-        console.log('All sessions error:', allSessionsError);
+        console.log('Active sessions (up to 50):', allSessions?.length || 0, 'sessions found');
+        if (allSessionsError) console.log('Sessions query error:', allSessionsError);
         
         if (allSessionsError) {
           console.error('❌ Error fetching all sessions:', allSessionsError);
@@ -211,6 +217,21 @@ export const useSessions = (): UseSessionsState => {
         return new Date(b.last_event_time).getTime() - new Date(a.last_event_time).getTime();
       });
 
+      // Log ALL sessions to debug the cconami issue
+      console.log('📊 ALL SESSIONS DETAILS:');
+      sortedSessions.forEach((session, index) => {
+        console.log(`Session ${index + 1}:`, {
+          id: session.id,
+          project_path: session.project_path,
+          folder: session.project_path?.split('/').pop(),
+          git_branch: session.git_branch,
+          last_event_time: session.last_event_time,
+          minutes_since_last: session.minutes_since_last_event,
+          is_awaiting: session.is_awaiting,
+          has_end_time: !!session.end_time
+        });
+      });
+      
       setSessions(sortedSessions);
 
       // Don't wait for summaries - they can load async
@@ -236,10 +257,14 @@ export const useSessions = (): UseSessionsState => {
       const errorObj = err instanceof Error ? err : new Error('Failed to fetch sessions');
       setError(errorObj);
       setSessions([]);
-      setLoading(false); // Ensure loading is cleared on error
+      if (!silent) {
+        setLoading(false); // Ensure loading is cleared on error
+      }
     } finally {
-      // Always clear loading state after sessions are fetched
-      setLoading(false);
+      // Clear loading state after sessions are fetched (only if not silent)
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [fetchSessionSummaries]);
 
@@ -358,9 +383,18 @@ export const useSessions = (): UseSessionsState => {
     return !session.end_time;
   });
 
-  // Initial data fetch with default 20-minute time range
+  // Initial data fetch with extended time range to catch all active sessions
   useEffect(() => {
-    fetchSessions(20); // Default to last 20 minutes
+    fetchSessions(480); // 8 hours - Initial load with loading state
+    
+    // Set up polling interval to refresh sessions every 2 seconds for near real-time updates
+    // This ensures awaiting sessions get prompt attention
+    const intervalId = setInterval(() => {
+      fetchSessions(480, true); // 8 hours - Silent refresh - no loading spinner
+    }, 2000); // 2 seconds for near real-time updates
+    
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, []); // Remove dependencies to prevent infinite loop
 
   // Update session end times after sessions are loaded

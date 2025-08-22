@@ -112,11 +112,11 @@ class StopHook(BaseHook):
             event_count = self._count_session_events(session_id)
             self.log_info(f"Total events in session: {event_count}")
             
-            # Update session with end time and metrics
+            # End time for session termination
             end_time = datetime.now().isoformat()
             self.log_info(f"Setting session end time: {end_time}")
-            session_updated = self._update_session_end(session_id, end_time, event_count)
-            self.log_info(f"Session update result: {session_updated}")
+            # Note: Session end_time will be set automatically by database trigger
+            # when the stop event with session_termination=True is inserted
             
             # Calculate session metrics
             duration_minutes = None
@@ -136,6 +136,7 @@ class StopHook(BaseHook):
                 "session_id": session_id,
                 "timestamp": end_time,
                 "data": {
+                    "session_termination": True,  # Flag to indicate intentional session termination
                     "session_duration_minutes": duration_minutes,
                     "total_events": event_count,
                     "end_reason": input_data.get("reason", "normal_completion"),
@@ -154,7 +155,7 @@ class StopHook(BaseHook):
             
             return self._create_response(
                 session_found=True,
-                session_updated=session_updated,
+                session_updated=True,  # Session will be updated by database trigger
                 event_saved=event_saved,
                 duration_minutes=duration_minutes,
                 event_count=event_count

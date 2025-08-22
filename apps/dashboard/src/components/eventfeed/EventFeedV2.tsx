@@ -128,6 +128,13 @@ export const EventFeedV2 = memo<EventFeedV2Props>(({
   const [events, setEvents] = useState<Event[]>(initialEvents);
   const [autoScroll, setAutoScroll] = useState(defaultAutoScroll);
   const [loading, setLoading] = useState(false);
+
+  // Update internal events state when initialEvents prop changes
+  useEffect(() => {
+    if (initialEvents && initialEvents.length > 0) {
+      setEvents(initialEvents);
+    }
+  }, [initialEvents]);
   const batcherRef = useRef(getEventBatcher({
     windowMs: batchWindowMs,
     maxBatchSize: 50,

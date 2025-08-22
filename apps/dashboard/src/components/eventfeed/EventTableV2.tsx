@@ -46,11 +46,16 @@ export interface EventTableV2Props {
 const TableHeader = memo(() => (
   <div 
     className={cn(
-      'grid gap-3 px-4 py-2 bg-bg-secondary border-b border-border-primary',
+      'grid gap-3 px-3 py-1 bg-bg-secondary border-b border-border-primary',
       'text-xs font-semibold text-text-muted uppercase tracking-wide',
+      'h-6 min-h-[24px] max-h-[24px] items-center', // Dense 24px height matching rows
       // Fixed column widths per PRD: Time 85px, Session 140px, Type 110px, Tool 90px, Details flex
       'grid-cols-[85px_140px_110px_90px_1fr]'
     )}
+    style={{
+      fontSize: '11px', // Slightly smaller for header
+      lineHeight: '1.2'
+    }}
     data-testid="event-table-header"
   >
     <div>Time</div>
@@ -178,7 +183,7 @@ export const EventTableV2 = memo<EventTableV2Props>(({
   }), [validEvents, sessionMap]);
 
   const headerHeight = 24;
-  const rowHeight = 24;
+  const rowHeight = 24; // Dense 24px rows matching I4V2 design
   const listHeight = height - headerHeight;
 
   if (loading) {
