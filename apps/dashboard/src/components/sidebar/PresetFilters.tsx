@@ -13,9 +13,7 @@ export function PresetFilters() {
     filters, 
     updateFilters, 
     sessions,
-    events,
-    getFilteredSessions,
-    getFilteredEvents
+    events
   } = useDashboardStore();
   
   const { fetchSessions } = useSessions();
@@ -156,10 +154,10 @@ export function PresetFilters() {
 
   // Time range options
   const timeRanges = [
-    { label: 'Active (5m)', value: 5, icon: '⚡' },
-    { label: 'Recent (20m)', value: 20, icon: '🕐' },
-    { label: 'Hour', value: 60, icon: '⏰' },
-    { label: 'Today', value: 1440, icon: '📅' },
+    { label: 'Active (5m)', value: 5 },
+    { label: 'Recent (20m)', value: 20 },
+    { label: 'Hour', value: 60 },
+    { label: 'Today', value: 1440 },
   ];
 
   // Handle time range change
@@ -191,7 +189,6 @@ export function PresetFilters() {
             `}
             title={`Show sessions active in last ${range.label}`}
           >
-            <span className="mr-1">{range.icon}</span>
             {range.label}
           </button>
         ))}

@@ -176,7 +176,7 @@ describe('Supabase Integration Tests', () => {
       performanceMonitor.startMeasurement();
       
       const response = await integrationSetup.client
-        .from('sessions')
+        .from('chronicle_sessions')
         .select('*')
         .order('start_time', { ascending: false })
         .limit(50);
