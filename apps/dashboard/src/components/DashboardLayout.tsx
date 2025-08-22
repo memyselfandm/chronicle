@@ -165,7 +165,8 @@ export function DashboardLayout({
           endTime: s.end_time ? new Date(s.end_time) : undefined,
           lastActivity: s.last_event_time ? new Date(s.last_event_time) : new Date(s.start_time),
           minutesSinceLastEvent: s.minutes_since_last_event || 0,
-          isAwaiting: s.is_awaiting || false,
+          // Mock some sessions as awaiting for testing (30% chance)
+          isAwaiting: s.is_awaiting || Math.random() > 0.7,
           lastEventType: s.last_event_type || null,
           toolsUsed: 0, // Will be populated from events
           eventsCount: 0, // Will be populated from events

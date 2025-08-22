@@ -142,28 +142,35 @@ export function SidebarContainer() {
         <div className="flex items-center gap-2">
           {/* Clear Selection button */}
           <button 
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
             onClick={() => {
               // Clear selection logic here
+              const store = useDashboardStore.getState();
+              store.clearSelectedSessions();
             }}
           >
-            <span className="material-icons text-base">clear</span>
-            <span>Clear Selection</span>
+            <span className="material-icons text-sm">clear</span>
+            <span className="text-[11px]">Clear Selection</span>
           </button>
           <SidebarToggle />
         </div>
       </div>
 
       {/* Search box */}
-      <div className="p-3 border-b border-gray-800">
+      <div className="px-3 py-2 border-b border-gray-800">
         <div className="relative">
-          <span className="material-icons absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-base">
+          <span className="material-icons absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
             search
           </span>
           <input
             type="text"
             placeholder="Search sessions..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-800 text-gray-300 placeholder-gray-500 rounded border border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+            className="w-full pl-7 pr-3 py-1.5 text-xs bg-gray-800/50 text-gray-300 placeholder-gray-500 rounded border border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-colors"
+            onChange={(e) => {
+              // Search functionality to be implemented
+              const searchTerm = e.target.value;
+              console.log('Search:', searchTerm);
+            }}
           />
         </div>
       </div>

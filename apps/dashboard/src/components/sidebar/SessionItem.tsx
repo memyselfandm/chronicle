@@ -253,12 +253,13 @@ export function CompactSessionItem({
       aria-pressed={isSelected}
       className={cn(
         'flex items-start gap-2 py-1.5 px-3 pl-10 cursor-pointer',
-        'transition-all duration-200 hover:bg-gray-800/50',
+        'transition-all duration-200 hover:bg-gray-800/30',
         'border-l-2 border-transparent',
         'focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-gray-900',
-        isSelected && 'bg-gray-800/50 border-l-blue-500',
+        isSelected && 'bg-gray-800/30',
         session.isAwaiting && 'border-l-yellow-500',
         session.status === 'active' && !session.isAwaiting && 'border-l-green-500',
+        session.status === 'idle' && !session.isAwaiting && 'border-l-gray-500',
         className
       )}
       onClick={handleClick}
@@ -267,11 +268,11 @@ export function CompactSessionItem({
       <div 
         className={cn(
           'w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5',
-          session.isAwaiting && 'bg-yellow-500 animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.6)]',
-          session.status === 'active' && !session.isAwaiting && 'bg-green-500 shadow-[0_0_4px_rgba(16,185,129,0.6)]',
+          session.isAwaiting && 'bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]',
+          session.status === 'active' && !session.isAwaiting && 'bg-green-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]',
           session.status === 'idle' && !session.isAwaiting && 'bg-gray-500',
           session.status === 'completed' && 'bg-gray-600',
-          session.status === 'error' && 'bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.6)]'
+          session.status === 'error' && 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]'
         )}
         aria-label={`Status: ${session.status}`}
       />
