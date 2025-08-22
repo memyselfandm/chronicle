@@ -167,9 +167,13 @@ export function PresetFilters() {
     await fetchSessions(minutes); // Refetch sessions with new time range
   }, [updateFilters, fetchSessions]);
 
+  // Temporarily commented out as per requirements
+  return null;
+  
+  /* Original implementation preserved for future use
   return (
     <div className="p-3">
-      {/* Time Range Selector */}
+      {/* Time Range Selector *}
       <h3 className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
         Activity Range
       </h3>
@@ -231,7 +235,7 @@ export function PresetFilters() {
         ))}
       </div>
 
-      {/* Clear filters button */}
+      {/* Clear filters button *}
       <button
         onClick={() => updateFilters({
           dateRange: {},
@@ -245,4 +249,5 @@ export function PresetFilters() {
       </button>
     </div>
   );
+  */
 }

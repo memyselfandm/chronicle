@@ -163,13 +163,13 @@ export function SessionItem({
               </Badge>
             </div>
 
-            {/* Project and branch */}
+            {/* Session title and subtitle */}
             <div className="mb-2">
-              <p className="text-sm font-medium text-text-primary truncate" title={displayProps.displayName}>
-                {displayProps.displayName}
+              <p className="text-sm font-medium text-text-primary truncate" title={session.displayTitle}>
+                {session.displayTitle}
               </p>
-              <p className="text-xs text-text-muted">
-                ID: {truncateSessionId(session.id)}
+              <p className="text-xs text-text-muted" title={session.displaySubtitle}>
+                {session.displaySubtitle}
               </p>
             </div>
 
@@ -218,6 +218,33 @@ export function CompactSessionItem({
     onClick?.(session, isMultiSelect);
   }, [session, onClick]);
 
+  // Get session detail text based on status
+  const getSessionDetail = () => {
+    if (session.isAwaiting) {
+      return 'Awaiting input';
+    }
+    if (session.status === 'active') {
+      return 'Running...';
+    }
+    if (session.status === 'idle' && session.minutesSinceLastEvent) {
+      if (session.minutesSinceLastEvent < 60) {
+        return `Idle ${session.minutesSinceLastEvent}min ago`;
+      } else {
+        const hours = Math.floor(session.minutesSinceLastEvent / 60);
+        return `Idle ${hours}hr ago`;
+      }
+    }
+    if (session.status === 'completed' && session.minutesSinceLastEvent) {
+      if (session.minutesSinceLastEvent < 60) {
+        return `Completed ${session.minutesSinceLastEvent}min ago`;
+      } else {
+        const hours = Math.floor(session.minutesSinceLastEvent / 60);
+        return `Completed ${hours}hr ago`;
+      }
+    }
+    return '';
+  };
+
   return (
     <div
       data-testid={`compact-session-item-${session.id}`}
@@ -225,21 +252,43 @@ export function CompactSessionItem({
       tabIndex={0}
       aria-pressed={isSelected}
       className={cn(
-        'flex items-center gap-2 p-2 rounded-md cursor-pointer',
-        'transition-all duration-200 hover:bg-bg-secondary',
-        'focus:outline-none focus:ring-2 focus:ring-accent-blue',
-        isSelected && 'bg-accent-blue/10 ring-1 ring-accent-blue',
+        'flex items-start gap-2 py-1.5 px-3 pl-10 cursor-pointer',
+        'transition-all duration-200 hover:bg-gray-800/50',
+        'border-l-2 border-transparent',
+        'focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-gray-900',
+        isSelected && 'bg-gray-800/50 border-l-blue-500',
+        session.isAwaiting && 'border-l-yellow-500',
+        session.status === 'active' && !session.isAwaiting && 'border-l-green-500',
         className
       )}
       onClick={handleClick}
     >
-      <SessionCheckbox isSelected={isSelected} />
-      <span className="text-lg" role="img" aria-label={`Status: ${session.status}`}>
-        {displayProps.statusIcon}
-      </span>
-      <span className="text-sm font-medium text-text-primary truncate flex-1">
-        {displayProps.displayName}
-      </span>
+      {/* Status dot */}
+      <div 
+        className={cn(
+          'w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5',
+          session.isAwaiting && 'bg-yellow-500 animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.6)]',
+          session.status === 'active' && !session.isAwaiting && 'bg-green-500 shadow-[0_0_4px_rgba(16,185,129,0.6)]',
+          session.status === 'idle' && !session.isAwaiting && 'bg-gray-500',
+          session.status === 'completed' && 'bg-gray-600',
+          session.status === 'error' && 'bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.6)]'
+        )}
+        aria-label={`Status: ${session.status}`}
+      />
+      
+      {/* Session info */}
+      <div className="flex-1 min-w-0">
+        {/* Session title */}
+        <div className="text-[13px] font-normal text-gray-300 truncate">
+          {session.displayTitle}
+        </div>
+        {/* Session detail */}
+        {getSessionDetail() && (
+          <div className="text-[11px] text-gray-500 mt-0.5">
+            {getSessionDetail()}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

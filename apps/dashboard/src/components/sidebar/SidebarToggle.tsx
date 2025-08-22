@@ -17,7 +17,7 @@ export function SidebarToggle() {
   return (
     <button
       onClick={handleToggle}
-      className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors"
+      className="flex items-center justify-center w-7 h-7 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
       title={`${sidebarCollapsed ? 'Expand' : 'Collapse'} sidebar (Cmd+B)`}
       aria-label={`${sidebarCollapsed ? 'Expand' : 'Collapse'} sidebar`}
     >

@@ -69,6 +69,72 @@ export function DashboardLayout({
   // Update store when data changes
   useEffect(() => {
     if (sessions && sessions.length > 0) {
+      // Helper to extract git repo name from project path
+      const extractGitRepoName = (projectPath: string): string | undefined => {
+        // Extract the last part of the path which is usually the repo name
+        // e.g., /Users/m/code/chronicle -> chronicle
+        const parts = projectPath.split('/').filter(Boolean);
+        return parts[parts.length - 1];
+      };
+
+      // Helper to compute display titles with clash detection
+      const computeDisplayTitles = (sessions: SessionData[]) => {
+        const titleCounts = new Map<string, number>();
+        const sessionTitles = new Map<string, { title: string; subtitle: string }>();
+
+        // First pass: count how many times each title appears
+        sessions.forEach(s => {
+          let baseTitle: string;
+          
+          // If git branch exists, use it as title; otherwise use folder name
+          if (s.git_branch && s.git_branch !== 'no git') {
+            baseTitle = s.git_branch;
+          } else {
+            const folderName = extractGitRepoName(s.project_path || '') || 'Unknown';
+            baseTitle = folderName;
+          }
+
+          const count = titleCounts.get(baseTitle) || 0;
+          titleCounts.set(baseTitle, count + 1);
+        });
+
+        // Second pass: add suffixes for clashes
+        const titleUsage = new Map<string, number>();
+        
+        sessions.forEach(s => {
+          let baseTitle: string;
+          
+          if (s.git_branch && s.git_branch !== 'no git') {
+            baseTitle = s.git_branch;
+          } else {
+            const folderName = extractGitRepoName(s.project_path || '') || 'Unknown';
+            baseTitle = folderName;
+          }
+
+          let displayTitle = baseTitle;
+          
+          // If there are multiple sessions with the same title, add suffix
+          if ((titleCounts.get(baseTitle) || 0) > 1) {
+            const usageCount = titleUsage.get(baseTitle) || 0;
+            if (usageCount > 0) {
+              // Add last 4 chars of session ID as suffix
+              const suffix = s.id.slice(-4);
+              displayTitle = `${baseTitle}-${suffix}`;
+            }
+            titleUsage.set(baseTitle, usageCount + 1);
+          }
+
+          sessionTitles.set(s.id, {
+            title: displayTitle,
+            subtitle: displayTitle // Duplicate for now as requested
+          });
+        });
+
+        return sessionTitles;
+      };
+
+      const displayTitles = computeDisplayTitles(sessions);
+
       // Convert sessions to store format with enhanced fields
       const storeSessions = sessions.map(s => {
         // Determine status based on last event time and type
@@ -81,12 +147,20 @@ export function DashboardLayout({
         } else if (s.is_awaiting) {
           status = 'idle'; // Awaiting sessions are technically idle
         }
+
+        const titles = displayTitles.get(s.id) || { title: 'Unknown', subtitle: 'Unknown' };
+        const gitRepoName = s.git_branch && s.git_branch !== 'no git' 
+          ? extractGitRepoName(s.project_path || '')
+          : undefined;
         
         return {
           id: s.id,
           status,
           projectPath: s.project_path || 'Unknown Project',
           gitBranch: s.git_branch || 'main',
+          gitRepoName,
+          displayTitle: titles.title,
+          displaySubtitle: titles.subtitle,
           startTime: new Date(s.start_time),
           endTime: s.end_time ? new Date(s.end_time) : undefined,
           lastActivity: s.last_event_time ? new Date(s.last_event_time) : new Date(s.start_time),

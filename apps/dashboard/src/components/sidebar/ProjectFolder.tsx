@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { SessionData } from '@/stores/dashboardStore';
-import { SessionItem } from './SessionItem';
+import { CompactSessionItem } from './SessionItem';
 
 interface ProjectFolderProps {
   projectKey: string;
@@ -63,80 +63,50 @@ export function ProjectFolder({
   };
 
   return (
-    <div className="group">
+    <div className="mb-1">
       {/* Project header */}
       <div 
-        className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors"
+        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-800 cursor-pointer transition-colors group"
         onClick={handleToggle}
       >
-        <div className="flex items-center space-x-2 flex-1 min-w-0">
-          {/* Expand/collapse chevron */}
-          <svg
-            className={`w-3 h-3 text-gray-400 transition-transform ${
-              isExpanded ? 'rotate-90' : 'rotate-0'
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+        {/* Expand/collapse chevron */}
+        <span className={`material-icons text-gray-500 text-sm transition-transform ${
+          isExpanded ? 'rotate-90' : ''
+        }`}>
+          keyboard_arrow_right
+        </span>
 
-          {/* Project icon */}
-          <div className="text-gray-400 flex-shrink-0">
-            {getProjectIcon()}
-          </div>
+        {/* Project icon */}
+        <span className="material-icons text-gray-500 text-sm">
+          folder
+        </span>
 
-          {/* Project name */}
-          <span className="text-sm text-gray-300 truncate" title={projectName}>
-            {projectName}
-          </span>
-        </div>
+        {/* Project name */}
+        <span className="text-[13px] font-medium text-gray-400 flex-1 truncate" title={projectName}>
+          {projectName}
+        </span>
 
         {/* Session count badge */}
-        <div className="flex items-center space-x-1 flex-shrink-0">
-          <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
-            {totalCount}
-            {awaitingCount > 0 && (
-              <span className="text-yellow-400"> ({awaitingCount} awaiting)</span>
-            )}
-          </span>
-          
-          {/* Awaiting indicator dot */}
-          {awaitingCount > 0 && (
-            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-          )}
-        </div>
+        <span className="text-[11px] bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded-full font-medium">
+          {totalCount}
+        </span>
       </div>
 
       {/* Sessions list */}
       {isExpanded && sessions.length > 0 && (
-        <div className="ml-4 pl-2 border-l border-gray-700 space-y-1">
-          {sessions.map((session) => {
-            // Check if this session is awaiting input
-            const isAwaiting = false; // Will be calculated properly when we have events
-            
-            return (
-              <SessionItem
-                key={session.id}
-                session={session}
-                isAwaiting={isAwaiting}
-                compact={false}
-              />
-            );
-          })}
+        <div className="transition-all duration-200">
+          {sessions.map((session) => (
+            <CompactSessionItem
+              key={session.id}
+              session={session}
+            />
+          ))}
         </div>
       )}
 
       {/* Empty state */}
       {isExpanded && sessions.length === 0 && (
-        <div className="ml-6 p-2 text-xs text-gray-500">
+        <div className="pl-12 py-2 text-xs text-gray-500">
           No sessions in this project
         </div>
       )}

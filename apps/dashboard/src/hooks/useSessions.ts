@@ -142,8 +142,13 @@ export const useSessions = (): UseSessionsState => {
           .limit(10); // Limit to 10 for debugging
         
         console.log('All sessions (limited to 10):', allSessions);
+        console.log('All sessions error:', allSessionsError);
         
-        if (allSessions && allSessions.length > 0) {
+        if (allSessionsError) {
+          console.error('❌ Error fetching all sessions:', allSessionsError);
+          setError(allSessionsError);
+        } else if (allSessions && allSessions.length > 0) {
+          console.log('✅ Found', allSessions.length, 'sessions in fallback query');
           // Map them with default values since we don't have event data
           const sessionsWithDefaults = allSessions.map(session => ({
             ...session,
@@ -153,7 +158,9 @@ export const useSessions = (): UseSessionsState => {
             last_event_type: null
           }));
           setSessions(sessionsWithDefaults);
+          console.log('✅ Set', sessionsWithDefaults.length, 'sessions in state');
         } else {
+          console.log('⚠️ No sessions found in database at all');
           setSessions([]);
         }
         

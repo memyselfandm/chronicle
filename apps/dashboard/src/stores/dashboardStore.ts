@@ -25,6 +25,9 @@ export interface SessionData {
   status: 'active' | 'idle' | 'completed' | 'error';
   projectPath: string;
   gitBranch: string;
+  gitRepoName?: string; // Git repository name if applicable
+  displayTitle: string; // Computed title with clash handling
+  displaySubtitle: string; // Subtitle (duplicate of title for now)
   startTime: Date;
   endTime?: Date;
   toolsUsed: number;
@@ -315,7 +318,7 @@ export const useDashboardStore = create<DashboardStore>()(
         const { sessions, filters } = get();
         let filtered = [...sessions];
         
-        // Filter by date range
+        // Filter by date range - but only if explicitly set (not timeRangeMinutes)
         if (filters.dateRange.start) {
           filtered = filtered.filter(
             (session) => session.startTime >= filters.dateRange.start!
@@ -338,7 +341,9 @@ export const useDashboardStore = create<DashboardStore>()(
         if (filters.searchTerm) {
           const searchLower = filters.searchTerm.toLowerCase();
           filtered = filtered.filter((session) =>
-            session.id.toLowerCase().includes(searchLower)
+            session.id.toLowerCase().includes(searchLower) ||
+            session.displayTitle?.toLowerCase().includes(searchLower) ||
+            session.projectPath?.toLowerCase().includes(searchLower)
           );
         }
         
