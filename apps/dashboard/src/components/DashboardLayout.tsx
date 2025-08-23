@@ -21,6 +21,7 @@ import { useSessions } from '@/hooks/useSessions';
 import { Header } from '@/components/layout/Header';
 import { SidebarContainer } from '@/components/sidebar/SidebarContainer';
 import { EventFeedV2 } from '@/components/eventfeed/EventFeedV2';
+import { AutoSizeWrapper } from '@/components/eventfeed/AutoSizeWrapper';
 import { ResponsiveGrid } from './ResponsiveGrid';
 
 export interface DashboardLayoutProps {
@@ -344,16 +345,21 @@ export function DashboardLayout({
           {children ? (
             children
           ) : (
-            <div className="flex-1 overflow-hidden">
-              <EventFeedV2
-                sessions={sessions}
-                initialEvents={events || []}
-                height={undefined} // Let it fill the container
-                className="h-full"
-                enableBatching={true}
-                maxEvents={1000}
-                defaultAutoScroll={true}
-              />
+            <div className="flex-1 overflow-hidden h-full">
+              <AutoSizeWrapper className="w-full h-full">
+                {({ width, height }) => (
+                  <EventFeedV2
+                    sessions={sessions}
+                    initialEvents={events || []}
+                    height={height}
+                    width={width}
+                    className="w-full h-full"
+                    enableBatching={true}
+                    maxEvents={1000}
+                    defaultAutoScroll={true}
+                  />
+                )}
+              </AutoSizeWrapper>
             </div>
           )}
         </div>

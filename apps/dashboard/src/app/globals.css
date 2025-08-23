@@ -35,8 +35,8 @@
   --color-border: var(--border-color);
   
   /* Font configuration */
-  --font-sans: var(--font-geist-sans), Inter, system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-geist-mono), 'Menlo', 'Monaco', 'Consolas', monospace;
+  --font-sans: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
   
   /* Spacing system for consistent layout */
   --spacing-xs: 0.25rem;

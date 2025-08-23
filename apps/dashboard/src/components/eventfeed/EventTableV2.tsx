@@ -2,7 +2,7 @@
  * EventTableV2 - High-performance dense event table with virtual scrolling
  * 
  * Features:
- * - 24px row height for maximum density
+ * - 22px row height for maximum density (per V5 reference)
  * - Virtual scrolling for 1000+ events
  * - Semantic color coding per variant_3 design
  * - Fixed column layout for consistent alignment
@@ -43,26 +43,36 @@ export interface EventTableV2Props {
 /**
  * Table header with fixed column widths per PRD specification
  */
-const TableHeader = memo(() => (
-  <div 
-    className={cn(
-      'grid gap-3 px-3 py-1 bg-bg-secondary border-b border-border-primary',
-      'text-xs font-semibold text-text-muted uppercase tracking-wide',
-      'h-6 min-h-[24px] max-h-[24px] items-center', // Dense 24px height matching rows
-      // Fixed column widths per PRD: Time 85px, Session 140px, Type 110px, Tool 90px, Details flex
-      'grid-cols-[85px_140px_110px_90px_1fr]'
-    )}
-    style={{
-      fontSize: '11px', // Slightly smaller for header
-      lineHeight: '1.2'
-    }}
-    data-testid="event-table-header"
-  >
-    <div>Time</div>
-    <div>Session</div>
-    <div>Type</div>
-    <div>Tool</div>
-    <div>Details</div>
+const TableHeader = memo<{ autoScroll?: boolean; onAutoScrollChange?: (enabled: boolean) => void }>(
+  ({ autoScroll = false, onAutoScrollChange }) => (
+  <div className="bg-bg-tertiary border-b-2 border-bg-primary">
+    <div className="flex items-center justify-between px-4 py-2">
+      <div 
+        className={cn(
+          'grid gap-2 flex-1',
+          'text-xs font-semibold text-text-secondary uppercase tracking-wide',
+          'h-6 items-center',
+          'grid-cols-[85px_36px_160px_140px_1fr]' // V5 column layout: Time, Icon, Event Type, Session, Details
+        )}
+        style={{
+          fontSize: '12px',
+          fontWeight: '600'
+        }}
+        data-testid="event-table-header"
+      >
+        <div>Time</div>
+        <div></div>
+        <div>Event Type</div>
+        <div>Session</div>
+        <div>Details</div>
+      </div>
+      {onAutoScrollChange && (
+        <AutoScrollToggle
+          enabled={autoScroll}
+          onChange={onAutoScrollChange}
+        />
+      )}
+    </div>
   </div>
 ));
 
@@ -161,18 +171,21 @@ export const EventTableV2 = memo<EventTableV2Props>(({
   }, [validEvents.length, autoScroll]);
 
   // Row renderer for virtual list
-  const renderRow = useCallback(({ index, style, data }: any) => {
+  const renderRow = useCallback(({ index, style, data }: {
+    index: number;
+    style: React.CSSProperties;
+    data: { events: Event[]; sessionMap: Map<string, Session> };
+  }) => {
     const event = data.events[index];
     const session = data.sessionMap.get(event.session_id);
     
     return (
-      <div style={style}>
-        <EventRowV2
-          event={event}
-          session={session}
-          index={index}
-        />
-      </div>
+      <EventRowV2
+        event={event}
+        session={session}
+        index={index}
+        style={style}
+      />
     );
   }, []);
 
@@ -182,8 +195,8 @@ export const EventTableV2 = memo<EventTableV2Props>(({
     sessionMap
   }), [validEvents, sessionMap]);
 
-  const headerHeight = 24;
-  const rowHeight = 24; // Dense 24px rows matching I4V2 design
+  const headerHeight = 28; // Slightly taller header for labels
+  const rowHeight = 22; // Dense 22px rows per V5 reference
   const listHeight = height - headerHeight;
 
   if (loading) {
@@ -192,7 +205,7 @@ export const EventTableV2 = memo<EventTableV2Props>(({
         className={cn('bg-bg-primary border border-border-primary rounded-lg', className)}
         data-testid="event-table-v2"
       >
-        <TableHeader />
+        <TableHeader autoScroll={autoScroll} onAutoScrollChange={onAutoScrollChange} />
         <LoadingState />
       </div>
     );
@@ -204,7 +217,7 @@ export const EventTableV2 = memo<EventTableV2Props>(({
         className={cn('bg-bg-primary border border-border-primary rounded-lg', className)}
         data-testid="event-table-v2"
       >
-        <TableHeader />
+        <TableHeader autoScroll={autoScroll} onAutoScrollChange={onAutoScrollChange} />
         <EmptyState />
       </div>
     );
@@ -226,16 +239,8 @@ export const EventTableV2 = memo<EventTableV2Props>(({
         gridTemplateColumns: '85px 140px 110px 90px 1fr'
       }}
     >
-      {/* Auto-scroll toggle */}
-      <div className="absolute top-2 right-2 z-10">
-        <AutoScrollToggle
-          enabled={autoScroll}
-          onChange={onAutoScrollChange}
-        />
-      </div>
-
-      {/* Table header */}
-      <TableHeader />
+      {/* Table header with integrated auto-scroll toggle */}
+      <TableHeader autoScroll={autoScroll} onAutoScrollChange={onAutoScrollChange} />
 
       {/* Virtual scrolling list */}
       <List

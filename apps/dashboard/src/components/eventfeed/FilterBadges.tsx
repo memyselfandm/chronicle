@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -71,21 +71,34 @@ function FilterBadge({ sessionId, onRemove, className }: FilterBadgeProps) {
 // Collapse badge for "and X more"
 function CollapseBadge({ 
   count, 
-  onClick 
+  onClick,
+  expanded 
 }: { 
   count: number; 
-  onClick: () => void; 
+  onClick: () => void;
+  expanded: boolean; 
 }) {
   return (
     <Badge
       variant="secondary"
       className={cn(
         'cursor-pointer px-3 py-1 text-sm',
-        'hover:bg-bg-tertiary transition-colors'
+        'hover:bg-bg-tertiary transition-colors',
+        'flex items-center gap-1'
       )}
       onClick={onClick}
     >
-      +{count} more
+      {expanded ? (
+        <>
+          <span className="material-icons text-xs">expand_less</span>
+          Show less
+        </>
+      ) : (
+        <>
+          +{count} more
+          <span className="material-icons text-xs">expand_more</span>
+        </>
+      )}
     </Badge>
   );
 }
@@ -102,10 +115,11 @@ export function FilterBadges({
   } = useDashboardStore();
   
   const selectedSessions = getSelectedSessionsArray();
+  const [expanded, setExpanded] = useState(false);
 
   // Memoize visible and hidden sessions
   const { visibleSessions, hiddenCount } = useMemo(() => {
-    if (selectedSessions.length <= maxVisible) {
+    if (expanded || selectedSessions.length <= maxVisible) {
       return {
         visibleSessions: selectedSessions,
         hiddenCount: 0
@@ -116,7 +130,7 @@ export function FilterBadges({
       visibleSessions: selectedSessions.slice(0, maxVisible),
       hiddenCount: selectedSessions.length - maxVisible
     };
-  }, [selectedSessions, maxVisible]);
+  }, [selectedSessions, maxVisible, expanded]);
 
   const handleRemoveSession = (sessionId: string) => {
     toggleSessionSelection(sessionId, true); // Remove from multi-selection
@@ -124,12 +138,11 @@ export function FilterBadges({
 
   const handleClearAll = () => {
     clearSelectedSessions();
+    setExpanded(false);
   };
-
+  
   const handleExpandCollapsed = () => {
-    // For now, just show all badges by setting a high maxVisible
-    // In a real implementation, you might want to open a modal or expand the list
-    console.log('Expand collapsed filters');
+    setExpanded(!expanded);
   };
 
   // Don't render if no sessions selected
@@ -153,11 +166,12 @@ export function FilterBadges({
         />
       ))}
 
-      {/* Collapsed indicator */}
-      {hiddenCount > 0 && (
+      {/* Collapsed indicator or Show less button */}
+      {(hiddenCount > 0 || expanded) && (
         <CollapseBadge 
           count={hiddenCount} 
           onClick={handleExpandCollapsed}
+          expanded={expanded}
         />
       )}
 

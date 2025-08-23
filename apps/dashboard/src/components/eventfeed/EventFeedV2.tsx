@@ -237,33 +237,26 @@ export const EventFeedV2 = memo<EventFeedV2Props>(({
 
   return (
     <div 
-      className={cn('relative', className)}
+      className={cn('relative flex flex-col h-full', className)}
       data-testid="event-feed-v2"
     >
-      {/* Performance metrics overlay (development only) */}
-      {process.env.NODE_ENV === 'development' && onPerformanceUpdate && (
-        <div className="absolute top-2 left-2 z-20 bg-bg-primary/90 border border-border-primary rounded px-2 py-1 text-xs font-mono text-text-muted">
-          <div>Events: {metrics.totalEvents}</div>
-          <div>Rate: {metrics.eventsPerSecond.toFixed(1)}/s</div>
-          <div>Memory: {(metrics.memoryUsage / 1024).toFixed(1)}KB</div>
-        </div>
-      )}
-
       {/* Main event table */}
-      <EventTableV2
-        events={sortedEvents}
-        sessions={sessions}
-        height={height}
-        width={width}
-        autoScroll={autoScroll}
-        onAutoScrollChange={handleAutoScrollChange}
-        maxEvents={maxEvents}
-        loading={loading}
-        className="w-full h-full"
-      />
+      <div className="flex-1 overflow-hidden">
+        <EventTableV2
+          events={sortedEvents}
+          sessions={sessions}
+          height={height}
+          width={width}
+          autoScroll={autoScroll}
+          onAutoScrollChange={handleAutoScrollChange}
+          maxEvents={maxEvents}
+          loading={loading}
+          className="w-full h-full"
+        />
+      </div>
 
-      {/* Status bar with event count and performance info */}
-      <div className="absolute bottom-0 left-0 right-0 bg-bg-secondary/80 backdrop-blur border-t border-border-primary px-3 py-1 flex items-center justify-between text-xs text-text-muted">
+      {/* Status bar with event count and performance info - now sticky at bottom */}
+      <div className="bg-bg-secondary border-t border-border-primary px-3 py-1 flex items-center justify-between text-xs text-text-muted">
         <div className="flex items-center gap-3">
           <span>
             {sortedEvents.length} events

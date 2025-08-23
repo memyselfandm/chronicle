@@ -1,13 +1,13 @@
 /**
- * EventRowV2 - Dense 24px row component with semantic color coding
+ * EventRowV2 - Dense 22px row component with semantic color coding
  * 
  * Features:
- * - Exactly 24px height for maximum density
- * - Semantic color coding per variant_3 design
- * - Fixed column layout (Time 85px, Session 140px, Type 110px, Tool 90px, Details flex)
+ * - Exactly 22px height for maximum density (per V5 reference)
+ * - Semantic color coding per V3 design (0.08 opacity backgrounds)
+ * - Fixed column layout (Time 85px, Icon 36px, Event Type 160px, Session 140px, Details flex)
  * - Sub-agent indentation (20px left padding)
  * - React.memo optimization
- * - Material icons throughout
+ * - Material icons per V5 specification
  */
 
 'use client';
@@ -15,7 +15,6 @@
 import React, { memo } from 'react';
 import { Event, Session } from '@/types/events';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow, format } from 'date-fns';
 
 export interface EventRowV2Props {
   /** Event data to display */
@@ -24,37 +23,39 @@ export interface EventRowV2Props {
   session?: Session;
   /** Row index for styling */
   index: number;
+  /** Style prop from react-window for positioning */
+  style?: React.CSSProperties;
 }
 
 /**
- * Get semantic color classes for event type matching I4V2-V3 reference design
+ * Get semantic color classes for event type matching V3 reference design
  */
 const getEventColorClasses = (eventType: string) => {
   switch (eventType) {
     case 'user_prompt_submit':
       return {
         border: 'border-l-[#8b5cf6]',
-        background: 'rgba(139, 92, 246, 0.08)' // Purple for user prompts
+        background: 'rgba(139, 92, 246, 0.08)' // V3 spec: 0.08 opacity
       };
     case 'pre_tool_use':
       return {
         border: 'border-l-[#3b82f6]',
-        background: 'rgba(59, 130, 246, 0.08)' // Blue for tool use
+        background: 'rgba(59, 130, 246, 0.08)' // V3 spec: 0.08 opacity
       };
     case 'post_tool_use':
       return {
         border: 'border-l-[#4ade80]',
-        background: 'rgba(74, 222, 128, 0.08)' // Green for completions
+        background: 'rgba(74, 222, 128, 0.08)' // V3 spec: 0.08 opacity
       };
     case 'notification':
       return {
         border: 'border-l-[#fbbf24]',
-        background: 'rgba(251, 191, 36, 0.08)' // Yellow for notifications/awaiting
+        background: 'rgba(251, 191, 36, 0.08)' // V3 spec: 0.08 opacity
       };
     case 'error':
       return {
         border: 'border-l-[#ef4444]',
-        background: 'rgba(239, 68, 68, 0.08)' // Red for errors only
+        background: 'rgba(239, 68, 68, 0.08)' // V3 spec: 0.08 opacity
       };
     case 'stop':
     case 'subagent_stop':
@@ -63,32 +64,32 @@ const getEventColorClasses = (eventType: string) => {
     default:
       return {
         border: 'border-l-[#6b7280]',
-        background: 'rgba(107, 114, 128, 0.08)' // Gray for system events
+        background: 'rgba(107, 114, 128, 0.08)' // V3 spec: 0.08 opacity
       };
   }
 };
 
 /**
- * Get Material icon for event type
+ * Get Material icon for event type (V5 specification)
  */
-const getEventIcon = (eventType: string, toolName?: string) => {
+const getEventIcon = (eventType: string) => {
   switch (eventType) {
+    case 'session_start':
+      return 'play_circle';
     case 'user_prompt_submit':
       return 'chat';
     case 'pre_tool_use':
-      return getToolIcon(toolName, 'play_arrow');
+      return 'build';
     case 'post_tool_use':
-      return getToolIcon(toolName, 'check_circle');
+      return 'check_circle';
     case 'notification':
-      return 'notifications';
+      return 'notification_important';
     case 'error':
       return 'error';
     case 'stop':
       return 'stop';
     case 'subagent_stop':
       return 'stop_circle';
-    case 'session_start':
-      return 'play_circle';
     case 'pre_compact':
       return 'compress';
     default:
@@ -97,52 +98,22 @@ const getEventIcon = (eventType: string, toolName?: string) => {
 };
 
 /**
- * Get Material icon for tool
- */
-const getToolIcon = (toolName?: string, defaultIcon = 'build') => {
-  if (!toolName) return defaultIcon;
-  
-  switch (toolName.toLowerCase()) {
-    case 'read':
-      return 'description';
-    case 'write':
-    case 'edit':
-    case 'multiedit':
-      return 'edit';
-    case 'bash':
-      return 'terminal';
-    case 'glob':
-    case 'grep':
-      return 'search';
-    case 'ls':
-      return 'folder';
-    case 'task':
-      return 'assignment';
-    case 'webfetch':
-    case 'websearch':
-      return 'public';
-    case 'notebookread':
-    case 'notebookedit':
-      return 'book';
-    case 'todoread':
-    case 'todowrite':
-      return 'checklist';
-    default:
-      return defaultIcon;
-  }
-};
-
-/**
  * Format session display as folder/branch
  */
 const formatSessionDisplay = (session?: Session) => {
-  if (!session) return 'Unknown session';
+  if (!session) return 'Unknown';
   
+  // Extract just the folder name from the project path
   const folder = session.project_path 
     ? session.project_path.split('/').pop() || 'unknown'
     : 'unknown';
-  const branch = session.git_branch || 'unknown';
   
+  // Clean up the branch name (remove 'no git' or use main as default)
+  const branch = session.git_branch && session.git_branch !== 'no git'
+    ? session.git_branch 
+    : 'main';
+  
+  // Return in a more compact format
   return `${folder}/${branch}`;
 };
 
@@ -215,27 +186,26 @@ const getEventDetails = (event: Event) => {
 };
 
 /**
- * Dense 24px event row with semantic color coding
+ * Dense 22px event row with semantic color coding
  */
-export const EventRowV2 = memo<EventRowV2Props>(({ event, session, index }) => {
+export const EventRowV2 = memo<EventRowV2Props>(({ event, session, style }) => {
   const colorClasses = getEventColorClasses(event.event_type);
   const isSubAgent = isSubAgentEvent(event);
-  const icon = getEventIcon(event.event_type, event.tool_name);
-  const toolIcon = event.tool_name ? getToolIcon(event.tool_name) : null;
+  const icon = getEventIcon(event.event_type);
 
   return (
     <div
       className={cn(
-        // Base layout and sizing - dense 24px height matching I4V2-V5
-        'grid grid-cols-[85px_140px_110px_90px_1fr] gap-3 items-center',
-        'h-6 min-h-[24px] max-h-[24px]', // Exactly 24px height
-        'text-xs leading-tight font-mono', // Dense typography matching V5
+        // V5 column layout: Time 85px, Icon 36px, Event Type 160px, Session 140px, Details flex
+        'grid grid-cols-[85px_36px_160px_140px_1fr] gap-2 items-center',
+        'h-[22px] min-h-[22px] max-h-[22px]', // Exactly 22px height per V5 reference
+        'text-xs leading-tight', // 12px font with tight line height (1.2)
         
-        // Padding for 24px height - tighter than before
-        'py-1',
-        isSubAgent ? 'pl-8 pr-3' : 'px-3', // 20px extra left padding for sub-agents
+        // Tight padding for 22px height (3px vertical per V5)
+        'py-[3px]',
+        isSubAgent ? 'pl-8 pr-4' : 'px-4', // Horizontal padding matching --spacing-lg
         
-        // Color coding with 3px border per I4V2-V3
+        // Color coding with 3px border per V3
         'border-l-[3px]',
         colorClasses.border,
         
@@ -245,64 +215,45 @@ export const EventRowV2 = memo<EventRowV2Props>(({ event, session, index }) => {
         // Remove alternating backgrounds for cleaner look per V3
       )}
       style={{
+        ...style, // Apply react-window positioning
         backgroundColor: colorClasses.background,
-        fontSize: '12px', // Explicit font size matching V5
+        fontSize: '12px', // 12px for main content per V5
         lineHeight: '1.2' // Tight line height for density
       }}
       data-testid="event-row-v2"
       data-event-type={event.event_type}
     >
-      {/* Time column (85px) */}
-      <div className="text-text-muted font-mono text-xs">
+      {/* Time column (85px) - 11px font per V5 */}
+      <div className="text-text-muted font-mono" style={{ fontSize: '11px' }}>
         {formatTime(event.timestamp)}
       </div>
 
+      {/* Icon column (36px) - separate from event type per V5 */}
+      <div className="flex items-center justify-center">
+        <span className="material-icons" style={{ fontSize: '16px' }} title={event.event_type}>
+          {icon}
+        </span>
+      </div>
+
+      {/* Event Type column (160px) */}
+      <div className="text-text-secondary truncate">
+        {event.event_type.replace(/_/g, ' ')}
+        {event.tool_name && ` (${event.tool_name})`}
+      </div>
+
       {/* Session column (140px) */}
-      <div className="text-text-secondary font-medium truncate" title={formatSessionDisplay(session)}>
+      <div className="text-text-secondary truncate" title={formatSessionDisplay(session)}>
         {formatSessionDisplay(session)}
       </div>
 
-      {/* Type column (110px) */}
-      <div className="flex items-center gap-1.5">
-        <span className="material-icons text-sm text-text-muted">
-          {icon}
-        </span>
-        <span 
-          className={cn(
-            'px-2 py-1 rounded-md text-xs font-medium truncate',
-            'bg-bg-tertiary text-text-secondary'
-          )}
-          title={event.event_type}
-        >
-          {event.event_type.replace(/_/g, ' ')}
-        </span>
-      </div>
-
-      {/* Tool column (90px) */}
-      <div className="flex items-center gap-1.5">
-        {event.tool_name && toolIcon && (
-          <>
-            <span className="material-icons text-sm text-text-muted">
-              {toolIcon}
-            </span>
-            <span 
-              className="text-text-primary font-medium truncate"
-              title={event.tool_name}
-            >
-              {event.tool_name}
-            </span>
-          </>
-        )}
+      {/* Details column (flex) - includes duration if present */}
+      <div className="text-text-secondary truncate flex items-center gap-2" title={getEventDetails(event)}>
+        <span className="truncate">{getEventDetails(event)}</span>
         {event.duration_ms && (
-          <span className="text-text-muted text-xs ml-auto">
+          <span className="text-text-muted" style={{ fontSize: '11px' }}>
             {formatDuration(event.duration_ms)}
           </span>
         )}
-      </div>
-
-      {/* Details column (flex) */}
-      <div className="text-text-secondary truncate" title={getEventDetails(event)}>
-        {getEventDetails(event)}
       </div>
     </div>
   );
