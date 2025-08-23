@@ -224,7 +224,7 @@ export function DashboardLayout({
   }, [sessions, setSessions]);
 
   useEffect(() => {
-    if (events && events.length > 0) {
+    if (events) {
       // Convert events to store format
       const storeEvents = events.map(e => ({
         id: e.id,
@@ -236,6 +236,8 @@ export function DashboardLayout({
       }));
       setEvents(storeEvents);
       console.log('✅ Updated store with', storeEvents.length, 'events');
+    } else {
+      console.log('⚠️ No events received from useEvents hook');
     }
   }, [events, setEvents]);
 

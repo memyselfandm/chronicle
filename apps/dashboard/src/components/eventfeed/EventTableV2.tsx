@@ -131,6 +131,7 @@ export const EventTableV2 = memo<EventTableV2Props>(({
 
   // Filter and validate events
   const validEvents = useMemo(() => {
+    console.log('📋 EventTableV2: Processing', events.length, 'events');
     const filtered = events.filter(event => 
       event && 
       typeof event.id === 'string' &&
@@ -138,6 +139,8 @@ export const EventTableV2 = memo<EventTableV2Props>(({
       typeof event.event_type === 'string' &&
       typeof event.timestamp === 'string'
     );
+
+    console.log('📋 EventTableV2: After validation:', filtered.length, 'valid events');
 
     // Apply FIFO limit
     if (filtered.length > maxEvents) {

@@ -131,8 +131,9 @@ export const EventFeedV2 = memo<EventFeedV2Props>(({
 
   // Update internal events state when initialEvents prop changes
   useEffect(() => {
-    if (initialEvents && initialEvents.length > 0) {
+    if (initialEvents) {
       setEvents(initialEvents);
+      console.log('📊 EventFeedV2: Received', initialEvents.length, 'initial events');
     }
   }, [initialEvents]);
   const batcherRef = useRef(getEventBatcher({
