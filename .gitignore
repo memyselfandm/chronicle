@@ -153,3 +153,4 @@ dev_*.sh
 output_*.json
 debug_output.*
 test_output.*
+.playwright-mcp/
