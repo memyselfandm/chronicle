@@ -6,9 +6,9 @@
 import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { EventFeedV2 } from '@/components/eventfeed/EventFeedV2';
-import { EventTableV2 } from '@/components/eventfeed/EventTableV2';
-import { EventRowV2 } from '@/components/eventfeed/EventRowV2';
+import { EventFeed } from '@/components/eventfeed/EventFeed';
+import { EventTable } from '@/components/eventfeed/EventTable';
+import { EventRow } from '@/components/eventfeed/EventRow';
 import { Event, Session } from '@/types/events';
 
 // Simplified mock for react-window
@@ -89,11 +89,11 @@ describe('CHR-25.S03 Sprint Validation', () => {
   });
 
   describe('✅ Core Integration Requirements', () => {
-    it('validates EventFeedV2 integrates with performance optimizations', async () => {
+    it('validates EventFeed integrates with performance optimizations', async () => {
       const onPerformanceUpdate = jest.fn();
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           height={400}
           width={800}
@@ -122,7 +122,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       );
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={largeEventSet}
           height={400}
@@ -140,12 +140,12 @@ describe('CHR-25.S03 Sprint Validation', () => {
       });
     });
 
-    it('validates React memo optimizations on EventRowV2', async () => {
+    it('validates React memo optimizations on EventRow', async () => {
       const testEvent = createTestEvent('test-event', 'user_prompt_submit');
       const testSession = mockSessions[0];
 
       const { rerender } = render(
-        <EventRowV2 
+        <EventRow 
           event={testEvent} 
           session={testSession}
           index={0}
@@ -156,7 +156,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
 
       // Re-render with same props should not cause issues (memo optimization)
       rerender(
-        <EventRowV2 
+        <EventRow 
           event={testEvent} 
           session={testSession}
           index={0}
@@ -172,7 +172,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       );
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={excessEvents}
           maxEvents={1000}
@@ -190,7 +190,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
   describe('🎨 Visual Design Verification', () => {
     it('validates 24px row height consistency', () => {
       render(
-        <EventTableV2
+        <EventTable
           events={[createTestEvent('test', 'user_prompt_submit')]}
           sessions={mockSessions}
           height={400}
@@ -214,7 +214,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
 
       colorTestEvents.forEach((event, index) => {
         render(
-          <EventRowV2 
+          <EventRow 
             event={event} 
             session={mockSessions[0]}
             index={index}
@@ -230,7 +230,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       const subAgentEvent = createTestEvent('sub-agent', 'pre_tool_use', 'Task');
       
       render(
-        <EventRowV2 
+        <EventRow 
           event={subAgentEvent} 
           session={mockSessions[0]}
           index={0}
@@ -245,7 +245,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       const testEvent = createTestEvent('icon-test', 'user_prompt_submit');
       
       render(
-        <EventRowV2 
+        <EventRow 
           event={testEvent} 
           session={mockSessions[0]}
           index={0}
@@ -261,7 +261,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
   describe('⚡ Performance Targets Validation', () => {
     it('validates event batching configuration meets 100ms target', () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
           batchWindowMs={100}
@@ -285,7 +285,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
 
     it('validates memory-efficient event handling', async () => {
       const { rerender } = render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           maxEvents={100}
         />
@@ -297,7 +297,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       );
 
       rerender(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={events}
           maxEvents={100}
@@ -313,7 +313,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
 
     it('validates auto-scroll functionality', async () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           defaultAutoScroll={true}
         />
@@ -337,7 +337,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       ];
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={initialEvents}
         />
@@ -354,7 +354,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
 
     it('validates batch processing configuration', () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
           batchWindowMs={100}
@@ -373,7 +373,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
 
     it('validates component cleanup on unmount', () => {
       const { unmount } = render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
         />
@@ -389,7 +389,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
   describe('🧪 Edge Cases and Error Handling', () => {
     it('handles empty sessions array gracefully', () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={[]}
           height={400}
           width={800}
@@ -406,7 +406,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       ];
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={mixedEvents as any}
         />
@@ -425,7 +425,7 @@ describe('CHR-25.S03 Sprint Validation', () => {
       );
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={manyEvents}
           maxEvents={1000}

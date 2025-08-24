@@ -1,5 +1,5 @@
 /**
- * EventTableV2 - High-performance dense event table with virtual scrolling
+ * EventTable - High-performance dense event table with virtual scrolling
  * 
  * Features:
  * - 22px row height for maximum density (per V5 reference)
@@ -15,11 +15,11 @@
 import React, { useRef, useCallback, useMemo, memo } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { Event, Session } from '@/types/events';
-import { EventRowV2 } from './EventRowV2';
+import { EventRow } from './EventRow';
 import { AutoScrollToggle } from './AutoScrollToggle';
 import { cn } from '@/lib/utils';
 
-export interface EventTableV2Props {
+export interface EventTableProps {
   /** Array of events to display */
   events: Event[];
   /** Array of sessions for context */
@@ -115,7 +115,7 @@ LoadingState.displayName = 'LoadingState';
 /**
  * High-performance event table with virtual scrolling and dense layout
  */
-export const EventTableV2 = memo<EventTableV2Props>(({
+export const EventTable = memo<EventTableProps>(({
   events,
   sessions,
   height,
@@ -131,7 +131,7 @@ export const EventTableV2 = memo<EventTableV2Props>(({
 
   // Filter and validate events
   const validEvents = useMemo(() => {
-    console.log('📋 EventTableV2: Processing', events.length, 'events');
+    console.log('📋 EventTable: Processing', events.length, 'events');
     const filtered = events.filter(event => 
       event && 
       typeof event.id === 'string' &&
@@ -140,7 +140,7 @@ export const EventTableV2 = memo<EventTableV2Props>(({
       typeof event.timestamp === 'string'
     );
 
-    console.log('📋 EventTableV2: After validation:', filtered.length, 'valid events');
+    console.log('📋 EventTable: After validation:', filtered.length, 'valid events');
 
     // Apply FIFO limit
     if (filtered.length > maxEvents) {
@@ -183,7 +183,7 @@ export const EventTableV2 = memo<EventTableV2Props>(({
     const session = data.sessionMap.get(event.session_id);
     
     return (
-      <EventRowV2
+      <EventRow
         event={event}
         session={session}
         index={index}
@@ -264,4 +264,4 @@ export const EventTableV2 = memo<EventTableV2Props>(({
   );
 });
 
-EventTableV2.displayName = 'memo(EventTableV2)';
+EventTable.displayName = 'memo(EventTable)';

@@ -1,5 +1,5 @@
 /**
- * DashboardLayout Integration Tests
+ * Dashboard Integration Tests
  * 
  * Tests:
  * - Component rendering and structure
@@ -14,7 +14,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DashboardLayout } from '@/components/DashboardLayout';
+import { Dashboard } from '@/components/Dashboard';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import * as layoutPersistence from '@/lib/layoutPersistence';
@@ -55,7 +55,7 @@ Object.defineProperty(window, 'localStorage', {
   value: mockLocalStorage,
 });
 
-describe('DashboardLayout', () => {
+describe('Dashboard', () => {
   // Mock store state
   const mockStoreState = {
     ui: {
@@ -107,7 +107,7 @@ describe('DashboardLayout', () => {
 
   describe('Component Rendering', () => {
     it('renders all main components', () => {
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       expect(screen.getByTestId('dashboard-layout')).toBeInTheDocument();
       expect(screen.getByTestId('responsive-grid')).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe('DashboardLayout', () => {
     });
 
     it('renders with custom className', () => {
-      render(<DashboardLayout className="custom-class" />);
+      render(<Dashboard className="custom-class" />);
       
       const layout = screen.getByTestId('dashboard-layout');
       expect(layout).toHaveClass('custom-class');
@@ -125,9 +125,9 @@ describe('DashboardLayout', () => {
 
     it('renders custom children when provided', () => {
       render(
-        <DashboardLayout>
+        <Dashboard>
           <div data-testid="custom-content">Custom Content</div>
-        </DashboardLayout>
+        </Dashboard>
       );
 
       expect(screen.getByTestId('custom-content')).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('DashboardLayout', () => {
     });
 
     it('applies correct grid layout based on sidebar state', () => {
-      const { rerender } = render(<DashboardLayout />);
+      const { rerender } = render(<Dashboard />);
       
       let grid = screen.getByTestId('responsive-grid');
       expect(grid).toHaveAttribute('data-sidebar-collapsed', 'false');
@@ -146,7 +146,7 @@ describe('DashboardLayout', () => {
         ui: { ...mockStoreState.ui, sidebarCollapsed: true },
       });
 
-      rerender(<DashboardLayout />);
+      rerender(<Dashboard />);
       grid = screen.getByTestId('responsive-grid');
       expect(grid).toHaveAttribute('data-sidebar-collapsed', 'true');
     });
@@ -159,14 +159,14 @@ describe('DashboardLayout', () => {
         ui: { ...mockStoreState.ui, error: 'Test error message' },
       });
 
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       expect(screen.getByText('Dashboard Error')).toBeInTheDocument();
       expect(screen.getByText('Test error message')).toBeInTheDocument();
     });
 
     it('does not display error UI when no error', () => {
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       expect(screen.queryByText('Dashboard Error')).not.toBeInTheDocument();
     });
@@ -179,14 +179,14 @@ describe('DashboardLayout', () => {
         ui: { ...mockStoreState.ui, loading: true },
       });
 
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       expect(screen.getByText('Loading dashboard...')).toBeInTheDocument();
       expect(screen.getByTestId('dashboard-layout')).toBeInTheDocument();
     });
 
     it('does not display loading overlay when not loading', () => {
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
     });
@@ -197,7 +197,7 @@ describe('DashboardLayout', () => {
       // Reset mocks before test
       jest.clearAllMocks();
       
-      render(<DashboardLayout enableKeyboardShortcuts={true} />);
+      render(<Dashboard enableKeyboardShortcuts={true} />);
 
       // Check that document.addEventListener was called with keydown
       expect(document.addEventListener).toHaveBeenCalledWith(
@@ -210,7 +210,7 @@ describe('DashboardLayout', () => {
       // Reset mocks before test
       jest.clearAllMocks();
       
-      render(<DashboardLayout enableKeyboardShortcuts={false} />);
+      render(<Dashboard enableKeyboardShortcuts={false} />);
 
       // Should not add keydown listener to document
       const keydownCalls = (document.addEventListener as jest.Mock).mock.calls
@@ -220,7 +220,7 @@ describe('DashboardLayout', () => {
 
     it('handles Cmd+B keyboard shortcut for sidebar toggle', async () => {
       const user = userEvent.setup();
-      render(<DashboardLayout enableKeyboardShortcuts={true} />);
+      render(<Dashboard enableKeyboardShortcuts={true} />);
 
       // Simulate Cmd+B
       await act(async () => {
@@ -234,7 +234,7 @@ describe('DashboardLayout', () => {
       // Reset mocks before test
       jest.clearAllMocks();
       
-      const { unmount } = render(<DashboardLayout enableKeyboardShortcuts={true} />);
+      const { unmount } = render(<Dashboard enableKeyboardShortcuts={true} />);
 
       unmount();
 
@@ -247,7 +247,7 @@ describe('DashboardLayout', () => {
 
   describe('Layout Persistence', () => {
     it('saves sidebar state to localStorage when persistLayout is enabled', async () => {
-      render(<DashboardLayout persistLayout={true} />);
+      render(<Dashboard persistLayout={true} />);
 
       // Trigger sidebar toggle
       act(() => {
@@ -260,7 +260,7 @@ describe('DashboardLayout', () => {
         ui: { ...mockStoreState.ui, sidebarCollapsed: true },
       });
 
-      render(<DashboardLayout persistLayout={true} />);
+      render(<Dashboard persistLayout={true} />);
 
       await waitFor(() => {
         expect(layoutPersistence.saveSidebarCollapsed).toHaveBeenCalledWith(true);
@@ -270,13 +270,13 @@ describe('DashboardLayout', () => {
     it('restores sidebar state from localStorage on mount', () => {
       jest.spyOn(layoutPersistence, 'loadSidebarCollapsed').mockReturnValue(true);
 
-      render(<DashboardLayout persistLayout={true} />);
+      render(<Dashboard persistLayout={true} />);
 
       expect(layoutPersistence.loadSidebarCollapsed).toHaveBeenCalled();
     });
 
     it('does not persist when persistLayout is disabled', () => {
-      render(<DashboardLayout persistLayout={false} />);
+      render(<Dashboard persistLayout={false} />);
 
       // Should not call persistence functions
       expect(layoutPersistence.saveSidebarCollapsed).not.toHaveBeenCalled();
@@ -294,7 +294,7 @@ describe('DashboardLayout', () => {
         getFilteredEvents: jest.fn(() => mockEvents),
       });
 
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       // Verify filtered data is retrieved
       expect(mockStoreState.getFilteredSessions).toHaveBeenCalled();
@@ -302,7 +302,7 @@ describe('DashboardLayout', () => {
     });
 
     it('updates ResponsiveGrid with correct sidebar state', () => {
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       const grid = screen.getByTestId('responsive-grid');
       expect(grid).toHaveAttribute('data-sidebar-collapsed', 'false');
@@ -321,7 +321,7 @@ describe('DashboardLayout', () => {
     });
 
     it('shows keyboard shortcuts help in development mode', () => {
-      render(<DashboardLayout enableKeyboardShortcuts={true} />);
+      render(<Dashboard enableKeyboardShortcuts={true} />);
 
       expect(screen.getByText('Keyboard Shortcuts')).toBeInTheDocument();
       expect(screen.getByText('Toggle sidebar')).toBeInTheDocument();
@@ -329,7 +329,7 @@ describe('DashboardLayout', () => {
     });
 
     it('does not show shortcuts help when keyboard shortcuts disabled', () => {
-      render(<DashboardLayout enableKeyboardShortcuts={false} />);
+      render(<Dashboard enableKeyboardShortcuts={false} />);
 
       expect(screen.queryByText('Keyboard Shortcuts')).not.toBeInTheDocument();
     });
@@ -337,7 +337,7 @@ describe('DashboardLayout', () => {
 
   describe('Accessibility', () => {
     it('has proper ARIA attributes', () => {
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       const layout = screen.getByTestId('dashboard-layout');
       expect(layout).toBeInTheDocument();
@@ -348,7 +348,7 @@ describe('DashboardLayout', () => {
 
     it('maintains focus management for keyboard navigation', async () => {
       const user = userEvent.setup();
-      render(<DashboardLayout enableKeyboardShortcuts={true} />);
+      render(<Dashboard enableKeyboardShortcuts={true} />);
 
       // Should handle focus events properly
       await act(async () => {
@@ -362,10 +362,10 @@ describe('DashboardLayout', () => {
 
   describe('Performance', () => {
     it('does not re-render unnecessarily', () => {
-      const { rerender } = render(<DashboardLayout />);
+      const { rerender } = render(<Dashboard />);
       
       // Re-render with same props
-      rerender(<DashboardLayout />);
+      rerender(<Dashboard />);
       
       // Should still be rendered correctly
       expect(screen.getByTestId('dashboard-layout')).toBeInTheDocument();
@@ -389,7 +389,7 @@ describe('DashboardLayout', () => {
       });
 
       const startTime = performance.now();
-      render(<DashboardLayout />);
+      render(<Dashboard />);
       const endTime = performance.now();
 
       // Should render in reasonable time (< 100ms)
@@ -407,7 +407,7 @@ describe('DashboardLayout', () => {
         getFilteredEvents: jest.fn(() => []),
       });
 
-      render(<DashboardLayout />);
+      render(<Dashboard />);
 
       expect(screen.getByTestId('dashboard-layout')).toBeInTheDocument();
       expect(screen.getByTestId('event-feed')).toBeInTheDocument();
@@ -422,7 +422,7 @@ describe('DashboardLayout', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       
       expect(() => {
-        render(<DashboardLayout persistLayout={true} />);
+        render(<Dashboard persistLayout={true} />);
       }).not.toThrow();
       
       consoleSpy.mockRestore();
@@ -432,7 +432,7 @@ describe('DashboardLayout', () => {
       mockLocalStorage.getItem.mockReturnValue('invalid json');
 
       expect(() => {
-        render(<DashboardLayout persistLayout={true} />);
+        render(<Dashboard persistLayout={true} />);
       }).not.toThrow();
     });
   });

@@ -1,12 +1,12 @@
 /**
- * Tests for EventRowV2 component
+ * Tests for EventRow component
  * Dense 24px row with semantic color coding
  */
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { EventRowV2 } from '@/components/eventfeed/EventRowV2';
+import { EventRow } from '@/components/eventfeed/EventRow';
 import { Event, Session } from '@/types/events';
 
 const mockSession: Session = {
@@ -19,7 +19,7 @@ const mockSession: Session = {
   created_at: '2024-01-01T09:00:00Z'
 };
 
-describe('EventRowV2', () => {
+describe('EventRow', () => {
   describe('Semantic Color Coding', () => {
     it('applies user_prompt_submit color scheme (purple)', () => {
       const event: Event = {
@@ -31,7 +31,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('border-l-accent-purple');
@@ -49,7 +49,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('border-l-accent-blue');
@@ -68,7 +68,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('border-l-accent-green');
@@ -85,7 +85,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('border-l-accent-yellow');
@@ -102,7 +102,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('border-l-accent-red');
@@ -119,7 +119,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('border-l-text-muted');
@@ -138,7 +138,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('h-6'); // h-6 = 24px
@@ -155,7 +155,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('grid', 'grid-cols-[85px_140px_110px_90px_1fr]');
@@ -171,7 +171,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('py-2', 'px-3'); // py-2 = 8px, px-3 = 12px
@@ -189,7 +189,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:30:45.000Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       expect(screen.getByText('10:30:45')).toBeInTheDocument();
     });
@@ -204,7 +204,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       expect(screen.getByText('project/main')).toBeInTheDocument();
     });
@@ -220,7 +220,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const typeBadge = screen.getByText('pre tool use');
       expect(typeBadge).toHaveClass('px-2', 'py-1', 'rounded-md');
@@ -237,7 +237,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const toolName = screen.getByText('Read');
       expect(toolName).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       expect(screen.getByText('1.25s')).toBeInTheDocument();
     });
@@ -273,7 +273,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('pl-8'); // pl-8 = 32px (12px base + 20px indent)
@@ -289,7 +289,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       const row = screen.getByTestId('event-row-v2');
       expect(row).toHaveClass('px-3');
@@ -308,7 +308,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={undefined} index={0} />);
+      render(<EventRow event={event} session={undefined} index={0} />);
       
       expect(screen.getByText('Unknown session')).toBeInTheDocument();
     });
@@ -323,7 +323,7 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      render(<EventRow event={event} session={mockSession} index={0} />);
       
       // Should show empty tool column or placeholder
       const row = screen.getByTestId('event-row-v2');
@@ -333,7 +333,7 @@ describe('EventRowV2', () => {
 
   describe('Performance', () => {
     it('uses React.memo for optimization', () => {
-      expect(EventRowV2.displayName).toContain('memo');
+      expect(EventRow.displayName).toContain('memo');
     });
 
     it('prevents unnecessary re-renders with stable props', () => {
@@ -346,10 +346,10 @@ describe('EventRowV2', () => {
         created_at: '2024-01-01T10:00:00Z'
       };
 
-      const { rerender } = render(<EventRowV2 event={event} session={mockSession} index={0} />);
+      const { rerender } = render(<EventRow event={event} session={mockSession} index={0} />);
       
       // Re-render with same props should not cause update
-      rerender(<EventRowV2 event={event} session={mockSession} index={0} />);
+      rerender(<EventRow event={event} session={mockSession} index={0} />);
       
       expect(screen.getByTestId('event-row-v2')).toBeInTheDocument();
     });

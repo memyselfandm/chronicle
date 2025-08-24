@@ -1,5 +1,5 @@
 /**
- * DashboardLayout - Main layout component with responsive grid system
+ * Dashboard - Main layout component with responsive grid system
  * 
  * Features:
  * - CSS Grid responsive layout system
@@ -20,11 +20,11 @@ import { useEvents } from '@/hooks/useEvents';
 import { useSessions } from '@/hooks/useSessions';
 import { Header } from '@/components/layout/Header';
 import { SidebarContainer } from '@/components/sidebar/SidebarContainer';
-import { EventFeedV2 } from '@/components/eventfeed/EventFeedV2';
+import { EventFeed } from '@/components/eventfeed/EventFeed';
 import { AutoSizeWrapper } from '@/components/eventfeed/AutoSizeWrapper';
 import { ResponsiveGrid } from './ResponsiveGrid';
 
-export interface DashboardLayoutProps {
+export interface DashboardProps {
   /** Additional CSS classes */
   className?: string;
   /** Enable layout persistence */
@@ -38,12 +38,12 @@ export interface DashboardLayoutProps {
 /**
  * Main dashboard layout with responsive grid system
  */
-export function DashboardLayout({
+export function Dashboard({
   className,
   persistLayout = true,
   enableKeyboardShortcuts = true,
   children
-}: DashboardLayoutProps) {
+}: DashboardProps) {
   const {
     ui: { sidebarCollapsed, loading },
     setSidebarCollapsed,
@@ -350,7 +350,7 @@ export function DashboardLayout({
             <div className="flex-1 overflow-hidden h-full">
               <AutoSizeWrapper className="w-full h-full">
                 {({ width, height }) => (
-                  <EventFeedV2
+                  <EventFeed
                     sessions={sessions}
                     initialEvents={events || []}
                     height={height}
@@ -409,4 +409,4 @@ export function DashboardLayout({
   );
 }
 
-DashboardLayout.displayName = 'DashboardLayout';
+Dashboard.displayName = 'Dashboard';

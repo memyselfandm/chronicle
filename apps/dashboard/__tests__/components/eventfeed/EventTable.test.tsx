@@ -8,9 +8,9 @@ import {
   createHighFrequencyEventStream 
 } from '../../../src/test-utils/mockData';
 import { PerformanceMonitor, PERFORMANCE_BENCHMARKS } from '../../../src/test-utils/performanceHelpers';
-import { EventTableV2 } from '../../../src/components/eventfeed/EventTableV2';
+import { EventTable } from '../../../src/components/eventfeed/EventTable';
 
-describe('EventTableV2 Component', () => {
+describe('EventTable Component', () => {
   const mockEvents = createMockEvents(20, 'session_test');
   
   const defaultProps = {
@@ -31,7 +31,7 @@ describe('EventTableV2 Component', () => {
 
   describe('Rendering', () => {
     it('should render event table with all events', () => {
-      renderWithProviders(<EventTableV2 {...defaultProps} />);
+      renderWithProviders(<EventTable {...defaultProps} />);
       
       expect(screen.getByRole('table')).toBeInTheDocument();
       expect(screen.getByText('Event Type')).toBeInTheDocument();
@@ -45,7 +45,7 @@ describe('EventTableV2 Component', () => {
 
     it('should show loading state', () => {
       renderWithProviders(
-        <EventTableV2 
+        <EventTable 
           {...defaultProps} 
           loading={true}
           events={[]}
@@ -58,7 +58,7 @@ describe('EventTableV2 Component', () => {
 
     it('should display empty state when no events', () => {
       renderWithProviders(
-        <EventTableV2 
+        <EventTable 
           {...defaultProps} 
           events={[]}
           loading={false}
@@ -71,7 +71,7 @@ describe('EventTableV2 Component', () => {
 
     it('should show error state', () => {
       renderWithProviders(
-        <EventTableV2 
+        <EventTable 
           {...defaultProps} 
           error="Failed to load events"
           events={[]}
@@ -87,7 +87,7 @@ describe('EventTableV2 Component', () => {
     it('should highlight selected event', () => {
       const selectedEvent = mockEvents[5];
       renderWithProviders(
-        <EventTableV2 
+        <EventTable 
           {...defaultProps} 
           selectedEventId={selectedEvent.id}
         />
@@ -102,7 +102,7 @@ describe('EventTableV2 Component', () => {
       const mockOnEventSelect = jest.fn();
       
       renderWithProviders(
-        <EventTableV2 
+        <EventTable 
           {...defaultProps} 
           onEventSelect={mockOnEventSelect}
         />
@@ -119,7 +119,7 @@ describe('EventTableV2 Component', () => {
       const mockOnEventSelect = jest.fn();
       
       renderWithProviders(
-        <EventTableV2 
+        <EventTable 
           {...defaultProps} 
           onEventSelect={mockOnEventSelect}
         />
@@ -144,7 +144,7 @@ describe('EventTableV2 Component', () => {
       
       performanceMonitor.startMeasurement();
       renderWithProviders(
-        <EventTableV2 
+        <EventTable 
           {...defaultProps} 
           events={events}
         />
@@ -159,7 +159,7 @@ describe('EventTableV2 Component', () => {
     });
 
     it('should handle high-frequency updates efficiently', async () => {
-      const { rerender } = renderWithProviders(<EventTableV2 {...defaultProps} />);
+      const { rerender } = renderWithProviders(<EventTable {...defaultProps} />);
       const performanceMonitor = new PerformanceMonitor();
       
       performanceMonitor.startMeasurement();
@@ -168,7 +168,7 @@ describe('EventTableV2 Component', () => {
       for (let i = 0; i < 20; i++) {
         const newEvents = [...mockEvents, ...createMockEvents(5, `session_${i}`)];
         rerender(
-          <EventTableV2 
+          <EventTable 
             {...defaultProps} 
             events={newEvents}
           />
@@ -182,13 +182,13 @@ describe('EventTableV2 Component', () => {
 
   describe('Accessibility', () => {
     it('should be accessible', () => {
-      const { container } = renderWithProviders(<EventTableV2 {...defaultProps} />);
+      const { container } = renderWithProviders(<EventTable {...defaultProps} />);
       const issues = checkAccessibility(container);
       expect(issues).toHaveLength(0);
     });
 
     it('should have proper table structure', () => {
-      renderWithProviders(<EventTableV2 {...defaultProps} />);
+      renderWithProviders(<EventTable {...defaultProps} />);
       
       const table = screen.getByRole('table');
       expect(table).toHaveAttribute('aria-label', 'Events table');

@@ -34,17 +34,17 @@ Performance testing and integration validation has been completed for Sprint CHR
 - **Scroll Performance**: Sub-16ms scroll operations maintain 60fps target
 
 #### React Optimization
-- **Memo Wrapping**: EventFeedV2, EventTableV2, EventRowV2 all use React.memo
+- **Memo Wrapping**: EventFeed, EventTable, EventRow all use React.memo
 - **Selective Re-renders**: Only affected components re-render on state changes
 - **Component Profiling**: Performance monitoring tracks render times
 - **State Optimization**: Zustand selectors prevent unnecessary subscriptions
 
 ## 🏗️ Architecture Integration Results
 
-### EventFeedV2 + Performance Enhancements
+### EventFeed + Performance Enhancements
 ```
 ✅ Component Integration
-   ├── EventFeedV2 ──► EventTableV2 ──► Virtual List
+   ├── EventFeed ──► EventTable ──► Virtual List
    ├── EventBatcher ──► 100ms windowing ──► Batch processing
    ├── PerformanceMonitor ──► Real-time metrics ──► Memory tracking
    └── Auto-scroll ──► Newest-first ──► Smooth UX
@@ -120,9 +120,9 @@ Performance testing and integration validation has been completed for Sprint CHR
 
 ## 🔧 Technical Implementation Details
 
-### EventFeedV2 Architecture
+### EventFeed Architecture
 ```typescript
-EventFeedV2 {
+EventFeed {
   // Core features validated:
   ✅ Event batching integration (100ms windows)
   ✅ Virtual scrolling (react-window)
@@ -141,7 +141,7 @@ EventFeedV2 {
 - **Batch Processing**: Monitors batch timing and efficiency
 
 ### Integration Points Verified
-1. **EventBatcher ↔ EventFeedV2**: ✅ Subscription model working
+1. **EventBatcher ↔ EventFeed**: ✅ Subscription model working
 2. **Virtual Scrolling ↔ Event Data**: ✅ Efficient large dataset handling  
 3. **Performance Monitor ↔ Components**: ✅ Real-time metrics collection
 4. **Auto-scroll ↔ Batching**: ✅ Smooth UX during high activity
@@ -164,7 +164,7 @@ EventFeedV2 {
 ## ✅ Sprint Acceptance Criteria
 
 ### CHR-17: Event Feed Optimization - ✅ COMPLETE
-- ✅ EventFeedV2 with virtual scrolling
+- ✅ EventFeed with virtual scrolling
 - ✅ 24px dense row layout  
 - ✅ Semantic color coding
 - ✅ Sub-agent hierarchy support

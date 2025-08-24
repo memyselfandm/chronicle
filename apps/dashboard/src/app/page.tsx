@@ -1,6 +1,6 @@
 'use client';
 
-import { DashboardLayout } from "@/components/DashboardLayout";
+import { Dashboard } from "@/components/Dashboard";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useLayoutPersistence } from "@/lib/layoutPersistence";
 import { useEffect } from 'react';
@@ -29,12 +29,12 @@ export default function Dashboard() {
   }, [isLoaded, layoutState, setSidebarCollapsed]);
 
   return (
-    <DashboardLayout
+    <Dashboard
       className={isNavigationActive ? 'navigation-active' : ''}
       persistLayout={true}
       enableKeyboardShortcuts={true}
     >
-      {/* DashboardLayout now handles data fetching internally */}
-    </DashboardLayout>
+      {/* Dashboard now handles data fetching internally */}
+    </Dashboard>
   );
 }

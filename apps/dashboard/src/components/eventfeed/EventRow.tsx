@@ -1,5 +1,5 @@
 /**
- * EventRowV2 - Dense 22px row component with semantic color coding
+ * EventRow - Dense 22px row component with semantic color coding
  * 
  * Features:
  * - Exactly 22px height for maximum density (per V5 reference)
@@ -16,7 +16,7 @@ import React, { memo } from 'react';
 import { Event, Session } from '@/types/events';
 import { cn } from '@/lib/utils';
 
-export interface EventRowV2Props {
+export interface EventRowProps {
   /** Event data to display */
   event: Event;
   /** Session context for display */
@@ -188,7 +188,7 @@ const getEventDetails = (event: Event) => {
 /**
  * Dense 22px event row with semantic color coding
  */
-export const EventRowV2 = memo<EventRowV2Props>(({ event, session, style }) => {
+export const EventRow = memo<EventRowProps>(({ event, session, style }) => {
   const colorClasses = getEventColorClasses(event.event_type);
   const isSubAgent = isSubAgentEvent(event);
   const icon = getEventIcon(event.event_type);
@@ -259,4 +259,4 @@ export const EventRowV2 = memo<EventRowV2Props>(({ event, session, style }) => {
   );
 });
 
-EventRowV2.displayName = 'memo(EventRowV2)';
+EventRow.displayName = 'memo(EventRow)';

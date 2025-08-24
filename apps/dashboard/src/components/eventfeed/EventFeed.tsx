@@ -1,5 +1,5 @@
 /**
- * EventFeedV2 - High-performance event feed with batching and virtual scrolling
+ * EventFeed - High-performance event feed with batching and virtual scrolling
  * 
  * Features:
  * - EventBatcher integration for 100ms windowing
@@ -24,10 +24,10 @@ import React, {
 } from 'react';
 import { Event, Session } from '@/types/events';
 import { EventBatch, getEventBatcher } from '@/lib/eventBatcher';
-import { EventTableV2 } from './EventTableV2';
+import { EventTable } from './EventTable';
 import { cn } from '@/lib/utils';
 
-export interface EventFeedV2Props {
+export interface EventFeedProps {
   /** Array of sessions for context */
   sessions: Session[];
   /** Feed height in pixels */
@@ -113,7 +113,7 @@ const usePerformanceMonitoring = (
 /**
  * High-performance event feed with batching and virtual scrolling
  */
-export const EventFeedV2 = memo<EventFeedV2Props>(({
+export const EventFeed = memo<EventFeedProps>(({
   sessions,
   height = 400,
   width = 800,
@@ -133,7 +133,7 @@ export const EventFeedV2 = memo<EventFeedV2Props>(({
   useEffect(() => {
     if (initialEvents) {
       setEvents(initialEvents);
-      console.log('📊 EventFeedV2: Received', initialEvents.length, 'initial events');
+      console.log('📊 EventFeed: Received', initialEvents.length, 'initial events');
     }
   }, [initialEvents]);
   const batcherRef = useRef(getEventBatcher({
@@ -243,7 +243,7 @@ export const EventFeedV2 = memo<EventFeedV2Props>(({
     >
       {/* Main event table */}
       <div className="flex-1 overflow-hidden">
-        <EventTableV2
+        <EventTable
           events={sortedEvents}
           sessions={sessions}
           height={height}
@@ -289,7 +289,7 @@ export const EventFeedV2 = memo<EventFeedV2Props>(({
   );
 });
 
-EventFeedV2.displayName = 'memo(EventFeedV2)';
+EventFeed.displayName = 'memo(EventFeed)';
 
 // Export additional utilities
 export { usePerformanceMonitoring };

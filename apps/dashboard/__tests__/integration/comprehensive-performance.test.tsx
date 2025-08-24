@@ -1,6 +1,6 @@
 /**
  * Comprehensive Performance Integration Tests for CHR-25.S03
- * Tests the complete integration of EventFeedV2 and Performance Enhancements
+ * Tests the complete integration of EventFeed and Performance Enhancements
  * 
  * Validates:
  * - 200 events/minute load handling
@@ -14,8 +14,8 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { EventFeedV2 } from '@/components/eventfeed/EventFeedV2';
-import { EventTableV2 } from '@/components/eventfeed/EventTableV2';
+import { EventFeed } from '@/components/eventfeed/EventFeed';
+import { EventTable } from '@/components/eventfeed/EventTable';
 import { Event, Session } from '@/types/events';
 import { getEventBatcher, resetEventBatcher } from '@/lib/eventBatcher';
 import { getPerformanceMonitor, resetPerformanceMonitor } from '@/lib/performanceMonitor';
@@ -245,7 +245,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       const onPerformanceUpdate = jest.fn();
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           height={400}
           width={800}
@@ -325,7 +325,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       benchmark.startMeasurement('Event burst handling');
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
           batchWindowMs={100}
@@ -371,7 +371,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       const largeEventSet = generateEventBurst(1500);
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={largeEventSet}
           height={400}
@@ -426,7 +426,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       benchmark.startMeasurement('FIFO event management');
       
       const { rerender } = render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           height={400}
           width={800}
@@ -483,7 +483,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       ];
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={colorTestEvents}
           height={400}
@@ -513,7 +513,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       const testEvents = generateEventBurst(20);
       
       render(
-        <EventTableV2
+        <EventTable
           events={testEvents}
           sessions={mockSessions}
           height={400}
@@ -540,7 +540,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       benchmark.startMeasurement('Auto-scroll during high-frequency updates');
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           defaultAutoScroll={true}
           enableBatching={true}
@@ -599,7 +599,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       });
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
           batchWindowMs={100}
@@ -640,7 +640,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       benchmark.startMeasurement('Extended memory usage test');
       
       const { rerender } = render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
           maxEvents={1000}
@@ -700,7 +700,7 @@ describe('CHR-25.S03 Comprehensive Performance Integration Tests', () => {
       const { rerender } = render(
         <div>
           <TestEventRow />
-          <EventFeedV2
+          <EventFeed
             sessions={mockSessions}
             enableBatching={true}
           />

@@ -1,12 +1,12 @@
 /**
- * Integration tests for EventFeedV2 - End-to-end event feed performance
+ * Integration tests for EventFeed - End-to-end event feed performance
  * Tests the complete system including batching, virtual scrolling, and real-time updates
  */
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { EventFeedV2 } from '@/components/eventfeed/EventFeedV2';
+import { EventFeed } from '@/components/eventfeed/EventFeed';
 import { Event, Session } from '@/types/events';
 
 // Mock react-window for testing
@@ -71,7 +71,7 @@ const createMockEvent = (id: string, type: string, timestamp: Date, toolName?: s
   created_at: timestamp.toISOString()
 });
 
-describe('EventFeedV2 Integration Tests', () => {
+describe('EventFeed Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -86,7 +86,7 @@ describe('EventFeedV2 Integration Tests', () => {
       const onPerformanceUpdate = jest.fn();
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           height={400}
           width={800}
@@ -155,7 +155,7 @@ describe('EventFeedV2 Integration Tests', () => {
       }
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={largeEventSet}
           height={400}
@@ -175,7 +175,7 @@ describe('EventFeedV2 Integration Tests', () => {
 
     it('handles memory management with FIFO event history', async () => {
       const { rerender } = render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           height={400}
           width={800}
@@ -216,7 +216,7 @@ describe('EventFeedV2 Integration Tests', () => {
   describe('Event Batching Integration', () => {
     it('configures EventBatcher with correct parameters', () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
           batchWindowMs={150}
@@ -231,7 +231,7 @@ describe('EventFeedV2 Integration Tests', () => {
 
     it('subscribes to batch events and processes them correctly', async () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={true}
         />
@@ -265,7 +265,7 @@ describe('EventFeedV2 Integration Tests', () => {
 
     it('falls back to direct event handling when batching disabled', async () => {
       const { rerender } = render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           enableBatching={false}
         />
@@ -279,7 +279,7 @@ describe('EventFeedV2 Integration Tests', () => {
   describe('Auto-scroll Behavior', () => {
     it('auto-scrolls to newest events when enabled', async () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           defaultAutoScroll={true}
         />
@@ -313,7 +313,7 @@ describe('EventFeedV2 Integration Tests', () => {
 
     it('preserves manual scroll position when auto-scroll disabled', async () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           defaultAutoScroll={false}
         />
@@ -328,7 +328,7 @@ describe('EventFeedV2 Integration Tests', () => {
 
     it('toggles auto-scroll state correctly', async () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           defaultAutoScroll={true}
         />
@@ -358,7 +358,7 @@ describe('EventFeedV2 Integration Tests', () => {
       ];
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={colorTestEvents}
         />
@@ -380,7 +380,7 @@ describe('EventFeedV2 Integration Tests', () => {
       const onPerformanceUpdate = jest.fn();
       
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           onPerformanceUpdate={onPerformanceUpdate}
         />
@@ -422,7 +422,7 @@ describe('EventFeedV2 Integration Tests', () => {
       process.env.NODE_ENV = 'development';
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           onPerformanceUpdate={jest.fn()}
         />
@@ -440,7 +440,7 @@ describe('EventFeedV2 Integration Tests', () => {
   describe('Error Handling & Edge Cases', () => {
     it('handles empty sessions array gracefully', () => {
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={[]}
           height={400}
           width={800}
@@ -457,7 +457,7 @@ describe('EventFeedV2 Integration Tests', () => {
       ];
 
       render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
           initialEvents={invalidEvents as any}
         />
@@ -472,7 +472,7 @@ describe('EventFeedV2 Integration Tests', () => {
 
     it('cleans up resources on unmount', () => {
       const { unmount } = render(
-        <EventFeedV2
+        <EventFeed
           sessions={mockSessions}
         />
       );

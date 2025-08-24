@@ -13,7 +13,7 @@
 
 import React, { memo } from 'react';
 import { Event, Session } from '@/types/events';
-import { EventRowV2 } from './EventRowV2';
+import { EventRow } from './EventRow';
 import { cn } from '@/lib/utils';
 
 export interface SubAgentRowProps {
@@ -220,7 +220,7 @@ export const SubAgentRow = memo<SubAgentRowProps>(({
       data-testid="subagent-row"
       data-level={level}
     >
-      <EventRowV2
+      <EventRow
         event={{
           ...event,
           // Mark as sub-agent for styling
