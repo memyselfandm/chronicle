@@ -43,8 +43,29 @@ export const useSessions = (): UseSessionsState => {
     if (sessionIds.length === 0) return [];
 
     try {
-      // Skip RPC call - function doesn't exist in Supabase (see CHR-83)
-      // Go straight to manual aggregation
+      // Try using the get_session_summaries RPC function first (CHR-83)
+      const { data: rpcSummaries, error: rpcError } = await supabase
+        .rpc('get_session_summaries', { session_ids: sessionIds });
+
+      if (!rpcError && rpcSummaries) {
+        logger.info('Successfully fetched session summaries via RPC', {
+          component: 'useSessions',
+          action: 'fetchSessionSummaries',
+          data: { sessionCount: sessionIds.length, summaryCount: rpcSummaries.length }
+        });
+        return rpcSummaries;
+      }
+
+      // If RPC fails, log the error and fallback to manual aggregation
+      if (rpcError) {
+        logger.warn('RPC function failed, falling back to manual aggregation', {
+          component: 'useSessions',
+          action: 'fetchSessionSummaries',
+          data: { error: rpcError.message }
+        });
+      }
+
+      // Fallback: manual aggregation
       const summaries: SessionSummary[] = [];
 
       for (const sessionId of sessionIds) {
@@ -297,75 +318,39 @@ export const useSessions = (): UseSessionsState => {
    * Retry function for error recovery
    */
   /**
-   * Updates session end times based on stop events
+   * Note: Session end times are now handled automatically by database triggers
+   * when stop events with session_termination=true are inserted. This prevents
+   * premature session termination on subagent stops or other non-terminal events.
    */
-  const updateSessionEndTimes = useCallback(async (): Promise<void> => {
-    try {
-      // Find sessions without end_time that might have stop events
-      const openSessions = sessions.filter(s => !s.end_time);
-      
-      for (const session of openSessions) {
-        const { data: stopEvents, error: stopError } = await supabase
-          .from('chronicle_events')
-          .select('timestamp, event_type')
-          .eq('session_id', session.id)
-          .in('event_type', ['stop', 'subagent_stop'])
-          .order('timestamp', { ascending: false })
-          .limit(1);
-
-        if (!stopError && stopEvents && stopEvents.length > 0) {
-          // Update session with end_time from stop event
-          const { error: updateError } = await supabase
-            .from('chronicle_sessions')
-            .update({ end_time: stopEvents[0].timestamp })
-            .eq('id', session.id);
-
-          if (updateError) {
-            logger.warn(`Failed to update end_time for session ${session.id}`, {
-              component: 'useSessions',
-              action: 'updateSessionEndTimes',
-              data: { sessionId: session.id, error: updateError.message }
-            });
-          }
-        }
-      }
-    } catch (err) {
-      logger.warn('Error updating session end times', {
-        component: 'useSessions',
-        action: 'updateSessionEndTimes'
-      });
-    }
-  }, [sessions]);
 
   const retry = useCallback(async (): Promise<void> => {
     await fetchSessions();
-    await updateSessionEndTimes();
-  }, [fetchSessions, updateSessionEndTimes]);
+  }, [fetchSessions]);
 
   /**
-   * Determines if a session is active based on events
+   * Determines if a session is active based on end_time field
+   * Sessions are active if they don't have an end_time (set by database triggers)
    */
   const isSessionActive = useCallback(async (sessionId: string): Promise<boolean> => {
     try {
-      // Check for stop events
-      const { data: stopEvents, error: stopError } = await supabase
-        .from('chronicle_events')
-        .select('event_type')
-        .eq('session_id', sessionId)
-        .in('event_type', ['stop', 'subagent_stop'])
-        .limit(1);
+      // Check session end_time directly (set by database triggers on proper termination)
+      const { data: session, error: sessionError } = await supabase
+        .from('chronicle_sessions')
+        .select('end_time')
+        .eq('id', sessionId)
+        .single();
 
-      if (stopError) {
-        logger.warn(`Failed to check stop events for session ${sessionId}`, {
+      if (sessionError) {
+        logger.warn(`Failed to check session status for ${sessionId}`, {
           component: 'useSessions',
           action: 'checkSessionStatus',
-          data: { sessionId, error: stopError.message }
+          data: { sessionId, error: sessionError.message }
         });
         return false;
       }
 
-      // If there are stop events, session is not active
-      return !stopEvents || stopEvents.length === 0;
+      // Session is active if it doesn't have an end_time
+      return !session?.end_time;
     } catch (err) {
       logger.warn(`Error checking session status for ${sessionId}`, {
         component: 'useSessions',
@@ -415,6 +400,5 @@ export const useSessions = (): UseSessionsState => {
     getSessionDuration,
     getSessionSuccessRate,
     isSessionActive,
-    updateSessionEndTimes,
   };
 };
