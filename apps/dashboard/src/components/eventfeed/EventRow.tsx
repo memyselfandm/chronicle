@@ -163,12 +163,21 @@ const getEventDetails = (event: Event) => {
     case 'user_prompt_submit':
       return event.metadata?.prompt || 'User prompt submitted';
     case 'pre_tool_use':
-      return `Starting ${event.tool_name}`;
+      const toolName = event.tool_name || 
+                       event.metadata?.tool_name || 
+                       event.metadata?.tool_input?.tool_name || 
+                       'Unknown Tool';
+      return `Starting ${toolName}`;
     case 'post_tool_use':
-      const success = event.metadata?.tool_response?.success;
+      const postToolName = event.tool_name || 
+                           event.metadata?.tool_name || 
+                           event.metadata?.tool_input?.tool_name || 
+                           'Unknown Tool';
+      const success = event.metadata?.tool_response?.success !== false;
       const result = success ? 'completed successfully' : 'failed';
-      return `${event.tool_name} ${result}`;
+      return `${postToolName} ${result}`;
     case 'notification':
+      // Display the full message which includes tool name
       return event.metadata?.message || 'Notification';
     case 'error':
       return event.metadata?.error_message || 'Error occurred';
@@ -197,7 +206,7 @@ export const EventRow = memo<EventRowProps>(({ event, session, style }) => {
     <div
       className={cn(
         // V5 column layout: Time 85px, Icon 36px, Event Type 160px, Session 140px, Details flex
-        'grid grid-cols-[85px_36px_160px_140px_1fr] gap-2 items-center',
+        'grid grid-cols-[85px_36px_160px_280px_1fr] gap-2 items-center',
         'h-[22px] min-h-[22px] max-h-[22px]', // Exactly 22px height per V5 reference
         'text-xs leading-tight', // 12px font with tight line height (1.2)
         
@@ -241,7 +250,7 @@ export const EventRow = memo<EventRowProps>(({ event, session, style }) => {
         {event.tool_name && ` (${event.tool_name})`}
       </div>
 
-      {/* Session column (140px) */}
+      {/* Session column (280px) */}
       <div className="text-text-secondary truncate" title={formatSessionDisplay(session)}>
         {formatSessionDisplay(session)}
       </div>

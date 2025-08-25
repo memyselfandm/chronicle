@@ -65,13 +65,15 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
 
     return createPortal(
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center"
+        className="fixed inset-0 flex items-center justify-center"
+        style={{ zIndex: 'var(--z-modal)' }}
         aria-modal="true"
         role="dialog"
       >
         {/* Backdrop */}
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+          style={{ zIndex: 'var(--z-modal-backdrop)' }}
           onClick={onClose}
           aria-hidden="true"
         />
@@ -80,7 +82,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
         <div
           ref={ref}
           className={cn(
-            "relative z-50 w-full mx-4 bg-bg-secondary border border-border rounded-lg shadow-lg",
+            "relative w-full mx-4 bg-bg-secondary border border-border rounded-lg shadow-lg",
             getSizeClasses(size),
             className
           )}

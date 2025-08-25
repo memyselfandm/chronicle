@@ -128,22 +128,25 @@ export function ResponsiveGrid({
     }
   };
 
-  const gridStyle = getGridTemplate();
+  // Apply grid configuration as CSS custom properties for better CSS integration
+  const gridStyle = {
+    '--sidebar-width': getSidebarWidth(),
+    '--header-height': '40px',
+  } as React.CSSProperties;
 
   return (
     <div
       className={cn(
         'responsive-grid',
-        'relative min-h-screen',
+        'min-h-screen',
+        `responsive-grid--${breakpoint}`,
+        sidebarCollapsed && 'responsive-grid--sidebar-collapsed',
+        breakpoint === 'mobile' && !sidebarCollapsed && 'responsive-grid--mobile-sidebar-open',
         breakpoint === 'mobile' && 'touch-pan-y', // Enable touch scrolling on mobile
         loading && 'pointer-events-none',
         className
       )}
-      style={{
-        display: 'grid',
-        ...gridStyle,
-        transition: 'all 300ms ease-in-out',
-      }}
+      style={gridStyle}
       data-testid="responsive-grid"
       data-breakpoint={breakpoint}
       data-sidebar-collapsed={sidebarCollapsed}
@@ -151,7 +154,8 @@ export function ResponsiveGrid({
       {/* Mobile sidebar overlay */}
       {breakpoint === 'mobile' && !sidebarCollapsed && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 bg-black/50"
+          style={{ zIndex: 'var(--z-modal-backdrop)' }}
           onClick={() => {
             // Trigger sidebar collapse on overlay click
             const event = new CustomEvent('sidebar-toggle');
@@ -163,15 +167,6 @@ export function ResponsiveGrid({
 
       {/* Grid children */}
       {children}
-
-      {/* Responsive grid debug info (development only) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-16 left-4 bg-bg-secondary/90 border border-border-primary rounded px-2 py-1 text-xs font-mono text-text-muted z-50">
-          <div>Breakpoint: {breakpoint}</div>
-          <div>Sidebar: {sidebarCollapsed ? 'collapsed' : 'expanded'}</div>
-          <div>Width: {getSidebarWidth()}</div>
-        </div>
-      )}
     </div>
   );
 }

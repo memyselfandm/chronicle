@@ -382,12 +382,22 @@ export const useSessions = (): UseSessionsState => {
     return () => clearInterval(intervalId);
   }, []); // Remove dependencies to prevent infinite loop
 
+  // Placeholder for updateSessionEndTimes - to be implemented if needed
+  const updateSessionEndTimes = useCallback(async () => {
+    // This function would update session end times based on event data
+    // Currently not implemented as sessions are updated via polling
+    logger.debug('updateSessionEndTimes called - using polling for updates', {
+      component: 'useSessions',
+      action: 'updateSessionEndTimes'
+    });
+  }, []);
+
   // Update session end times after sessions are loaded
   useEffect(() => {
     if (sessions.length > 0 && !loading) {
       updateSessionEndTimes();
     }
-  }, [sessions.length, loading]); // Only depend on sessions.length and loading state
+  }, [sessions.length, loading, updateSessionEndTimes]); // Only depend on sessions.length and loading state
 
   return {
     sessions,
@@ -400,5 +410,6 @@ export const useSessions = (): UseSessionsState => {
     getSessionDuration,
     getSessionSuccessRate,
     isSessionActive,
+    updateSessionEndTimes,
   };
 };

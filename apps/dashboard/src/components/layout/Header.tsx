@@ -18,7 +18,7 @@ export function Header() {
   // Calculate metrics
   const metrics = useMemo(() => {
     const activeSessions = sessions.filter(s => s.status === 'active').length;
-    const awaitingSessions = sessions.filter(s => s.status === 'awaiting').length;
+    const awaitingSessions = sessions.filter(s => s.isAwaiting === true).length;
     
     // Calculate events per minute from recent events
     const now = Date.now();

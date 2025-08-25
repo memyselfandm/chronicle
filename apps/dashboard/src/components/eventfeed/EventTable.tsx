@@ -52,7 +52,7 @@ const TableHeader = memo<{ autoScroll?: boolean; onAutoScrollChange?: (enabled: 
           'grid gap-2 flex-1',
           'text-xs font-semibold text-text-secondary uppercase tracking-wide',
           'h-6 items-center',
-          'grid-cols-[85px_36px_160px_140px_1fr]' // V5 column layout: Time, Icon, Event Type, Session, Details
+          'grid-cols-[85px_36px_160px_280px_1fr]' // V5 column layout: Time, Icon, Event Type, Session, Details
         )}
         style={{
           fontSize: '12px',
@@ -128,6 +128,7 @@ export const EventTable = memo<EventTableProps>(({
 }) => {
   const listRef = useRef<List>(null);
   const prevEventsLengthRef = useRef(events.length);
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
 
   // Filter and validate events
   const validEvents = useMemo(() => {
@@ -173,6 +174,46 @@ export const EventTable = memo<EventTableProps>(({
     prevEventsLengthRef.current = validEvents.length;
   }, [validEvents.length, autoScroll]);
 
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!listRef.current || validEvents.length === 0) return;
+    
+    switch (e.key) {
+      case 'j':
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => {
+          const newIndex = Math.min(prev + 1, validEvents.length - 1);
+          listRef.current?.scrollToItem(newIndex, 'smart');
+          return newIndex;
+        });
+        break;
+      case 'k':
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => {
+          const newIndex = Math.max(prev - 1, 0);
+          listRef.current?.scrollToItem(newIndex, 'smart');
+          return newIndex;
+        });
+        break;
+      case 'g':
+        if (e.shiftKey) {
+          // Shift+G: Go to bottom
+          e.preventDefault();
+          const lastIndex = validEvents.length - 1;
+          setSelectedIndex(lastIndex);
+          listRef.current?.scrollToItem(lastIndex, 'end');
+        } else {
+          // gg: Go to top
+          e.preventDefault();
+          setSelectedIndex(0);
+          listRef.current?.scrollToItem(0, 'start');
+        }
+        break;
+    }
+  }, [validEvents.length]);
+
   // Row renderer for virtual list
   const renderRow = useCallback(({ index, style, data }: {
     index: number;
@@ -205,7 +246,7 @@ export const EventTable = memo<EventTableProps>(({
   if (loading) {
     return (
       <div 
-        className={cn('bg-bg-primary border border-border-primary rounded-lg', className)}
+        className={cn('bg-bg-primary', className)}
         data-testid="event-table-v2"
       >
         <TableHeader autoScroll={autoScroll} onAutoScrollChange={onAutoScrollChange} />
@@ -217,7 +258,7 @@ export const EventTable = memo<EventTableProps>(({
   if (validEvents.length === 0) {
     return (
       <div 
-        className={cn('bg-bg-primary border border-border-primary rounded-lg', className)}
+        className={cn('bg-bg-primary', className)}
         data-testid="event-table-v2"
       >
         <TableHeader autoScroll={autoScroll} onAutoScrollChange={onAutoScrollChange} />
@@ -229,7 +270,7 @@ export const EventTable = memo<EventTableProps>(({
   return (
     <div 
       className={cn(
-        'bg-bg-primary border border-border-primary rounded-lg overflow-hidden',
+        'bg-bg-primary overflow-hidden',
         'font-mono text-xs', // 13px monospace typography
         className
       )}
@@ -237,6 +278,7 @@ export const EventTable = memo<EventTableProps>(({
       role="table"
       aria-label="Event feed table"
       tabIndex={0}
+      onKeyDown={handleKeyDown}
       style={{
         // Fixed column layout per PRD
         gridTemplateColumns: '85px 140px 110px 90px 1fr'

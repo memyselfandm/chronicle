@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { SessionData } from '@/stores/dashboardStore';
+import { SessionData, useDashboardStore } from '@/stores/dashboardStore';
 import { CompactSessionItem } from './SessionItem';
 
 interface ProjectFolderProps {
@@ -99,6 +99,10 @@ export function ProjectFolder({
             <CompactSessionItem
               key={session.id}
               session={session}
+              onClick={(session, isMultiSelect) => {
+                const store = useDashboardStore.getState();
+                store.toggleSessionSelection(session.id, isMultiSelect);
+              }}
             />
           ))}
         </div>

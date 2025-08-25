@@ -90,14 +90,20 @@ Claude Code Tools → Supabase Events Table → Real-time Subscriptions → Dash
 
 ```
 Dashboard Layout
-├── Header (Navigation & Status)
-├── DashboardWithFallback (Connection Management)
-│   ├── ProductionEventDashboard (Live Data)
-│   │   ├── ConnectionStatus (Health Monitoring)
-│   │   ├── EventFeed (Real-time Events)
-│   │   └── EventDetailModal (Event Analysis)
-│   └── EventDashboard (Demo Mode)
-└── Error Boundaries (Graceful Error Handling)
+├── Header (Real-time Metrics & Connection Status)
+│   ├── Active Sessions Count
+│   ├── Awaiting Sessions Count
+│   ├── Event Rate Sparkline
+│   └── Connection Latency
+├── Sidebar (Session Navigation)
+│   ├── Awaiting Input Section
+│   ├── Project Folders (Grouped Sessions)
+│   └── Clear Selection Button
+├── Event Feed (Main Content)
+│   ├── EventFeedHeader (Count & Auto-scroll)
+│   ├── EventTable (Virtual Scrolling)
+│   └── EventRow (Dense 22px Rows)
+└── Responsive Grid (Layout Manager)
 ```
 
 ### Core Hooks

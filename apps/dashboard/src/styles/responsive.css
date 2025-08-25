@@ -64,9 +64,15 @@
 /* Base Responsive Grid */
 .responsive-grid {
   display: grid;
-  min-height: 100vh;
+  height: 100vh; /* Fixed to viewport height */
   width: 100%;
-  transition: all var(--duration-normal) ease-in-out;
+  overflow: hidden; /* Prevent any overflow at grid level */
+  transition: grid-template-columns var(--duration-normal) ease-in-out;
+  grid-template-areas: 
+    "header header"
+    "sidebar main";
+  grid-template-rows: var(--header-height) 1fr;
+  grid-template-columns: var(--sidebar-width, 220px) 1fr;
 }
 
 /* Grid Areas */
@@ -76,22 +82,45 @@
   top: 0;
   z-index: var(--z-sticky);
   height: var(--header-height);
+  background: var(--bg-secondary);
 }
 
 .sidebar-area {
   grid-area: sidebar;
   position: relative;
-  overflow: hidden;
+  height: calc(100vh - var(--header-height)); /* Full height minus header */
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: width var(--duration-normal) ease-in-out;
+  background: var(--bg-secondary);
+  width: var(--sidebar-width, 220px);
 }
 
 .main-area {
   grid-area: main;
+  height: calc(100vh - var(--header-height)); /* Full height minus header */
   overflow: hidden;
   min-width: 0; /* Prevent flex/grid overflow */
+  min-height: 0; /* Critical for containing flex children */
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  position: relative;
 }
 
 /* Desktop Layout (> 1024px) */
+.responsive-grid--desktop {
+  grid-template-areas: 
+    "header header"
+    "sidebar main";
+  grid-template-rows: var(--header-height) 1fr;
+  grid-template-columns: var(--sidebar-width, 220px) 1fr;
+}
+
+.responsive-grid--desktop.responsive-grid--sidebar-collapsed {
+  grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+}
+
 @media (min-width: 1025px) {
   .responsive-grid {
     grid-template-areas: 
@@ -116,11 +145,24 @@
   
   /* Desktop main content */
   .main-area {
-    padding: var(--spacing-md);
+    /* Remove padding to allow full-width sections */
+    padding: 0;
   }
 }
 
 /* Tablet Layout (768px - 1024px) */
+.responsive-grid--tablet {
+  grid-template-areas: 
+    "header header"
+    "sidebar main";
+  grid-template-rows: var(--header-height) 1fr;
+  grid-template-columns: var(--sidebar-width, 220px) 1fr;
+}
+
+.responsive-grid--tablet.responsive-grid--sidebar-collapsed {
+  grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+}
+
 @media (min-width: 768px) and (max-width: 1024px) {
   .responsive-grid {
     grid-template-areas: 
@@ -139,7 +181,8 @@
   
   /* Tablet-specific adjustments */
   .main-area {
-    padding: var(--spacing-sm);
+    /* Remove padding to allow full-width sections */
+    padding: 0;
   }
   
   /* Slightly larger touch targets for tablet */
@@ -150,6 +193,19 @@
 }
 
 /* Mobile Layout (< 768px) */
+.responsive-grid--mobile {
+  grid-template-areas: 
+    "header header"
+    "sidebar main";
+  grid-template-rows: var(--header-height) 1fr;
+  grid-template-columns: 0px 1fr; /* Sidebar hidden by default */
+}
+
+.responsive-grid--mobile.responsive-grid--mobile-sidebar-open {
+  /* Keep sidebar at 0 width, use overlay instead */
+  grid-template-columns: 0px 1fr;
+}
+
 @media (max-width: 767px) {
   .responsive-grid {
     grid-template-areas: 
@@ -178,7 +234,8 @@
   
   /* Mobile main content */
   .main-area {
-    padding: var(--spacing-sm);
+    /* Remove padding to allow full-width sections */
+    padding: 0;
     width: 100%;
   }
   

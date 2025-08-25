@@ -276,28 +276,30 @@ describe('ResponsiveGrid', () => {
       process.env.NODE_ENV = originalEnv;
     });
 
-    it('shows debug info in development mode', () => {
+    it('does not show debug info (removed for production readiness)', () => {
       render(
         <ResponsiveGrid sidebarCollapsed={false}>
           <div>Content</div>
         </ResponsiveGrid>
       );
 
-      expect(screen.getByText(/Breakpoint:/)).toBeInTheDocument();
-      expect(screen.getByText(/Sidebar:/)).toBeInTheDocument();
-      expect(screen.getByText(/Width:/)).toBeInTheDocument();
+      // Debug info was intentionally removed in CHR-88 cleanup
+      expect(screen.queryByText(/Breakpoint:/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Sidebar:/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Width:/)).not.toBeInTheDocument();
     });
 
-    it('shows correct debug values', () => {
+    it('ensures clean layout without debug overlays', () => {
       render(
         <ResponsiveGrid sidebarCollapsed={true}>
           <div>Content</div>
         </ResponsiveGrid>
       );
 
-      expect(screen.getByText('Breakpoint: desktop')).toBeInTheDocument();
-      expect(screen.getByText('Sidebar: collapsed')).toBeInTheDocument();
-      expect(screen.getByText('Width: 48px')).toBeInTheDocument();
+      // Verify no debug overlays are present
+      expect(screen.queryByText('Breakpoint: desktop')).not.toBeInTheDocument();
+      expect(screen.queryByText('Sidebar: collapsed')).not.toBeInTheDocument();
+      expect(screen.queryByText('Width: 48px')).not.toBeInTheDocument();
     });
   });
 

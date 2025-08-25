@@ -29,8 +29,8 @@ jest.mock('@/components/layout/Header', () => ({
 jest.mock('@/components/sidebar/SidebarContainer', () => ({
   SidebarContainer: () => <div data-testid="sidebar">Sidebar</div>
 }));
-jest.mock('@/components/eventfeed/EventFeedV2', () => ({
-  EventFeedV2: () => <div data-testid="event-feed">Event Feed</div>
+jest.mock('@/components/eventfeed/EventFeed', () => ({
+  EventFeed: () => <div data-testid="event-feed">Event Feed</div>
 }));
 jest.mock('@/components/ResponsiveGrid', () => ({
   ResponsiveGrid: ({ children, sidebarCollapsed, ...props }: any) => (

@@ -13,7 +13,7 @@
 
 'use client';
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useEvents } from '@/hooks/useEvents';
@@ -21,6 +21,7 @@ import { useSessions } from '@/hooks/useSessions';
 import { Header } from '@/components/layout/Header';
 import { SidebarContainer } from '@/components/sidebar/SidebarContainer';
 import { EventFeed } from '@/components/eventfeed/EventFeed';
+import { EventFeedHeader } from '@/components/eventfeed/EventFeedHeader';
 import { AutoSizeWrapper } from '@/components/eventfeed/AutoSizeWrapper';
 import { ResponsiveGrid } from './ResponsiveGrid';
 
@@ -48,8 +49,13 @@ export function Dashboard({
     ui: { sidebarCollapsed, loading },
     setSidebarCollapsed,
     setSessions,
-    setEvents
+    setEvents,
+    filters,
+    getFilteredEvents
   } = useDashboardStore();
+  
+  // Local state for auto-scroll
+  const [autoScroll, setAutoScroll] = useState(true);
 
   // Connect to real Supabase data using working hooks
   const { 
@@ -211,8 +217,11 @@ export function Dashboard({
           endTime: s.end_time ? new Date(s.end_time) : undefined,
           lastActivity: s.last_event_time ? new Date(s.last_event_time) : new Date(s.start_time),
           minutesSinceLastEvent: s.minutes_since_last_event || 0,
-          // Use actual awaiting status from the session data
-          isAwaiting: s.is_awaiting || false,
+          // Enhanced awaiting detection - check for notification events
+          isAwaiting: s.is_awaiting || 
+                      (s.last_event_type === 'notification' && 
+                       !s.end_time) || 
+                      false,
           lastEventType: s.last_event_type || null,
           toolsUsed: 0, // Will be populated from events
           eventsCount: 0, // Will be populated from events
@@ -226,14 +235,25 @@ export function Dashboard({
   useEffect(() => {
     if (events) {
       // Convert events to store format
-      const storeEvents = events.map(e => ({
-        id: e.id,
-        sessionId: e.session_id,
-        type: e.event_type,
-        timestamp: new Date(e.timestamp),
-        metadata: e.metadata || {},
-        status: 'active' as const // Default status
-      }));
+      const storeEvents = events.map(e => {
+        // Extract tool_name from various possible locations in metadata
+        let toolName = e.tool_name;
+        if (!toolName && e.metadata) {
+          toolName = e.metadata.tool_name || 
+                     e.metadata.tool_input?.tool_name ||
+                     e.metadata.context?.tool_name;
+        }
+        
+        return {
+          id: e.id,
+          sessionId: e.session_id,
+          type: e.event_type,
+          timestamp: new Date(e.timestamp),
+          metadata: e.metadata || {},
+          tool_name: toolName, // Add extracted tool_name
+          status: 'active' as const // Default status
+        };
+      });
       setEvents(storeEvents);
       console.log('✅ Updated store with', storeEvents.length, 'events');
     } else {
@@ -247,7 +267,7 @@ export function Dashboard({
   }, [eventsLoading, sessionsLoading]);
 
 
-  // Handle sidebar toggle keyboard shortcut (Cmd+B)
+  // Handle keyboard shortcuts
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (!enableKeyboardShortcuts) return;
 
@@ -255,6 +275,34 @@ export function Dashboard({
     if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
       event.preventDefault();
       setSidebarCollapsed(!sidebarCollapsed);
+    }
+    
+    // Number keys for quick filters (1, 2, 3)
+    if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+      const store = useDashboardStore.getState();
+      switch (event.key) {
+        case '1':
+          // Show all events
+          event.preventDefault();
+          store.clearSelectedSessions();
+          break;
+        case '2':
+          // Show only active sessions
+          event.preventDefault();
+          const activeSessions = store.sessions
+            .filter(s => s.status === 'active')
+            .map(s => s.id);
+          store.setSelectedSessions(activeSessions);
+          break;
+        case '3':
+          // Show only awaiting sessions
+          event.preventDefault();
+          const awaitingSessions = store.sessions
+            .filter(s => s.isAwaiting === true)
+            .map(s => s.id);
+          store.setSelectedSessions(awaitingSessions);
+          break;
+      }
     }
   }, [sidebarCollapsed, setSidebarCollapsed, enableKeyboardShortcuts]);
 
@@ -320,88 +368,66 @@ export function Dashboard({
         loading={loading}
       >
         {/* Header - Fixed at top */}
-        <div
-          className="header-area"
-          style={{ gridArea: 'header' }}
-        >
+        <div className="header-area">
           <Header />
         </div>
 
         {/* Sidebar - Collapsible */}
-        <div
-          className={cn(
-            'sidebar-area border-r border-border-primary',
-            'transition-all duration-300 ease-in-out',
-            sidebarCollapsed ? 'w-12' : 'w-64'
-          )}
-          style={{ gridArea: 'sidebar' }}
-        >
+        <div className="sidebar-area border-r border-border-primary">
           <SidebarContainer />
         </div>
 
         {/* Main Content Area - Event Feed or Custom Children */}
-        <div
-          className="main-area flex flex-col overflow-hidden"
-          style={{ gridArea: 'main' }}
-        >
+        <div className="main-area">
           {children ? (
             children
           ) : (
-            <div className="flex-1 overflow-hidden h-full">
-              <AutoSizeWrapper className="w-full h-full">
-                {({ width, height }) => (
-                  <EventFeed
-                    sessions={sessions}
-                    initialEvents={events || []}
-                    height={height}
-                    width={width}
-                    className="w-full h-full"
-                    enableBatching={true}
-                    maxEvents={1000}
-                    defaultAutoScroll={true}
-                  />
-                )}
-              </AutoSizeWrapper>
-            </div>
+            <section className="flex flex-col h-full w-full bg-bg-primary">
+              {/* Event Feed Header */}
+              <EventFeedHeader
+                eventCount={filters.selectedSessions.length > 0 
+                  ? getFilteredEvents().length 
+                  : events?.length || 0}
+                autoScroll={autoScroll}
+                onAutoScrollChange={setAutoScroll}
+                isFiltered={filters.selectedSessions.length > 0}
+              />
+              
+              {/* Event Feed Content */}
+              <div className="flex-1 overflow-hidden min-h-0">
+                <AutoSizeWrapper className="w-full h-full">
+                  {({ width, height }) => {
+                    // Filter events based on selected sessions
+                    const filteredEvents = filters.selectedSessions.length > 0 
+                      ? getFilteredEvents()
+                      : events || [];
+                    
+                    return (
+                      <EventFeed
+                        sessions={sessions}
+                        initialEvents={filteredEvents}
+                        height={height}
+                        width={width}
+                        className="w-full h-full"
+                        enableBatching={true}
+                        maxEvents={1000}
+                        defaultAutoScroll={autoScroll}
+                      />
+                    );
+                  }}
+                </AutoSizeWrapper>
+              </div>
+            </section>
           )}
         </div>
       </ResponsiveGrid>
 
       {/* Loading overlay */}
       {(eventsLoading || sessionsLoading) && (
-        <div className="fixed inset-0 bg-bg-primary/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-bg-primary/80 backdrop-blur-sm flex items-center justify-center" style={{ zIndex: 'var(--z-modal)' }}>
           <div className="flex items-center gap-3 bg-bg-secondary border border-border-primary rounded-lg px-6 py-4">
             <div className="animate-spin h-5 w-5 border-2 border-accent-blue border-t-transparent rounded-full" />
             <span className="text-text-secondary">Loading dashboard...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Keyboard shortcuts help overlay (development only) */}
-      {process.env.NODE_ENV === 'development' && enableKeyboardShortcuts && (
-        <div className="fixed bottom-4 right-4 bg-bg-secondary/90 border border-border-primary rounded-lg p-3 text-xs text-text-muted max-w-xs z-40">
-          <div className="font-medium text-text-secondary mb-2">Keyboard Shortcuts</div>
-          <div className="space-y-1">
-            <div className="flex justify-between">
-              <kbd className="px-1 bg-bg-primary rounded">⌘+B</kbd>
-              <span>Toggle sidebar</span>
-            </div>
-            <div className="flex justify-between">
-              <kbd className="px-1 bg-bg-primary rounded">j/k</kbd>
-              <span>Navigate events</span>
-            </div>
-            <div className="flex justify-between">
-              <kbd className="px-1 bg-bg-primary rounded">1/2/3</kbd>
-              <span>Filter toggles</span>
-            </div>
-            <div className="flex justify-between">
-              <kbd className="px-1 bg-bg-primary rounded">/</kbd>
-              <span>Focus search</span>
-            </div>
-            <div className="flex justify-between">
-              <kbd className="px-1 bg-bg-primary rounded">Esc</kbd>
-              <span>Clear filters</span>
-            </div>
           </div>
         </div>
       )}

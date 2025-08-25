@@ -6,7 +6,7 @@ import { useLayoutPersistence } from "@/lib/layoutPersistence";
 import { useEffect } from 'react';
 import { useDashboardStore } from '@/stores/dashboardStore';
 
-export default function Dashboard() {
+export default function DashboardPage() {
   // Initialize keyboard navigation
   const { isNavigationActive } = useKeyboardNavigation({
     enableEventNavigation: true,
