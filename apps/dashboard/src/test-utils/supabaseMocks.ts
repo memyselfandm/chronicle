@@ -38,28 +38,41 @@ export const createMockSupabaseChannel = (): MockSupabaseChannel => ({
 export const createMockSupabaseClient = (): MockSupabaseClient => {
   const mockChannel = createMockSupabaseChannel();
   
+  // Create a comprehensive query builder mock that supports chaining
+  const createQueryBuilder = (defaultData = [createMockEvent()]) => {
+    const builder = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
+      gte: jest.fn().mockReturnThis(),
+      lte: jest.fn().mockReturnThis(),
+      gt: jest.fn().mockReturnThis(),
+      lt: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({
+        data: defaultData,
+        error: null,
+      }),
+      range: jest.fn().mockResolvedValue({
+        data: defaultData,
+        error: null,
+      }),
+      textSearch: jest.fn().mockReturnThis(),
+    };
+    
+    // Set up the chain to return the resolved value for terminal methods only
+    Object.keys(builder).forEach(key => {
+      if (key !== 'limit' && key !== 'range') {
+        builder[key].mockReturnValue(builder);
+      }
+    });
+    
+    return builder;
+  };
+  
   return {
     from: jest.fn().mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          order: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue({
-              data: [createMockEvent()],
-              error: null,
-            }),
-          }),
-        }),
-        order: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
-            data: [createMockSession()],
-            error: null,
-          }),
-        }),
-        limit: jest.fn().mockResolvedValue({
-          data: [createMockEvent()],
-          error: null,
-        }),
-      }),
+      ...createQueryBuilder(),
       insert: jest.fn().mockResolvedValue({
         data: [createMockEvent()],
         error: null,
