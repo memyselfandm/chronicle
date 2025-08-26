@@ -93,7 +93,7 @@ class PreToolUseHook(BaseHook):
         super().__init__()
     
     def process_hook(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process pre-tool use hook for observability only."""
+        """Process pre-tool use hook - purely observational."""
         try:
             # Process input data using base hook functionality
             processed_data = self.process_hook_data(input_data, "PreToolUse")
@@ -123,10 +123,10 @@ class PreToolUseHook(BaseHook):
             save_success = self.save_event(event_data)
             logger.info(f"Event save result: {save_success}")
             
-            # Always allow execution - Chronicle is observational only
+            # Chronicle is purely observational - always continue execution
             return self.create_response(
                 continue_execution=True,
-                suppress_output=True,  # Don't interfere with Claude's UI
+                suppress_output=True,  # Don't show any output to avoid interference
                 hook_specific_data=self.create_hook_specific_output(
                     hook_event_name="PreToolUse",
                     tool_name=tool_name,
@@ -137,20 +137,20 @@ class PreToolUseHook(BaseHook):
         except Exception as e:
             logger.debug(f"Hook processing error: {e}")
             
-            # On error, still allow execution to not break Claude
+            # Even on error, don't block tool execution
             return self.create_response(
                 continue_execution=True,
                 suppress_output=True,
                 hook_specific_data=self.create_hook_specific_output(
                     hook_event_name="PreToolUse",
-                    tool_name=input_data.get('tool_name', 'unknown'),
-                    error="Hook processing failed but execution continues"
+                    error=str(e)[:100],
+                    tool_name=input_data.get('tool_name', 'unknown')
                 )
             )
     
     
     
-    
+ origin/dev
     
     def _sanitize_tool_input(self, tool_input: Dict[str, Any]) -> Dict[str, Any]:
         """Sanitize tool input for logging."""

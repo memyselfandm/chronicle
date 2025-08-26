@@ -364,7 +364,254 @@ npm run security:check
    }, []);
    ```
 
-### 5. Production Deployment Issues
+### 5. Known Issues from S01-S05 Development
+
+These are specific issues encountered during the dashboard redesign sprints (CHR-25.S01-S05).
+
+#### Issue: Tool names showing as "null" or "Unknown Tool"
+
+**Symptoms:**
+- Event feed displays "Unknown Tool" for pre_tool_use and post_tool_use events
+- Tool names appear as null in the event details
+- Event type column shows "(null)" after event type
+
+**Root Causes:**
+- Tool name is stored in different metadata fields across events
+- Some events have tool_name in event.tool_name, others in metadata.tool_name
+- Database schema inconsistencies between old and new event formats
+
+**Solutions:**
+
+1. **Check the event data structure:**
+   ```typescript
+   // EventRow component tries multiple fallback paths:
+   const toolName = event.tool_name || 
+                    event.metadata?.tool_name || 
+                    event.metadata?.tool_input?.tool_name || 
+                    'Unknown Tool';
+   ```
+
+2. **Verify database data:**
+   ```sql
+   -- Check tool name locations in your events
+   SELECT 
+     event_type,
+     tool_name,
+     metadata->>'tool_name' as metadata_tool_name,
+     metadata->'tool_input'->>'tool_name' as tool_input_name
+   FROM chronicle_events 
+   WHERE event_type IN ('pre_tool_use', 'post_tool_use')
+   LIMIT 10;
+   ```
+
+3. **Fix data inconsistencies:**
+   ```sql
+   -- Update events where tool_name is null but exists in metadata
+   UPDATE chronicle_events 
+   SET tool_name = metadata->>'tool_name'
+   WHERE tool_name IS NULL 
+   AND metadata->>'tool_name' IS NOT NULL;
+   ```
+
+#### Issue: Sessions incorrectly marked as completed (CHR-87)
+
+**Symptoms:**
+- Sessions show as "completed" when they should be active
+- Session status indicators showing wrong state
+- Race conditions during session updates
+
+**Root Causes:**
+- Manual updateSessionEndTimes() bypassed database trigger validation
+- Race condition between manual updates and database-managed end_time
+- Multiple components trying to update session state simultaneously
+
+**Solutions:**
+
+1. **Remove manual session end time updates:**
+   ```typescript
+   // REMOVED: Manual session end time management
+   // Sessions now rely on database-managed end_time only
+   // See fix in CHR-87 commit df8e91b
+   ```
+
+2. **Check session status logic:**
+   ```typescript
+   // Sessions are active if end_time is null
+   const isActive = session.end_time === null;
+   ```
+
+3. **Verify database triggers:**
+   ```sql
+   -- Ensure database triggers are managing session lifecycle
+   SELECT trigger_name, event_manipulation, action_statement
+   FROM information_schema.triggers
+   WHERE event_object_table = 'chronicle_sessions';
+   ```
+
+#### Issue: Event feed not updating in real-time
+
+**Symptoms:**
+- Dashboard doesn't show new events automatically
+- Connection status shows "disconnected"  
+- Events only appear after page refresh
+
+**Root Causes:**
+- WebSocket connection failures to Supabase realtime
+- Tables not added to realtime publication
+- Cleanup issues with subscription handlers
+
+**Solutions:**
+
+1. **Check WebSocket connection in DevTools:**
+   - Open Network tab
+   - Look for WebSocket connection to Supabase
+   - Check for connection errors or failures
+
+2. **Verify realtime publication:**
+   ```sql
+   -- Check if tables are published for realtime
+   SELECT schemaname, tablename FROM pg_publication_tables 
+   WHERE pubname = 'supabase_realtime';
+   
+   -- Add tables if missing
+   ALTER PUBLICATION supabase_realtime ADD TABLE chronicle_sessions;
+   ALTER PUBLICATION supabase_realtime ADD TABLE chronicle_events;
+   ```
+
+3. **Check subscription cleanup:**
+   ```typescript
+   // Ensure proper cleanup in useEvents hook
+   useEffect(() => {
+     const subscription = supabase
+       .channel('events')
+       .on('postgres_changes', handler)
+       .subscribe();
+     
+     return () => {
+       subscription.unsubscribe(); // Critical for preventing leaks
+     };
+   }, []);
+   ```
+
+#### Issue: High memory usage with many events
+
+**Symptoms:**
+- Browser tab consuming excessive memory (>500MB)
+- Dashboard becomes sluggish over time
+- Performance degrades with large event counts
+
+**Root Causes:**
+- Large event arrays kept in memory
+- Subscription handlers not properly cleaned up
+- Virtual scrolling not implemented for large lists
+
+**Solutions:**
+
+1. **Limit displayed events:**
+   ```bash
+   # In .env.local - reduce event display limit
+   NEXT_PUBLIC_MAX_EVENTS_DISPLAY=500
+   ```
+
+2. **Check for memory leaks:**
+   ```typescript
+   // Use Chrome DevTools Memory tab
+   // Look for detached DOM nodes
+   // Profile heap snapshots before/after operations
+   ```
+
+3. **Monitor performance:**
+   ```typescript
+   // Use the built-in performance monitor
+   import { PerformanceMonitor } from '@/lib/performanceMonitor';
+   
+   // Check metrics in development
+   console.log('Memory usage:', PerformanceMonitor.getMemoryMetrics());
+   ```
+
+#### Issue: Sidebar collapse state not persisting
+
+**Symptoms:**
+- Sidebar resets to expanded on page refresh
+- User preferences not saved between sessions
+- Layout state lost after navigation
+
+**Root Causes:**
+- Local storage not properly accessed in SSR
+- Storage keys not consistent across components
+- Race conditions during initial load
+
+**Solutions:**
+
+1. **Check storage implementation:**
+   ```typescript
+   // layoutPersistence.ts handles sidebar state
+   import { saveSidebarCollapsed, getSidebarCollapsed } from '@/lib/layoutPersistence';
+   
+   // Save state on toggle
+   const handleToggle = (collapsed: boolean) => {
+     saveSidebarCollapsed(collapsed);
+   };
+   ```
+
+2. **Debug storage issues:**
+   ```typescript
+   // Check if localStorage is available
+   if (typeof window !== 'undefined' && window.localStorage) {
+     console.log('Sidebar state:', localStorage.getItem('chronicle-sidebar-collapsed'));
+   }
+   ```
+
+3. **Verify SSR compatibility:**
+   ```typescript
+   // Use useEffect to avoid SSR hydration issues
+   useEffect(() => {
+     const saved = getSidebarCollapsed();
+     setSidebarCollapsed(saved);
+   }, []);
+   ```
+
+#### Issue: Event feed data loading race condition (CHR-82)
+
+**Symptoms:**
+- Event feed shows empty when data exists
+- "No events" message when events should be displayed
+- Initial load shows loading state indefinitely
+
+**Root Causes:**
+- Length checks prevented empty arrays from being processed
+- Components rejecting valid empty initial states
+- Race condition between data fetching and component mounting
+
+**Solutions:**
+
+1. **Remove problematic length checks:**
+   ```typescript
+   // FIXED: Allow empty arrays to be processed
+   // Components should handle empty states gracefully
+   if (events !== undefined) { // Don't check length
+     processEvents(events);
+   }
+   ```
+
+2. **Check DashboardLayout data flow:**
+   ```typescript
+   // Ensure store updates even with 0 events initially
+   // This allows progressive loading to work correctly
+   ```
+
+3. **Add debug logging:**
+   ```typescript
+   if (process.env.NODE_ENV === 'development') {
+     console.log('Event feed data flow:', {
+       eventsReceived: events?.length || 0,
+       storeState: store.getState(),
+       componentMounted: isMounted
+     });
+   }
+   ```
+
+### 6. Production Deployment Issues
 
 #### Issue: "Environment variables not available in production"
 
@@ -411,6 +658,264 @@ npm run security:check
    # Ensure your domain is correctly configured
    # In Supabase: Settings > API > Configuration
    ```
+
+## Advanced Debugging Techniques
+
+### State Management Debugging
+
+#### Zustand Store Inspection
+
+1. **Install Redux DevTools Extension:**
+   - Add to your browser for Zustand debugging
+   - Provides state history and time-travel debugging
+
+2. **Debug store state:**
+   ```typescript
+   // Add to any component for store debugging
+   import { useDashboardStore } from '@/stores/dashboardStore';
+   
+   const Dashboard = () => {
+     const store = useDashboardStore();
+     
+     // Debug current state
+     useEffect(() => {
+       console.log('Dashboard store state:', {
+         events: store.events.length,
+         sessions: store.sessions.length,
+         filters: store.filters,
+         ui: store.ui
+       });
+     });
+   ```
+
+3. **Monitor store updates:**
+   ```typescript
+   // Subscribe to specific store changes
+   const unsubscribe = useDashboardStore.subscribe(
+     (state) => state.events,
+     (events) => console.log('Events updated:', events.length)
+   );
+   
+   // Cleanup subscription
+   useEffect(() => () => unsubscribe(), []);
+   ```
+
+#### Session State Debugging
+
+1. **Check session lifecycle:**
+   ```sql
+   -- Monitor session state changes in real-time
+   SELECT 
+     session_id,
+     start_time,
+     end_time,
+     CASE 
+       WHEN end_time IS NULL THEN 'ACTIVE'
+       ELSE 'COMPLETED'
+     END as status,
+     project_path,
+     git_branch
+   FROM chronicle_sessions 
+   ORDER BY start_time DESC 
+   LIMIT 10;
+   ```
+
+2. **Debug session filtering:**
+   ```typescript
+   // Check if sessions are being filtered incorrectly
+   const debugSessionFilters = (sessions: Session[], filters: FilterState) => {
+     console.log('Session filter debug:', {
+       totalSessions: sessions.length,
+       activeFilter: filters.sessionStatus,
+       filteredCount: sessions.filter(s => 
+         filters.sessionStatus === 'all' || 
+         (filters.sessionStatus === 'active' && !s.end_time) ||
+         (filters.sessionStatus === 'completed' && s.end_time)
+       ).length
+     });
+   };
+   ```
+
+### Real-time Connection Debugging
+
+#### WebSocket Connection Monitoring
+
+1. **Check connection state:**
+   ```typescript
+   // Monitor Supabase realtime connection
+   const channel = supabase.channel('debug');
+   
+   channel
+     .on('presence', { event: 'sync' }, () => {
+       console.log('Realtime sync');
+     })
+     .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+       console.log('Realtime join:', key);
+     })
+     .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+       console.log('Realtime leave:', key);
+     })
+     .subscribe();
+   ```
+
+2. **Debug subscription failures:**
+   ```typescript
+   // Check for subscription errors
+   const subscription = supabase
+     .channel('events-debug')
+     .on('postgres_changes', { 
+       event: '*', 
+       schema: 'public', 
+       table: 'chronicle_events' 
+     }, payload => {
+       console.log('Realtime event:', payload);
+     })
+     .on('system', {}, payload => {
+       console.log('System message:', payload);
+     })
+     .subscribe((status, err) => {
+       console.log('Subscription status:', status);
+       if (err) console.error('Subscription error:', err);
+     });
+   ```
+
+### Performance Debugging
+
+#### Component Render Profiling
+
+1. **Use React Profiler:**
+   ```typescript
+   import { Profiler } from 'react';
+   
+   const onRenderCallback = (id, phase, actualDuration) => {
+     console.log('Render Profile:', {
+       component: id,
+       phase,
+       duration: actualDuration
+     });
+   };
+   
+   <Profiler id="EventFeed" onRender={onRenderCallback}>
+     <EventFeed events={events} />
+   </Profiler>
+   ```
+
+2. **Memory usage monitoring:**
+   ```typescript
+   // Check memory usage periodically
+   const monitorMemory = () => {
+     if ('memory' in performance) {
+       console.log('Memory:', {
+         used: Math.round((performance as any).memory.usedJSHeapSize / 1048576) + 'MB',
+         total: Math.round((performance as any).memory.totalJSHeapSize / 1048576) + 'MB',
+         limit: Math.round((performance as any).memory.jsHeapSizeLimit / 1048576) + 'MB'
+       });
+     }
+   };
+   
+   // Run every 10 seconds
+   useEffect(() => {
+     const interval = setInterval(monitorMemory, 10000);
+     return () => clearInterval(interval);
+   }, []);
+   ```
+
+3. **Database query performance:**
+   ```typescript
+   // Wrapper to time Supabase queries
+   const timedQuery = async (queryFn: () => Promise<any>, queryName: string) => {
+     const start = performance.now();
+     try {
+       const result = await queryFn();
+       const duration = performance.now() - start;
+       
+       console.log(`Query "${queryName}" took ${duration.toFixed(2)}ms`);
+       
+       if (duration > 1000) {
+         console.warn(`Slow query detected: ${queryName} (${duration.toFixed(2)}ms)`);
+       }
+       
+       return result;
+     } catch (error) {
+       console.error(`Query "${queryName}" failed:`, error);
+       throw error;
+     }
+   };
+   
+   // Usage
+   const { data, error } = await timedQuery(
+     () => supabase.from('chronicle_events').select('*').limit(100),
+     'fetch-recent-events'
+   );
+   ```
+
+### Error Boundary Debugging
+
+#### Enhanced Error Reporting
+
+1. **Add error context:**
+   ```typescript
+   // Custom error boundary with additional context
+   export const DebuggingErrorBoundary: React.FC<{ children: ReactNode }> = ({ children }) => {
+     const handleError = (error: Error, errorInfo: ErrorInfo) => {
+       const errorReport = {
+         error: error.message,
+         stack: error.stack,
+         componentStack: errorInfo.componentStack,
+         userAgent: navigator.userAgent,
+         url: window.location.href,
+         timestamp: new Date().toISOString(),
+         storeState: useDashboardStore.getState() // Capture current state
+       };
+       
+       console.error('Enhanced Error Report:', errorReport);
+       
+       // Send to error tracking service
+       // analytics.track('dashboard_error', errorReport);
+     };
+   ```
+
+2. **Common error patterns:**
+   ```typescript
+   // Check for common error scenarios
+   const validateEventData = (events: Event[]) => {
+     events.forEach((event, index) => {
+       if (!event.session_id) {
+         console.warn(`Event ${index} missing session_id:`, event);
+       }
+       if (!event.timestamp) {
+         console.warn(`Event ${index} missing timestamp:`, event);
+       }
+       if (event.event_type === 'pre_tool_use' && !event.tool_name && !event.metadata?.tool_name) {
+         console.warn(`Event ${index} missing tool name:`, event);
+       }
+     });
+   };
+   ```
+
+### Browser Extension Recommendations
+
+#### Essential Development Extensions
+
+1. **React Developer Tools:**
+   - Inspect component state and props
+   - Profile component render performance
+   - Debug hooks and context
+
+2. **Redux DevTools (works with Zustand):**
+   - Time-travel debugging
+   - Action history
+   - State diff visualization
+
+3. **Supabase DevTools (if available):**
+   - Monitor realtime connections
+   - Debug queries and subscriptions
+   - Authentication state inspection
+
+4. **Performance monitoring:**
+   - Lighthouse for performance audits
+   - Web Vitals extension for core metrics
+   - Memory tab in Chrome DevTools
 
 ## Debugging Tools and Techniques
 
@@ -611,6 +1116,51 @@ This script validates:
 - **Performance Tests**: Check `/test/performance/`
 - **Setup Guide**: See `SETUP.md`
 - **Code Style Guide**: See `CODESTYLE.md`
+
+## Quick Error Reference
+
+### Common Error Messages and Solutions
+
+| Error Message | Likely Cause | Quick Fix |
+|---------------|-------------|-----------|
+| "null is not an object (evaluating 'event.tool_name')" | Event data malformed | Check EventRow component fallback logic |
+| "Cannot read property 'length' of undefined" | Events array is undefined | Add null/undefined checks in components |
+| "WebSocket connection failed" | Realtime subscription issue | Check Supabase realtime config and publication |
+| "Row Level Security policy violation" | Missing RLS policies | Create or update database policies |
+| "Invalid JWT token" | Wrong Supabase keys | Verify API keys in .env.local |
+| "Module not found: '@/components/...'" | Path alias not working | Check tsconfig.json baseUrl and paths |
+| "Hydration failed" | SSR/client mismatch | Use useEffect for client-only state |
+| "Memory usage exceeded" | Memory leak | Check subscription cleanup and event limits |
+| "Session marked as completed prematurely" | Race condition in session updates | Verify database triggers are handling end_time |
+
+### Performance Warning Thresholds
+
+- **Memory Usage**: >500MB indicates potential leak
+- **Render Time**: >16ms causes frame drops  
+- **Database Query**: >1000ms is considered slow
+- **Bundle Size**: >2MB affects load time
+- **Event Count**: >1000 events may cause performance issues
+
+### Emergency Reset Commands
+
+If the dashboard is completely broken:
+
+```bash
+# 1. Reset environment
+cp .env.example .env.local
+npm run validate:env
+
+# 2. Clear all caches
+rm -rf .next node_modules package-lock.json
+npm install
+
+# 3. Reset database tables (CAUTION: Destroys data)
+# Only run this if you need to start fresh
+npm run db:reset  # If this script exists
+
+# 4. Clear browser storage
+# Open DevTools > Application > Storage > Clear All
+```
 
 ---
 

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import { EventData } from '@/lib/mockData';
+import { FilterBadges, FilterSummary } from '@/components/eventfeed/FilterBadges';
+import { useSessionFilter } from '@/hooks/useSessionFilter';
 
 export interface EventFeedProps {
   events: EventData[];
@@ -15,6 +17,8 @@ export interface EventFeedProps {
   error?: string;
   autoScroll?: boolean;
   showAutoScrollToggle?: boolean;
+  showFilterBadges?: boolean;
+  enableSessionFiltering?: boolean;
   onEventClick?: (event: EventData) => void;
   onRetry?: () => void;
 }
@@ -216,20 +220,33 @@ export function EventFeed({
   error,
   autoScroll = true,
   showAutoScrollToggle = false,
+  showFilterBadges = true,
+  enableSessionFiltering = true,
   onEventClick,
   onRetry
 }: EventFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(autoScroll);
   const [prevEventsLength, setPrevEventsLength] = useState(events.length);
+  
+  // Session filtering
+  const { state: filterState, filteredEvents } = useSessionFilter({
+    enableKeyboardShortcuts: enableSessionFiltering,
+    autoScrollToEvents: true
+  });
+  
+  // Use filtered events if session filtering is enabled and active
+  const displayEvents = enableSessionFiltering && filterState.isFiltering 
+    ? filteredEvents.filter(event => events.some(e => e.id === event.id))
+    : events;
 
   // Auto-scroll to top when new events arrive
   useEffect(() => {
-    if (isAutoScrollEnabled && events.length > prevEventsLength && containerRef.current) {
+    if (isAutoScrollEnabled && displayEvents.length > prevEventsLength && containerRef.current) {
       containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    setPrevEventsLength(events.length);
-  }, [events.length, prevEventsLength, isAutoScrollEnabled]);
+    setPrevEventsLength(displayEvents.length);
+  }, [displayEvents.length, prevEventsLength, isAutoScrollEnabled]);
 
   const handleAutoScrollToggle = useCallback(() => {
     setIsAutoScrollEnabled(prev => !prev);
@@ -284,29 +301,52 @@ export function EventFeed({
   }
 
   // Empty State
-  if (events.length === 0) {
+  if (displayEvents.length === 0) {
+    const isFiltered = enableSessionFiltering && filterState.isFiltering;
+    
     return (
       <div 
         data-testid="event-feed-empty"
         className={cn('flex flex-col items-center justify-center p-8 text-center', className)}
         style={{ height }}
       >
-        <div className="text-text-muted text-4xl mb-4">📭</div>
+        <div className="text-text-muted text-4xl mb-4">
+          {isFiltered ? '🔍' : '📭'}
+        </div>
         <h3 className="text-lg font-semibold text-text-primary mb-2">
-          No events yet
+          {isFiltered ? 'No events match your filter' : 'No events yet'}
         </h3>
         <p className="text-text-muted">
-          Events will appear here as they are generated
+          {isFiltered 
+            ? `No events found for the ${filterState.selectedSessions.length} selected session${filterState.selectedSessions.length > 1 ? 's' : ''}`
+            : 'Events will appear here as they are generated'
+          }
         </p>
+        {isFiltered && showFilterBadges && (
+          <div className="mt-4">
+            <FilterBadges maxVisible={2} />
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className={cn('w-full relative')} style={{ height }}>
+      {/* Filter Badges Header */}
+      {showFilterBadges && enableSessionFiltering && filterState.isFiltering && (
+        <div className="absolute top-0 left-0 right-0 z-20 bg-bg-primary border-b border-border p-4">
+          <FilterBadges className="mb-2" />
+          <FilterSummary />
+        </div>
+      )}
+
       {/* Auto-scroll Toggle */}
       {showAutoScrollToggle && (
-        <div className="absolute top-4 right-4 z-10">
+        <div className={cn(
+          'absolute right-4 z-10',
+          showFilterBadges && filterState.isFiltering ? 'top-20' : 'top-4'
+        )}>
           <AutoScrollToggle 
             isAutoScrollEnabled={isAutoScrollEnabled}
             onToggle={handleAutoScrollToggle}
@@ -320,9 +360,13 @@ export function EventFeed({
         data-testid="event-feed"
         role="feed"
         aria-label="Event feed"
-        className={cn('h-full w-full overflow-y-auto p-4 md:p-6', className)}
+        className={cn(
+          'h-full w-full overflow-y-auto p-4 md:p-6',
+          showFilterBadges && filterState.isFiltering && 'pt-24', // Extra padding for filter header
+          className
+        )}
       >
-        {events.map((event) => (
+        {displayEvents.map((event) => (
           <EventCard
             key={event.id}
             event={event}

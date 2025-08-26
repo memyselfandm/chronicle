@@ -127,15 +127,24 @@ describe('useEvents Hook', () => {
     expect(result.current.error).toBe(mockError);
   });
 
-  it('should set up real-time subscription', () => {
+  it('should set up real-time subscriptions for events and sessions', () => {
     mockFrom.range.mockResolvedValue({ data: [], error: null });
 
     renderHook(() => useEvents());
 
+    // Should create both events and sessions channels
     expect(mockSupabase.channel).toHaveBeenCalledWith('events-realtime');
+    expect(mockSupabase.channel).toHaveBeenCalledWith('sessions-realtime');
+    
+    // Should set up postgres_changes listeners for both
     expect(mockChannel.on).toHaveBeenCalledWith(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'chronicle_events' },
+      expect.any(Function)
+    );
+    expect(mockChannel.on).toHaveBeenCalledWith(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'chronicle_sessions' },
       expect.any(Function)
     );
     expect(mockChannel.subscribe).toHaveBeenCalled();
@@ -214,14 +223,15 @@ describe('useEvents Hook', () => {
     expect(result.current.events).toHaveLength(1); // No duplicates
   });
 
-  it('should cleanup subscription on unmount', () => {
+  it('should cleanup subscriptions on unmount', () => {
     mockFrom.range.mockResolvedValue({ data: [], error: null });
 
     const { unmount } = renderHook(() => useEvents());
 
     unmount();
 
-    expect(mockChannel.unsubscribe).toHaveBeenCalled();
+    // Should cleanup both event and session channels
+    expect(mockChannel.unsubscribe).toHaveBeenCalledTimes(2);
   });
 
   it('should provide retry functionality', async () => {

@@ -18,6 +18,7 @@ interface UseSessionsState {
   loading: boolean;
   error: Error | null;
   retry: () => Promise<void>;
+  fetchSessions: (timeRangeMinutes?: number) => Promise<void>;
   getSessionDuration: (session: Session) => number | null;
   getSessionSuccessRate: (sessionId: string) => number | null;
   isSessionActive: (sessionId: string) => Promise<boolean>;
@@ -42,15 +43,29 @@ export const useSessions = (): UseSessionsState => {
     if (sessionIds.length === 0) return [];
 
     try {
-      // Try to use RPC function first (assumes it exists in the database)
-      const { data: rpcData, error: rpcError } = await supabase
+      // Try using the get_session_summaries RPC function first (CHR-83)
+      const { data: rpcSummaries, error: rpcError } = await supabase
         .rpc('get_session_summaries', { session_ids: sessionIds });
 
-      if (!rpcError && rpcData) {
-        return rpcData;
+      if (!rpcError && rpcSummaries) {
+        logger.info('Successfully fetched session summaries via RPC', {
+          component: 'useSessions',
+          action: 'fetchSessionSummaries',
+          data: { sessionCount: sessionIds.length, summaryCount: rpcSummaries.length }
+        });
+        return rpcSummaries;
       }
 
-      // Fallback to manual aggregation if RPC doesn't exist
+      // If RPC fails, log the error and fallback to manual aggregation
+      if (rpcError) {
+        logger.warn('RPC function failed, falling back to manual aggregation', {
+          component: 'useSessions',
+          action: 'fetchSessionSummaries',
+          data: { error: rpcError.message }
+        });
+      }
+
+      // Fallback: manual aggregation
       const summaries: SessionSummary[] = [];
 
       for (const sessionId of sessionIds) {
@@ -106,46 +121,171 @@ export const useSessions = (): UseSessionsState => {
   }, []);
 
   /**
-   * Fetches sessions from Supabase
+   * Fetches sessions from Supabase based on recent event activity
+   * @param timeRangeMinutes - Time range to fetch sessions from
+   * @param silent - If true, won't trigger loading state (for background updates)
    */
-  const fetchSessions = useCallback(async (): Promise<void> => {
+  const fetchSessions = useCallback(async (timeRangeMinutes: number = 20, silent: boolean = false): Promise<void> => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
-      // Fetch all sessions, excluding any that might be test data
+      // Step 1: Get events from the specified time range
+      const timeAgo = new Date();
+      timeAgo.setMinutes(timeAgo.getMinutes() - timeRangeMinutes);
+      
+      console.log(`🔍 Fetching events from last ${timeRangeMinutes} minutes...`);
+      const { data: recentEvents, error: eventsError } = await supabase
+        .from('chronicle_events')
+        .select('session_id, timestamp, event_type, metadata')
+        .gte('timestamp', timeAgo.toISOString())
+        .order('timestamp', { ascending: false });
+
+      if (eventsError) {
+        console.error('Error fetching recent events:', eventsError);
+        throw eventsError;
+      }
+
+      // Step 2: Get unique session IDs from recent events
+      const activeSessionIds = [...new Set(recentEvents?.map(e => e.session_id) || [])];
+      
+      console.log(`📊 Found ${activeSessionIds.length} active sessions from ${recentEvents?.length || 0} recent events`);
+      console.log('Recent events sample:', recentEvents?.slice(0, 3));
+
+      if (activeSessionIds.length === 0) {
+        console.log('⚠️ No active sessions found in the last', timeRangeMinutes, 'minutes');
+        console.log('💡 Falling back to fetching ALL sessions for debugging...');
+        
+        // Fallback: fetch recent sessions (increased limit and better ordering)
+        const { data: allSessions, error: allSessionsError } = await supabase
+          .from('chronicle_sessions')
+          .select('*')
+          .neq('project_path', 'test')
+          // Removed the end_time filter - we want to see ALL recent sessions
+          // including ones that may have been incorrectly marked as ended
+          .order('start_time', { ascending: false })
+          .limit(50); // Increased limit to get more sessions
+        
+        console.log('Active sessions (up to 50):', allSessions?.length || 0, 'sessions found');
+        if (allSessionsError) console.log('Sessions query error:', allSessionsError);
+        
+        if (allSessionsError) {
+          console.error('❌ Error fetching all sessions:', allSessionsError);
+          setError(allSessionsError);
+        } else if (allSessions && allSessions.length > 0) {
+          console.log('✅ Found', allSessions.length, 'sessions in fallback query');
+          // Map them with default values since we don't have event data
+          const sessionsWithDefaults = allSessions.map(session => ({
+            ...session,
+            last_event_time: session.start_time,
+            minutes_since_last_event: Math.floor((Date.now() - new Date(session.start_time).getTime()) / 60000),
+            is_awaiting: false,
+            last_event_type: null
+          }));
+          setSessions(sessionsWithDefaults);
+          console.log('✅ Set', sessionsWithDefaults.length, 'sessions in state');
+        } else {
+          console.log('⚠️ No sessions found in database at all');
+          setSessions([]);
+        }
+        
+        setLoading(false); // Make sure to clear loading state
+        return;
+      }
+
+      // Step 3: Fetch only those sessions that have recent activity
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('chronicle_sessions')
         .select('*')
-        .neq('project_path', 'test') // Exclude test sessions
+        .in('id', activeSessionIds)
+        .neq('project_path', 'test') // Still exclude test sessions
         .order('start_time', { ascending: false });
+
+      console.log('📊 Sessions query result:', {
+        error: sessionsError,
+        dataCount: sessionsData?.length || 0,
+        firstSession: sessionsData?.[0]
+      });
 
       if (sessionsError) {
         throw sessionsError;
       }
 
-      const fetchedSessions = sessionsData || [];
-      setSessions(fetchedSessions);
+      // Step 4: Enhance sessions with last event time and status
+      const sessionsWithLastEvent = (sessionsData || []).map(session => {
+        const sessionEvents = recentEvents?.filter(e => e.session_id === session.id) || [];
+        const lastEvent = sessionEvents[0];
+        const lastEventTime = lastEvent?.timestamp || session.start_time;
+        const minutesSinceLastEvent = Math.floor((Date.now() - new Date(lastEventTime).getTime()) / 60000);
+        
+        // Determine if session is awaiting input
+        const isAwaiting = lastEvent?.event_type === 'notification' && 
+          lastEvent?.metadata?.requires_response === true;
+        
+        return {
+          ...session,
+          last_event_time: lastEventTime,
+          minutes_since_last_event: minutesSinceLastEvent,
+          is_awaiting: isAwaiting,
+          last_event_type: lastEvent?.event_type || null
+        };
+      });
 
-      // Fetch summaries for all sessions
-      if (fetchedSessions.length > 0) {
-        const sessionIds = fetchedSessions.map(s => s.id);
-        const summaries = await fetchSessionSummaries(sessionIds);
-        
-        const summaryMap = new Map<string, SessionSummary>();
-        summaries.forEach(summary => {
-          summaryMap.set(summary.session_id, summary);
+      // Sort by last event time (most recent first)
+      const sortedSessions = sessionsWithLastEvent.sort((a, b) => {
+        return new Date(b.last_event_time).getTime() - new Date(a.last_event_time).getTime();
+      });
+
+      // Log ALL sessions to debug the cconami issue
+      console.log('📊 ALL SESSIONS DETAILS:');
+      sortedSessions.forEach((session, index) => {
+        console.log(`Session ${index + 1}:`, {
+          id: session.id,
+          project_path: session.project_path,
+          folder: session.project_path?.split('/').pop(),
+          git_branch: session.git_branch,
+          last_event_time: session.last_event_time,
+          minutes_since_last: session.minutes_since_last_event,
+          is_awaiting: session.is_awaiting,
+          has_end_time: !!session.end_time
         });
-        
-        setSessionSummaries(summaryMap);
+      });
+      
+      setSessions(sortedSessions);
+
+      // Don't wait for summaries - they can load async
+      // This prevents the loading state from being stuck
+      if (sortedSessions.length > 0) {
+        const sessionIds = sortedSessions.map(s => s.id);
+        // Fire and forget - summaries will load in background
+        fetchSessionSummaries(sessionIds).then(summaries => {
+          const summaryMap = new Map<string, SessionSummary>();
+          summaries.forEach(summary => {
+            summaryMap.set(summary.session_id, summary);
+          });
+          setSessionSummaries(summaryMap);
+        }).catch(err => {
+          logger.warn('Failed to fetch some session summaries', {
+            component: 'useSessions',
+            action: 'fetchSessions'
+          });
+        });
       }
 
     } catch (err) {
       const errorObj = err instanceof Error ? err : new Error('Failed to fetch sessions');
       setError(errorObj);
       setSessions([]);
+      if (!silent) {
+        setLoading(false); // Ensure loading is cleared on error
+      }
     } finally {
-      setLoading(false);
+      // Clear loading state after sessions are fetched (only if not silent)
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [fetchSessionSummaries]);
 
@@ -178,75 +318,39 @@ export const useSessions = (): UseSessionsState => {
    * Retry function for error recovery
    */
   /**
-   * Updates session end times based on stop events
+   * Note: Session end times are now handled automatically by database triggers
+   * when stop events with session_termination=true are inserted. This prevents
+   * premature session termination on subagent stops or other non-terminal events.
    */
-  const updateSessionEndTimes = useCallback(async (): Promise<void> => {
-    try {
-      // Find sessions without end_time that might have stop events
-      const openSessions = sessions.filter(s => !s.end_time);
-      
-      for (const session of openSessions) {
-        const { data: stopEvents, error: stopError } = await supabase
-          .from('chronicle_events')
-          .select('timestamp, event_type')
-          .eq('session_id', session.id)
-          .in('event_type', ['stop', 'subagent_stop'])
-          .order('timestamp', { ascending: false })
-          .limit(1);
-
-        if (!stopError && stopEvents && stopEvents.length > 0) {
-          // Update session with end_time from stop event
-          const { error: updateError } = await supabase
-            .from('chronicle_sessions')
-            .update({ end_time: stopEvents[0].timestamp })
-            .eq('id', session.id);
-
-          if (updateError) {
-            logger.warn(`Failed to update end_time for session ${session.id}`, {
-              component: 'useSessions',
-              action: 'updateSessionEndTimes',
-              data: { sessionId: session.id, error: updateError.message }
-            });
-          }
-        }
-      }
-    } catch (err) {
-      logger.warn('Error updating session end times', {
-        component: 'useSessions',
-        action: 'updateSessionEndTimes'
-      });
-    }
-  }, [sessions]);
 
   const retry = useCallback(async (): Promise<void> => {
     await fetchSessions();
-    await updateSessionEndTimes();
-  }, [fetchSessions, updateSessionEndTimes]);
+  }, [fetchSessions]);
 
   /**
-   * Determines if a session is active based on events
+   * Determines if a session is active based on end_time field
+   * Sessions are active if they don't have an end_time (set by database triggers)
    */
   const isSessionActive = useCallback(async (sessionId: string): Promise<boolean> => {
     try {
-      // Check for stop events
-      const { data: stopEvents, error: stopError } = await supabase
-        .from('chronicle_events')
-        .select('event_type')
-        .eq('session_id', sessionId)
-        .in('event_type', ['stop', 'subagent_stop'])
-        .limit(1);
+      // Check session end_time directly (set by database triggers on proper termination)
+      const { data: session, error: sessionError } = await supabase
+        .from('chronicle_sessions')
+        .select('end_time')
+        .eq('id', sessionId)
+        .single();
 
-      if (stopError) {
-        logger.warn(`Failed to check stop events for session ${sessionId}`, {
+      if (sessionError) {
+        logger.warn(`Failed to check session status for ${sessionId}`, {
           component: 'useSessions',
           action: 'checkSessionStatus',
-          data: { sessionId, error: stopError.message }
+          data: { sessionId, error: sessionError.message }
         });
         return false;
       }
 
-      // If there are stop events, session is not active
-      return !stopEvents || stopEvents.length === 0;
+      // Session is active if it doesn't have an end_time
+      return !session?.end_time;
     } catch (err) {
       logger.warn(`Error checking session status for ${sessionId}`, {
         component: 'useSessions',
@@ -264,12 +368,36 @@ export const useSessions = (): UseSessionsState => {
     return !session.end_time;
   });
 
-  // Initial data fetch and session end time updates
+  // Initial data fetch with extended time range to catch all active sessions
   useEffect(() => {
-    fetchSessions().then(() => {
-      updateSessionEndTimes();
+    fetchSessions(480); // 8 hours - Initial load with loading state
+    
+    // Set up polling interval to refresh sessions every 2 seconds for near real-time updates
+    // This ensures awaiting sessions get prompt attention
+    const intervalId = setInterval(() => {
+      fetchSessions(480, true); // 8 hours - Silent refresh - no loading spinner
+    }, 2000); // 2 seconds for near real-time updates
+    
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
+  }, []); // Remove dependencies to prevent infinite loop
+
+  // Placeholder for updateSessionEndTimes - to be implemented if needed
+  const updateSessionEndTimes = useCallback(async () => {
+    // This function would update session end times based on event data
+    // Currently not implemented as sessions are updated via polling
+    logger.debug('updateSessionEndTimes called - using polling for updates', {
+      component: 'useSessions',
+      action: 'updateSessionEndTimes'
     });
-  }, [fetchSessions, updateSessionEndTimes]);
+  }, []);
+
+  // Update session end times after sessions are loaded
+  useEffect(() => {
+    if (sessions.length > 0 && !loading) {
+      updateSessionEndTimes();
+    }
+  }, [sessions.length, loading, updateSessionEndTimes]); // Only depend on sessions.length and loading state
 
   return {
     sessions,
@@ -278,6 +406,7 @@ export const useSessions = (): UseSessionsState => {
     loading,
     error,
     retry,
+    fetchSessions,
     getSessionDuration,
     getSessionSuccessRate,
     isSessionActive,

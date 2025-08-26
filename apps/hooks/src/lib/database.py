@@ -114,7 +114,7 @@ def get_database_config() -> Dict[str, Any]:
         'supabase_url': os.getenv('SUPABASE_URL'),
         'supabase_key': os.getenv('SUPABASE_ANON_KEY'),
         'sqlite_path': os.getenv('CLAUDE_HOOKS_DB_PATH', default_db_path),
-        'db_timeout': int(os.getenv('CLAUDE_HOOKS_DB_TIMEOUT', '30')),
+        'db_timeout': int(os.getenv('CLAUDE_HOOKS_DB_TIMEOUT', '5')),
         'retry_attempts': int(os.getenv('CLAUDE_HOOKS_DB_RETRY_ATTEMPTS', '3')),
         'retry_delay': float(os.getenv('CLAUDE_HOOKS_DB_RETRY_DELAY', '1.0')),
     }

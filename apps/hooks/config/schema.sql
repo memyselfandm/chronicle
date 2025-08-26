@@ -143,14 +143,40 @@ AS $$
     SELECT COUNT(*)::INTEGER FROM deleted_sessions;
 $$;
 
+-- Function to get session summaries for multiple sessions (CHR-83)
+CREATE OR REPLACE FUNCTION get_session_summaries(session_ids UUID[])
+RETURNS TABLE (
+    session_id UUID,
+    total_events BIGINT,
+    tool_usage_count BIGINT,
+    error_count BIGINT,
+    avg_response_time NUMERIC
+)
+LANGUAGE SQL
+AS $$
+    SELECT 
+        e.session_id,
+        COUNT(*) as total_events,
+        COUNT(*) FILTER (WHERE e.event_type IN ('pre_tool_use', 'post_tool_use')) as tool_usage_count,
+        COUNT(*) FILTER (WHERE e.event_type = 'error' OR (e.metadata->>'success')::boolean = false OR e.metadata ? 'error') as error_count,
+        AVG(COALESCE(e.duration_ms, (e.metadata->>'duration_ms')::INTEGER)) 
+            FILTER (WHERE e.event_type = 'post_tool_use' AND 
+                         (e.duration_ms IS NOT NULL OR e.metadata ? 'duration_ms')) as avg_response_time
+    FROM chronicle_events e
+    WHERE e.session_id = ANY(session_ids)
+    GROUP BY e.session_id;
+$$;
+
 -- Trigger to automatically set end_time when session is marked as ended
 CREATE OR REPLACE FUNCTION chronicle_update_session_end_time()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- If this is a stop event (session ends), update the session's end_time
-    IF NEW.event_type = 'stop' THEN
+    -- Only update end_time if this is an actual session termination stop event
+    -- AND the event contains a flag indicating intentional session end
+    IF NEW.event_type = 'stop' AND 
+       (NEW.metadata->>'session_termination')::boolean = true THEN
         UPDATE chronicle_sessions 
         SET end_time = NEW.timestamp 
         WHERE id = NEW.session_id 
@@ -234,3 +260,4 @@ GRANT ALL ON chronicle_events TO authenticated;
 GRANT EXECUTE ON FUNCTION chronicle_get_session_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION chronicle_get_tool_usage_stats(INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION chronicle_cleanup_old_data(INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_session_summaries(UUID[]) TO authenticated;

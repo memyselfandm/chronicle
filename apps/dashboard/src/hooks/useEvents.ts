@@ -75,7 +75,8 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
   });
 
   // Refs for cleanup and deduplication
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const eventsChannelRef = useRef<RealtimeChannel | null>(null);
+  const sessionsChannelRef = useRef<RealtimeChannel | null>(null);
   const eventIdsRef = useRef<Set<string>>(new Set());
 
   /**
@@ -188,19 +189,35 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
   }, [recordEventReceived]);
 
   /**
-   * Sets up real-time subscription
+   * Handles session updates from real-time subscription
+   */
+  const handleSessionUpdate = useCallback((payload: { new: any, old: any }) => {
+    // Record that we received an event (for connection health monitoring)
+    recordEventReceived();
+    
+    // Session updates don't directly affect the events array,
+    // but we can use this for session status changes or metadata updates
+    // The parent component using useSessions will handle session state
+  }, [recordEventReceived]);
+
+  /**
+   * Sets up real-time subscriptions for both events and sessions
    */
   const setupRealtimeSubscription = useCallback(() => {
     if (!enableRealtime) return;
 
-    // Cleanup existing subscription
-    if (channelRef.current) {
-      unregisterChannel(channelRef.current);
-      channelRef.current.unsubscribe();
+    // Cleanup existing subscriptions
+    if (eventsChannelRef.current) {
+      unregisterChannel(eventsChannelRef.current);
+      eventsChannelRef.current.unsubscribe();
+    }
+    if (sessionsChannelRef.current) {
+      unregisterChannel(sessionsChannelRef.current);
+      sessionsChannelRef.current.unsubscribe();
     }
 
-    // Create new channel
-    channelRef.current = supabase
+    // Create events channel for INSERT operations
+    eventsChannelRef.current = supabase
       .channel('events-realtime')
       .on(
         'postgres_changes',
@@ -213,12 +230,29 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       )
       .subscribe();
 
-    // Register channel with connection monitoring
-    if (channelRef.current) {
-      registerChannel(channelRef.current);
+    // Create sessions channel for UPDATE operations
+    sessionsChannelRef.current = supabase
+      .channel('sessions-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chronicle_sessions',
+        },
+        handleSessionUpdate
+      )
+      .subscribe();
+
+    // Register channels with connection monitoring
+    if (eventsChannelRef.current) {
+      registerChannel(eventsChannelRef.current);
+    }
+    if (sessionsChannelRef.current) {
+      registerChannel(sessionsChannelRef.current);
     }
 
-  }, [enableRealtime, handleRealtimeEvent, registerChannel, unregisterChannel]);
+  }, [enableRealtime, handleRealtimeEvent, handleSessionUpdate, registerChannel, unregisterChannel]);
 
   /**
    * Retry function for error recovery
@@ -254,9 +288,13 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
 
     // Cleanup on unmount
     return () => {
-      if (channelRef.current) {
-        unregisterChannel(channelRef.current);
-        channelRef.current.unsubscribe();
+      if (eventsChannelRef.current) {
+        unregisterChannel(eventsChannelRef.current);
+        eventsChannelRef.current.unsubscribe();
+      }
+      if (sessionsChannelRef.current) {
+        unregisterChannel(sessionsChannelRef.current);
+        sessionsChannelRef.current.unsubscribe();
       }
     };
   }, [enableRealtime, setupRealtimeSubscription, unregisterChannel]);

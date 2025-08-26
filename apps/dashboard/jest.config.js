@@ -47,12 +47,12 @@ const customJestConfig = {
       branches: 80,
       statements: 80,
     },
-    // Component-specific thresholds
+    // Component-specific thresholds (90% as required)
     'src/components/**/*.{ts,tsx}': {
-      lines: 85,
-      functions: 85,
-      branches: 80,
-      statements: 85,
+      lines: 90,
+      functions: 90,
+      branches: 85,
+      statements: 90,
     },
     // Hooks require higher coverage
     'src/hooks/**/*.{ts,tsx}': {

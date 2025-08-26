@@ -133,44 +133,20 @@ class PostToolUseHook(BaseHook):
             save_success = self.save_event(tool_event_data)
             logger.info(f"Database save result: {'Success' if save_success else 'Failed'}")
             
-            # Analyze for security concerns
-            logger.debug("Analyzing tool security")
-            security_decision, security_reason = self.analyze_tool_security(
-                tool_name, tool_input, response_parsed
+            # Chronicle is purely observational - always allow execution to continue
+            return self.create_response(
+                continue_execution=True,
+                suppress_output=False,
+                hook_specific_data=self.create_hook_specific_output(
+                    hook_event_name="PostToolUse",
+                    tool_name=tool_name,
+                    tool_success=response_parsed["success"],
+                    mcp_tool=is_mcp,
+                    mcp_server=mcp_server,
+                    execution_time=duration_ms,
+                    event_saved=save_success
+                )
             )
-            logger.info(f"Security decision: {security_decision} - {security_reason}")
-            
-            # Create response
-            if security_decision == "allow":
-                return self.create_response(
-                    continue_execution=True,
-                    suppress_output=False,
-                    hook_specific_data=self.create_hook_specific_output(
-                        hook_event_name="PostToolUse",
-                        tool_name=tool_name,
-                        tool_success=response_parsed["success"],
-                        mcp_tool=is_mcp,
-                        mcp_server=mcp_server,
-                        execution_time=duration_ms,
-                        event_saved=save_success,
-                        permission_decision=security_decision
-                    )
-                )
-            else:
-                # Block or ask for permission
-                return self.create_response(
-                    continue_execution=security_decision != "deny",
-                    suppress_output=False,
-                    hook_specific_data=self.create_hook_specific_output(
-                        hook_event_name="PostToolUse",
-                        tool_name=tool_name,
-                        mcp_tool=is_mcp,
-                        execution_time=duration_ms,
-                        event_saved=save_success,
-                        permission_decision=security_decision,
-                        permission_decision_reason=security_reason
-                    )
-                )
             
         except Exception as e:
             logger.error(f"Hook processing error: {e}", exc_info=True)
@@ -215,68 +191,8 @@ class PostToolUseHook(BaseHook):
         
         return summary
     
-    def analyze_tool_security(self, tool_name: str, tool_input: Any, 
-                             tool_response: Dict[str, Any]) -> Tuple[str, str]:
-        """Fast security analysis for tool execution."""
-        # Safe tools (fast path)
-        safe_tools = {
-            "Read", "Glob", "Grep", "LS", "WebFetch", "WebSearch", 
-            "mcp__ide__getDiagnostics", "mcp__ide__executeCode"
-        }
-        
-        if tool_name in safe_tools:
-            return "allow", f"Safe operation: {tool_name}"
-        
-        # Quick security checks for common dangerous patterns
-        if tool_name == "Bash":
-            return self._analyze_bash_security(tool_input)
-        
-        if tool_name in ["Write", "Edit", "MultiEdit"]:
-            return self._analyze_file_security(tool_input)
-        
-        if tool_name.startswith("mcp__"):
-            return "allow", f"MCP tool allowed: {tool_name}"
-        
-        # Default allow
-        return "allow", f"Tool {tool_name} allowed"
-    
-    def _analyze_bash_security(self, tool_input: Any) -> Tuple[str, str]:
-        """Quick bash security analysis."""
-        if not isinstance(tool_input, dict) or "command" not in tool_input:
-            return "allow", "No command to analyze"
-        
-        command = str(tool_input["command"]).lower()
-        
-        # Only check most dangerous patterns for performance
-        dangerous_patterns = [
-            "rm -rf /",
-            "sudo rm -rf",
-            "mkfs.",
-            "dd if=/dev/zero",
-            ":(){ :|:& };:"
-        ]
-        
-        for pattern in dangerous_patterns:
-            if pattern in command:
-                return "deny", f"Dangerous command blocked: {pattern}"
-        
-        return "allow", "Command appears safe"
-    
-    def _analyze_file_security(self, tool_input: Any) -> Tuple[str, str]:
-        """Quick file operation security analysis."""
-        if not isinstance(tool_input, dict):
-            return "allow", "No file path to analyze"
-        
-        file_path = str(tool_input.get("file_path", "")).lower()
-        
-        # Check for critical system paths
-        critical_paths = ["/etc/passwd", "/etc/shadow", "c:\\windows\\system32"]
-        
-        for critical in critical_paths:
-            if critical in file_path:
-                return "deny", f"Critical system file access blocked: {file_path}"
-        
-        return "allow", "File operation appears safe"
+    # Security analysis methods removed - Chronicle is purely observational
+    # Credential obfuscation is handled by sanitize_data imported from lib.utils
 
 
 def main():

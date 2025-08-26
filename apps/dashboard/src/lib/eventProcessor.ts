@@ -58,7 +58,7 @@ export const processEvent = (event: Event): Event | null => {
   // Transform and sanitize the event
   const processedEvent: Event = {
     ...event,
-    data: sanitizeEventData(event.data),
+    metadata: sanitizeEventData(event.metadata),
     timestamp: new Date(event.timestamp),
     created_at: new Date(event.created_at),
   };
@@ -135,8 +135,8 @@ export const validateEventData = (event: any): event is Event => {
     return false;
   }
 
-  // Validate data field
-  if (!event.data || typeof event.data !== 'object') {
+  // Validate metadata field
+  if (!event.metadata || typeof event.metadata !== 'object') {
     return false;
   }
 
@@ -262,8 +262,8 @@ export class EventProcessor {
       this.metrics.errorCount++;
       logger.error('Event processing error', {
         component: 'eventProcessor',
-        action: 'processBatch',
-        data: { batchSize: queue.length }
+        action: 'process',
+        data: { eventId: event.id }
       }, error as Error);
       return null;
     }
@@ -298,3 +298,125 @@ export class EventProcessor {
     };
   }
 }
+
+/**
+ * Event batcher configuration
+ */
+interface EventBatcherConfig {
+  windowMs: number;
+  maxBatchSize: number;
+  onFlush: (events: Event[]) => void;
+}
+
+/**
+ * Event batcher for handling real-time events with 100ms batching window
+ * Provides efficient batching of events to prevent UI thrashing
+ */
+export class EventBatcher {
+  private queue: Event[] = [];
+  private flushTimer: NodeJS.Timeout | null = null;
+  private config: EventBatcherConfig;
+  private isDestroyed: boolean = false;
+
+  constructor(config: EventBatcherConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Adds an event to the batch queue
+   * @param event - Event to add
+   */
+  addEvent(event: Event): void {
+    if (this.isDestroyed) {
+      logger.warn('Attempted to add event to destroyed batcher', {
+        component: 'EventBatcher',
+        action: 'addEvent',
+        data: { eventId: event.id }
+      });
+      return;
+    }
+
+    this.queue.push(event);
+
+    // Flush immediately if batch size reached
+    if (this.queue.length >= this.config.maxBatchSize) {
+      this.flush();
+      return;
+    }
+
+    // Schedule flush if not already scheduled
+    if (!this.flushTimer) {
+      this.flushTimer = setTimeout(() => {
+        this.flush();
+      }, this.config.windowMs);
+    }
+  }
+
+  /**
+   * Immediately flushes all queued events
+   */
+  flush(): void {
+    if (this.isDestroyed) return;
+
+    // Clear the timer
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+
+    // Process the batch if not empty
+    if (this.queue.length > 0) {
+      const batchToProcess = [...this.queue];
+      this.queue = [];
+
+      try {
+        this.config.onFlush(batchToProcess);
+      } catch (error) {
+        logger.error('Error processing event batch', {
+          component: 'EventBatcher',
+          action: 'flush',
+          data: { batchSize: batchToProcess.length }
+        }, error as Error);
+      }
+    }
+  }
+
+  /**
+   * Gets the current queue size
+   * @returns Number of events in queue
+   */
+  getQueueSize(): number {
+    return this.queue.length;
+  }
+
+  /**
+   * Checks if batcher is actively batching (has events or timer)
+   * @returns True if actively batching
+   */
+  isBatching(): boolean {
+    return this.queue.length > 0 || this.flushTimer !== null;
+  }
+
+  /**
+   * Destroys the batcher, flushing any remaining events
+   */
+  destroy(): void {
+    if (this.isDestroyed) return;
+
+    this.isDestroyed = true;
+    this.flush(); // Flush any remaining events
+  }
+}
+
+/**
+ * Creates a default EventBatcher with 100ms window
+ * @param onFlush - Function to call when events are flushed
+ * @returns EventBatcher instance
+ */
+export const createEventBatcher = (onFlush: (events: Event[]) => void): EventBatcher => {
+  return new EventBatcher({
+    windowMs: 100,
+    maxBatchSize: 50,
+    onFlush,
+  });
+};
