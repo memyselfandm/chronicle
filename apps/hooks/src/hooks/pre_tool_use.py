@@ -178,7 +178,7 @@ class PreToolUseHook(BaseHook):
         super().__init__()
     
     def process_hook(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process pre-tool use hook with permission evaluation."""
+        """Process pre-tool use hook - purely observational."""
         try:
             # Process input data using base hook functionality
             processed_data = self.process_hook_data(input_data, "PreToolUse")
@@ -187,9 +187,6 @@ class PreToolUseHook(BaseHook):
             tool_name = input_data.get('tool_name', 'unknown')
             tool_input = input_data.get('tool_input', {})
             
-            # Fast permission evaluation
-            permission_result = self.evaluate_permission_decision(input_data)
-            
             # Create event data for logging
             event_data = create_event_data(
                 event_type="pre_tool_use",
@@ -197,8 +194,6 @@ class PreToolUseHook(BaseHook):
                 data={
                     "tool_name": tool_name,
                     "tool_input": self._sanitize_tool_input(tool_input),
-                    "permission_decision": permission_result["permissionDecision"],
-                    "permission_reason": permission_result["permissionDecisionReason"],
                     "analysis": {
                         "input_size_bytes": len(str(tool_input)),
                         "parameter_count": len(tool_input) if isinstance(tool_input, dict) else 0,
@@ -213,25 +208,39 @@ class PreToolUseHook(BaseHook):
             save_success = self.save_event(event_data)
             logger.info(f"Event save result: {save_success}")
             
-            # Create response based on permission decision
-            return self._create_permission_response(tool_name, permission_result, save_success)
+            # Chronicle is purely observational - always continue execution
+            return self.create_response(
+                continue_execution=True,
+                suppress_output=True,  # Don't show any output to avoid interference
+                hook_specific_data=self.create_hook_specific_output(
+                    hook_event_name="PreToolUse",
+                    tool_name=tool_name,
+                    event_saved=save_success
+                )
+            )
             
         except Exception as e:
             logger.debug(f"Hook processing error: {e}")
             
-            # Default to ask for safety
+            # Even on error, don't block tool execution
             return self.create_response(
-                continue_execution=False,
-                suppress_output=False,
+                continue_execution=True,
+                suppress_output=True,
                 hook_specific_data=self.create_hook_specific_output(
                     hook_event_name="PreToolUse",
-                    permission_decision="ask",
-                    permission_decision_reason="Error in permission evaluation",
+                    error=str(e)[:100],
                     tool_name=input_data.get('tool_name', 'unknown')
                 )
             )
     
-    def evaluate_permission_decision(self, hook_input: Dict[str, Any]) -> Dict[str, str]:
+    # Permission evaluation methods removed - Chronicle is purely observational
+    # The following methods have been removed as per CHR-4:
+    # - evaluate_permission_decision
+    # - _check_ask_confirmation  
+    # - _create_permission_response
+    # Chronicle now only observes and logs, never blocks or modifies tool execution
+    
+    def _deprecated_evaluate_permission_decision(self, hook_input: Dict[str, Any]) -> Dict[str, str]:
         """Evaluate permission decision for tool execution."""
         tool_name = hook_input.get('tool_name', '')
         tool_input = hook_input.get('tool_input', {})
@@ -348,7 +357,10 @@ class PreToolUseHook(BaseHook):
         
         return None
     
-    def _check_ask_confirmation(self, tool_name: str, tool_input: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    # DEPRECATED: Permission methods below kept for reference but not used (CHR-4)
+    # Chronicle is now purely observational
+    
+    def _deprecated_check_ask_confirmation(self, tool_name: str, tool_input: Dict[str, Any]) -> Optional[Dict[str, str]]:
         """Check if operation requires user confirmation.
         
         NOTE: This method is disabled to respect Claude Code's auto-approve mode.
@@ -375,7 +387,7 @@ class PreToolUseHook(BaseHook):
         
         return sanitized
     
-    def _create_permission_response(self, tool_name: str, permission_result: Dict[str, str], 
+    def _deprecated_create_permission_response(self, tool_name: str, permission_result: Dict[str, str], 
                                    event_saved: bool) -> Dict[str, Any]:
         """Create response based on permission decision."""
         decision = permission_result["permissionDecision"]
