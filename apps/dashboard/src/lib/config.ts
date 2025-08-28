@@ -11,6 +11,11 @@ import { MONITORING_INTERVALS } from './constants';
 export type Environment = 'development' | 'staging' | 'production';
 
 /**
+ * Backend mode types supported by Chronicle
+ */
+export type BackendMode = 'local' | 'supabase';
+
+/**
  * Log levels for the application
  */
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
@@ -29,11 +34,17 @@ export interface AppConfig {
   nodeEnv: string;
   appTitle: string;
   
-  // Supabase configuration
-  supabase: {
-    url: string;
-    anonKey: string;
-    serviceRoleKey?: string;
+  // Backend mode and configuration
+  backend: {
+    mode: BackendMode;
+    local?: {
+      serverUrl: string;
+    };
+    supabase?: {
+      url: string;
+      anonKey: string;
+      serviceRoleKey?: string;
+    };
   };
   
   // Monitoring and error tracking
@@ -95,7 +106,7 @@ export interface AppConfig {
 }
 
 /**
- * Validates required environment variables
+ * Validates required environment variables based on backend mode
  */
 function validateEnvironment(): void {
   // Skip validation on client-side - Next.js populates env vars after initial load
@@ -103,25 +114,32 @@ function validateEnvironment(): void {
     return;
   }
   
-  const required = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY'
-  ];
+  const mode = process.env.NEXT_PUBLIC_CHRONICLE_MODE || 'local';
+  let required: string[] = [];
+  
+  if (mode === 'supabase') {
+    required = [
+      'NEXT_PUBLIC_SUPABASE_URL',
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY'
+    ];
+  } else if (mode === 'local') {
+    // Local mode is more flexible - server URL has a default
+    required = [];
+  } else {
+    console.warn(`Unknown backend mode "${mode}", defaulting to local mode`);
+  }
   
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
+    const errorMessage = `Missing required environment variables for ${mode} mode: ${missing.join(', ')}\n` +
+      `Please check your .env.local file and configure it for ${mode} backend.`;
+    
     // In development, warn but don't throw
     if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        `Missing environment variables: ${missing.join(', ')}\n` +
-        'Please check your .env.local or .env.development file.'
-      );
+      console.warn(errorMessage);
     } else {
-      throw new Error(
-        `Missing required environment variables: ${missing.join(', ')}\n` +
-        'Please check your .env.local file and ensure all required variables are set.'
-      );
+      throw new Error(errorMessage);
     }
   }
 }
@@ -166,6 +184,20 @@ function getCurrentEnvironment(): Environment {
 }
 
 /**
+ * Gets the backend mode with validation
+ */
+function getBackendMode(): BackendMode {
+  const mode = getEnvVar('NEXT_PUBLIC_CHRONICLE_MODE', 'local') as string;
+  
+  if (!['local', 'supabase'].includes(mode)) {
+    console.warn(`Invalid backend mode "${mode}", defaulting to local`);
+    return 'local';
+  }
+  
+  return mode as BackendMode;
+}
+
+/**
  * Creates the application configuration based on environment variables
  */
 function createConfig(): AppConfig {
@@ -173,8 +205,26 @@ function createConfig(): AppConfig {
   validateEnvironment();
   
   const environment = getCurrentEnvironment();
+  const backendMode = getBackendMode();
   const isProduction = environment === 'production';
   const isDevelopment = environment === 'development';
+  
+  // Build backend configuration based on mode
+  const backendConfig: AppConfig['backend'] = {
+    mode: backendMode,
+  };
+  
+  if (backendMode === 'local') {
+    backendConfig.local = {
+      serverUrl: getEnvVar('NEXT_PUBLIC_LOCAL_SERVER_URL', 'http://localhost:8510'),
+    };
+  } else {
+    backendConfig.supabase = {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    };
+  }
   
   return {
     // Environment identification
@@ -182,12 +232,8 @@ function createConfig(): AppConfig {
     nodeEnv: getEnvVar('NODE_ENV', 'development'),
     appTitle: getEnvVar('NEXT_PUBLIC_APP_TITLE', 'Chronicle Observability'),
     
-    // Supabase configuration
-    supabase: {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    },
+    // Backend configuration
+    backend: backendConfig,
     
     // Monitoring and error tracking
     monitoring: {
@@ -257,9 +303,14 @@ export const config = createConfig();
 if (config.environment === 'development' && typeof window !== 'undefined') {
   console.group('🔧 Chronicle Configuration');
   console.log('Environment:', config.environment);
+  console.log('Backend Mode:', config.backend.mode);
   console.log('Debug enabled:', config.debug.enabled);
   console.log('Features:', config.features);
-  console.log('Supabase URL:', config.supabase.url);
+  if (config.backend.mode === 'local') {
+    console.log('Local Server URL:', config.backend.local?.serverUrl);
+  } else {
+    console.log('Supabase URL:', config.backend.supabase?.url);
+  }
   console.groupEnd();
 }
 
@@ -295,9 +346,29 @@ export const configUtils = {
   },
   
   /**
-   * Get Supabase configuration
+   * Check if backend is in local mode
    */
-  getSupabaseConfig: () => config.supabase,
+  isLocalMode: (): boolean => config.backend.mode === 'local',
+  
+  /**
+   * Check if backend is in Supabase mode
+   */
+  isSupabaseMode: (): boolean => config.backend.mode === 'supabase',
+  
+  /**
+   * Get backend configuration
+   */
+  getBackendConfig: () => config.backend,
+  
+  /**
+   * Get Supabase configuration (legacy helper)
+   */
+  getSupabaseConfig: () => config.backend.supabase,
+  
+  /**
+   * Get local backend configuration
+   */
+  getLocalConfig: () => config.backend.local,
   
   /**
    * Get monitoring configuration
@@ -321,5 +392,55 @@ export const configUtils = {
     }
   },
 };
+
+/**
+ * Backend configuration interface for factory pattern
+ */
+export interface BackendConfig {
+  mode: BackendMode;
+  serverUrl?: string;
+  url?: string;
+  anonKey?: string;
+  serviceRoleKey?: string;
+}
+
+/**
+ * Gets backend configuration in a unified format for factory pattern
+ */
+export function getBackendConfig(): BackendConfig {
+  const backendConfig = config.backend;
+  
+  if (backendConfig.mode === 'local') {
+    return {
+      mode: 'local',
+      serverUrl: backendConfig.local?.serverUrl || 'http://localhost:8510',
+    };
+  } else {
+    return {
+      mode: 'supabase',
+      url: backendConfig.supabase?.url || '',
+      anonKey: backendConfig.supabase?.anonKey || '',
+      serviceRoleKey: backendConfig.supabase?.serviceRoleKey,
+    };
+  }
+}
+
+/**
+ * Backend factory function placeholder
+ * This will be implemented by Agent-6's backend abstraction
+ */
+export function createBackend(): unknown {
+  const backendConfig = getBackendConfig();
+  
+  if (backendConfig.mode === 'local') {
+    // TODO: Implement LocalBackend when Agent-6 creates it
+    console.info('🏠 Chronicle: Using local backend at', backendConfig.serverUrl);
+    return null; // Placeholder
+  } else {
+    // TODO: Implement SupabaseBackend when Agent-6 creates it
+    console.info('☁️ Chronicle: Using Supabase backend at', backendConfig.url);
+    return null; // Placeholder
+  }
+}
 
 export default config;

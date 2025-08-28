@@ -15,6 +15,8 @@ export interface ConnectionStatus {
   reconnectAttempts: number;
   error: string | null;
   isHealthy: boolean;
+  queuedEvents?: number;
+  connectionQuality?: ConnectionQuality;
 }
 
 export interface ConnectionStatusProps {
@@ -29,6 +31,12 @@ export interface ConnectionStatusProps {
   className?: string;
   showText?: boolean;
   onRetry?: () => void;
+  // Enhanced props for new functionality
+  queuedEvents?: number;
+  uptime?: number;
+  eventThroughput?: number;
+  showDetailedMetrics?: boolean;
+  showQueueStatus?: boolean;
 }
 
 export interface UseSupabaseConnectionOptions {

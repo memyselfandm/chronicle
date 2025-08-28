@@ -17,6 +17,12 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   className,
   showText = true,
   onRetry,
+  // New props for enhanced functionality
+  queuedEvents = 0,
+  uptime = 0,
+  eventThroughput = 0,
+  showDetailedMetrics = false,
+  showQueueStatus = false,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -70,6 +76,28 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
 
     return () => clearInterval(interval);
   }, [isMounted, lastUpdate, lastEventReceived]);
+
+  // Format uptime
+  const formatUptime = useCallback((uptimeMs: number): string => {
+    if (uptimeMs < 1000) return `${uptimeMs}ms`;
+    const seconds = Math.floor(uptimeMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  }, []);
+
+  // Format throughput
+  const formatThroughput = useCallback((throughput: number): string => {
+    if (throughput < 1) return '< 1/sec';
+    return `${throughput.toFixed(1)}/sec`;
+  }, []);
 
   // Memoize status config to prevent recreation on every render
   const statusConfig = useMemo(() => {
@@ -159,6 +187,14 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             {statusConfig.text}
           </span>
         )}
+
+        {/* Queue indicator for enhanced functionality */}
+        {showQueueStatus && queuedEvents > 0 && (
+          <div className="flex items-center gap-1">
+            <div className="w-1 h-1 rounded-full bg-accent-yellow" />
+            <span className="text-xs text-text-muted">{queuedEvents}</span>
+          </div>
+        )}
       </div>
 
       {/* Last Update Time */}
@@ -171,6 +207,22 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         >
           {lastUpdateText}
         </span>
+      )}
+
+      {/* Enhanced metrics display */}
+      {showDetailedMetrics && status === 'connected' && (
+        <div className="flex items-center gap-2 text-xs text-text-muted">
+          {uptime > 0 && (
+            <span title="Connection uptime">
+              ⏱ {formatUptime(uptime)}
+            </span>
+          )}
+          {eventThroughput > 0 && (
+            <span title="Event throughput">
+              📊 {formatThroughput(eventThroughput)}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Retry Button for Error State */}
@@ -217,6 +269,40 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
                   <span className="text-text-primary capitalize">{connectionQuality}</span>
                 </div>
               </div>
+            )}
+
+            {/* Enhanced Metrics */}
+            {showDetailedMetrics && (
+              <>
+                {/* Uptime */}
+                {uptime > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-muted">Uptime:</span>
+                    <span className="text-text-primary font-medium">{formatUptime(uptime)}</span>
+                  </div>
+                )}
+
+                {/* Event Throughput */}
+                {eventThroughput > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-muted">Event Throughput:</span>
+                    <span className="text-text-primary font-medium">{formatThroughput(eventThroughput)}</span>
+                  </div>
+                )}
+
+                {/* Queued Events */}
+                {queuedEvents > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-muted">Queued Events:</span>
+                    <span className={cn(
+                      'font-medium',
+                      queuedEvents > 100 ? 'text-accent-yellow' : 'text-text-primary'
+                    )}>
+                      {queuedEvents}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Subscriptions */}

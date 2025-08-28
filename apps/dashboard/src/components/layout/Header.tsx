@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { supabase } from '@/lib/supabase';
+import { ModeIndicator } from '@/components/ModeIndicator';
 
 export function Header() {
   const { sessions, events } = useDashboardStore();
@@ -150,9 +151,10 @@ export function Header() {
 
   return (
     <header className="h-10 bg-bg-secondary border-b border-border-primary flex items-center justify-between px-4">
-      {/* Left side: Title and connection status */}
-      <div className="flex items-center gap-6">
+      {/* Left side: Title, mode indicator, and connection status */}
+      <div className="flex items-center gap-4">
         <h1 className="text-base font-semibold text-white">Chronicle Dashboard</h1>
+        <ModeIndicator />
         <div className="flex items-center gap-1.5">
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
           <span className="text-xs text-text-muted">{isConnected ? 'Connected' : 'Disconnected'}</span>
