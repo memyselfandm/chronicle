@@ -1,133 +1,254 @@
-# Chronicle Documentation
+# Chronicle Documentation Structure
 
-Welcome to the Chronicle documentation hub. This is your central navigation point for all Chronicle project documentation.
+Welcome to the Chronicle documentation source files. This directory contains all the documentation for Chronicle, organized for use with MkDocs to generate a beautiful, searchable documentation website.
 
-## 📁 Documentation Structure
+## Documentation Site Structure
 
-### 🚀 Setup & Installation
-**Location**: `docs/setup/`
+The Chronicle documentation is organized into logical sections that guide users from installation through advanced usage and development:
 
-Essential documentation for getting Chronicle up and running:
+### 📁 Directory Structure
 
-- **[Installation Guide](setup/installation.md)** - Complete installation instructions
-- **[Environment Configuration](setup/environment.md)** - Environment variables and configuration
-- **[Supabase Setup](setup/supabase.md)** - Database setup and configuration
-- **[Quick Start](setup/quick-start.md)** - Get up and running quickly
+```
+docs/
+├── index.md                    # Main landing page
+├── mkdocs.yml                  # MkDocs configuration (in project root)
+├── stylesheets/
+│   └── extra.css              # Custom Chronicle styling
+├── javascripts/
+│   └── mathjax.js             # MathJax configuration
+│
+├── getting-started/           # New user guides
+│   ├── installation.md       # Complete installation instructions
+│   ├── quick-start.md        # 5-minute setup guide
+│   └── first-session.md      # Dashboard tour and first use
+│
+├── user-guide/               # Daily usage documentation
+│   ├── dashboard-overview.md # Interface and features guide
+│   ├── session-management.md # Working with coding sessions
+│   ├── filtering-events.md   # Finding specific activities
+│   └── configuration.md      # Customizing Chronicle behavior
+│
+├── tutorials/                # Step-by-step guides
+│   ├── local-setup.md        # Detailed local installation
+│   ├── team-deployment.md    # Multi-user setups
+│   ├── advanced-configuration.md # Power user features
+│   └── migration-from-supabase.md # Database migration options
+│
+├── admin-guide/              # System administration
+│   ├── server-management.md  # Running and monitoring Chronicle
+│   ├── performance-tuning.md # Optimization strategies
+│   ├── backup-restore.md     # Data protection procedures
+│   └── troubleshooting.md    # Common issues and solutions
+│
+├── developer-guide/          # Technical implementation
+│   ├── architecture.md       # System design and components
+│   ├── api-reference.md      # REST API documentation
+│   ├── plugin-development.md # Creating custom hooks
+│   └── contributing.md       # Development workflow
+│
+├── reference/                # Complete technical docs
+│   ├── configuration.md      # All configuration options
+│   ├── api.md               # Endpoint details and examples
+│   ├── database.md          # SQLite table structures
+│   ├── hooks.md             # Event capture architecture
+│   ├── environment-variables.md # Configuration settings
+│   ├── ci-cd.md             # Continuous integration
+│   └── installation-structure.md # File organization
+│
+├── guides/                   # Additional guides
+│   ├── deployment.md        # Production deployment
+│   ├── security.md          # Security best practices
+│   ├── performance.md       # Performance optimization
+│   ├── troubleshooting.md   # Issue resolution
+│   └── coverage.md          # Test coverage information
+│
+└── setup/                    # Setup-specific guides
+    ├── installation.md       # Installation procedures
+    ├── environment.md        # Environment configuration
+    ├── quick-start.md        # Quick setup guide
+    └── supabase.md          # Supabase backend setup
+```
 
-### 📖 Guides & Tutorials  
-**Location**: `docs/guides/`
+## Building the Documentation Site
 
-Step-by-step guides for common tasks and operations:
+### Prerequisites
 
-- **[Deployment Guide](guides/deployment.md)** - Production deployment instructions
-- **[Security Guide](guides/security.md)** - Security best practices and configuration
-- **[Troubleshooting](guides/troubleshooting.md)** - Common issues and solutions
-- **[Performance Optimization](guides/performance.md)** - Performance tuning and monitoring
+Install MkDocs with the Material theme:
 
-### 📚 Technical Reference
-**Location**: `docs/reference/`
+```bash
+pip install mkdocs mkdocs-material pymdown-extensions mkdocs-minify-plugin
+```
 
-Technical reference documentation and API details:
+### Local Development
 
-- **[Configuration Reference](reference/configuration.md)** - Complete configuration options
-- **[API Documentation](reference/api.md)** - API endpoints and usage
-- **[Database Schema](reference/database.md)** - Database structure and migrations
-- **[Hook Development](reference/hooks.md)** - Guide for developing custom hooks
+Build and serve the documentation locally:
 
-## 🎯 Current Documentation Migration Status
+```bash
+# Serve with live reloading (recommended for development)
+mkdocs serve
 
-### Phase 1: Foundation Structure ✅
-- [x] Created organized docs/ directory structure
-- [x] Established master navigation (this file)
-- [x] Moved first document to new structure
+# Build static site (for production)
+mkdocs build
 
-### Phase 2: Content Consolidation (In Progress)
-- [ ] Consolidate installation documentation from multiple sources
-- [ ] Merge security documentation across apps
-- [ ] Unify deployment guides for hooks and dashboard
-- [ ] Combine configuration documentation
+# Deploy to GitHub Pages (if configured)
+mkdocs gh-deploy
+```
 
-### Phase 3: Reference Creation (Planned)
-- [ ] Create comprehensive configuration reference
-- [ ] Document complete API surface
-- [ ] Consolidate database documentation
-- [ ] Create hook development guide
+Access the local site at: http://127.0.0.1:8000
 
-## 📍 Source Documentation Mapping
+### Site Configuration
 
-### Root Directory Documentation
-- `README.md` → Primary content remains, links to docs/
-- `INSTALLATION.md` → Consolidate into `docs/setup/installation.md`
-- `DEPLOYMENT.md` → **CONSOLIDATED** into `docs/guides/deployment.md`
-- `CONFIGURATION.md` → Consolidate into `docs/reference/configuration.md`
-- `TROUBLESHOOTING.md` → **MOVED** to `docs/guides/troubleshooting.md`
-- `SECURITY.md` → **CONSOLIDATED** into `docs/guides/security.md`
-- `SUPABASE_SETUP.md` → Consolidate into `docs/setup/supabase.md`
+The documentation site is configured via `mkdocs.yml` (in project root) with:
 
-### Dashboard App Documentation
-- `apps/dashboard/README.md` → App-specific content, link to main docs
-- `apps/dashboard/SETUP.md` → Consolidate into `docs/setup/installation.md`
-- `apps/dashboard/DEPLOYMENT.md` → **CONSOLIDATED** into `docs/guides/deployment.md`
-- `apps/dashboard/CONFIG_MANAGEMENT.md` → Consolidate into `docs/reference/configuration.md`
-- `apps/dashboard/TROUBLESHOOTING.md` → Consolidate into `docs/guides/troubleshooting.md`
-- `apps/dashboard/SECURITY.md` → **CONSOLIDATED** into `docs/guides/security.md`
+- **Material Design theme** with dark/light mode toggle
+- **Advanced search** with highlighting and suggestions
+- **Code syntax highlighting** for all supported languages
+- **Navigation tabs and sections** for easy browsing
+- **Responsive design** for desktop and mobile
+- **Custom Chronicle branding** and color scheme
 
-### Hooks App Documentation  
-- `apps/hooks/README.md` → App-specific content, link to main docs
-- `apps/hooks/CHRONICLE_INSTALLATION_STRUCTURE.md` → Consolidate into `docs/setup/installation.md`
-- `apps/hooks/ENVIRONMENT_VARIABLES.md` → Consolidate into `docs/setup/environment.md`
+## Content Guidelines
 
-## 🔗 Navigation Tips
+### Writing Style
 
-### For Developers
-1. **New to Chronicle?** Start with [Installation Guide](setup/installation.md)
-2. **Setting up environment?** Check [Environment Configuration](setup/environment.md)
-3. **Deploying to production?** Follow [Deployment Guide](guides/deployment.md)
-4. **Having issues?** Consult [Troubleshooting](guides/troubleshooting.md)
+- **Clear and concise**: Use simple language and short sentences
+- **User-focused**: Write from the user's perspective
+- **Action-oriented**: Use imperative mood for instructions
+- **Consistent terminology**: Maintain consistent naming and concepts
 
-### For Contributors
-1. **Hook Development** → [Hook Development Guide](reference/hooks.md)
-2. **Security Best Practices** → [Security Guide](guides/security.md)
-3. **Performance Optimization** → [Performance Guide](guides/performance.md)
-4. **Database Changes** → [Database Schema Reference](reference/database.md)
+### Documentation Standards
 
-## 🏗️ Documentation Standards
+#### File Naming
+- Use lowercase with hyphens: `server-management.md`
+- Be descriptive but concise: `filtering-events.md`
+- Group related content in subdirectories
 
-### File Organization
-- Use lowercase filenames with hyphens: `installation.md`, `quick-start.md`
-- Group related content in appropriate subdirectories
-- Maintain consistent structure across all documents
+#### Content Structure
+```markdown
+# Page Title (H1)
 
-### Content Guidelines
-- Start each document with a clear purpose statement
-- Use consistent heading structure (H1 for title, H2 for major sections)
-- Include navigation links to related documents
-- Keep content focused and avoid duplication
+Brief introduction paragraph explaining the page purpose.
 
-### Cross-References
-- Always use relative links within documentation
-- Update this navigation file when adding new documents
-- Ensure all links are valid and up-to-date
+## Major Section (H2)
 
-## 📝 Contributing to Documentation
+Content with subsections as needed.
 
-### Adding New Documentation
-1. Determine appropriate location (setup/, guides/, or reference/)
-2. Create document following naming conventions
-3. Add entry to this navigation file
-4. Update any related cross-references
+### Subsection (H3)
 
-### Updating Existing Documentation
-1. Make changes to appropriate consolidated document
-2. Ensure cross-references remain valid
-3. Update this navigation if structure changes
+Detailed content.
 
-## 🚀 Next Steps
+#### Sub-subsection (H4)
 
-This documentation structure provides the foundation for consolidating all Chronicle documentation into a coherent, navigable system. Future agents will populate the placeholder files with consolidated content from the various existing documentation sources.
+Use sparingly for complex topics.
+```
+
+#### Code Examples
+- Always specify language for syntax highlighting: `bash`, `python`, `json`
+- Include complete, runnable examples when possible
+- Add comments to explain complex code
+- Test all code examples for correctness
+
+#### Cross-References
+- Use relative links within docs: `[Installation](../getting-started/installation.md)`
+- Always verify links are working
+- Update navigation in `mkdocs.yml` when adding new pages
+
+### Content Types
+
+#### Installation Guides
+- Step-by-step numbered instructions
+- Prerequisites clearly listed
+- Verification steps included
+- Troubleshooting section
+
+#### API Documentation
+- Complete endpoint listings
+- Request/response examples
+- Error handling documentation
+- SDK/client library examples
+
+#### Tutorials
+- Hands-on, practical guides
+- Clear learning objectives
+- Progressive difficulty
+- Working examples throughout
+
+#### Reference Documentation
+- Comprehensive parameter lists
+- Technical specifications
+- Configuration options
+- Schema definitions
+
+## Site Features
+
+### Navigation
+- **Tabbed navigation** for major sections
+- **Expandable sidebar** with hierarchical organization
+- **Breadcrumb navigation** showing current location
+- **Table of contents** for long pages
+- **Search functionality** across all content
+
+### Visual Features
+- **Syntax highlighting** for code blocks
+- **Copy buttons** for code examples
+- **Responsive grid layouts** for feature cards
+- **Material Design icons** for visual cues
+- **Dark/light mode** toggle for user preference
+
+### Interactive Elements
+- **Collapsible sections** for detailed information
+- **Tabbed content** for alternative instructions
+- **Admonitions** for notes, warnings, and tips
+- **Progress indicators** for multi-step processes
+
+## Maintenance
+
+### Regular Tasks
+- **Review links**: Verify all internal and external links work
+- **Update examples**: Ensure code examples match current version
+- **Check screenshots**: Update interface screenshots when UI changes
+- **Validate structure**: Ensure navigation matches directory structure
+
+### Content Updates
+- Update version numbers in installation guides
+- Refresh API documentation when endpoints change
+- Add new features to appropriate documentation sections
+- Archive outdated content appropriately
+
+### Site Optimization
+- Monitor site build performance
+- Optimize images and assets
+- Review search indexing effectiveness
+- Test mobile responsiveness
+
+## Contributing to Documentation
+
+### Documentation Workflow
+1. Create or edit markdown files in appropriate directories
+2. Test locally with `mkdocs serve`
+3. Verify all links and code examples work
+4. Update navigation in `mkdocs.yml` if adding new pages
+5. Submit documentation changes with code changes
+
+### Quality Checklist
+- [ ] Content follows writing style guidelines
+- [ ] All code examples are tested and working
+- [ ] Cross-references are accurate and working
+- [ ] Navigation is updated appropriately
+- [ ] Mobile responsiveness is maintained
+- [ ] Search functionality includes new content
+
+## Deployment
+
+The documentation site can be deployed to:
+
+- **GitHub Pages**: Using `mkdocs gh-deploy`
+- **Netlify**: By connecting to the repository
+- **Vercel**: With automatic deployment on commits
+- **Self-hosted**: Using the output from `mkdocs build`
+
+See the [deployment guide](guides/deployment.md) for detailed instructions.
 
 ---
 
-**Last Updated**: 2025-08-18
-**Structure Version**: 1.0
-**Migration Status**: Foundation Complete
+This documentation structure provides comprehensive coverage of Chronicle while maintaining excellent user experience and professional presentation. The MkDocs configuration ensures the site is modern, searchable, and accessible across all devices.

@@ -1,0 +1,222 @@
+/* Chronicle Documentation Custom Styles */
+
+/* Custom color palette for Chronicle branding */
+:root {
+  --chronicle-primary: #2563eb;
+  --chronicle-secondary: #0ea5e9;
+  --chronicle-accent: #06b6d4;
+  --chronicle-success: #10b981;
+  --chronicle-warning: #f59e0b;
+  --chronicle-error: #ef4444;
+}
+
+/* Enhanced code block styling */
+.highlight pre {
+  border-left: 3px solid var(--chronicle-primary);
+  border-radius: 6px;
+  padding: 1rem;
+  background-color: var(--md-code-bg-color);
+}
+
+/* Custom admonition styling for Chronicle-specific notes */
+.md-typeset .admonition.chronicle {
+  border-color: var(--chronicle-primary);
+}
+
+.md-typeset .admonition.chronicle > .admonition-title {
+  background-color: var(--chronicle-primary);
+  color: white;
+}
+
+.md-typeset .admonition.chronicle > .admonition-title::before {
+  background-color: currentColor;
+  -webkit-mask-image: var(--md-admonition-icon--note);
+  mask-image: var(--md-admonition-icon--note);
+}
+
+/* Enhanced navigation styling */
+.md-nav__title {
+  font-weight: 600;
+}
+
+.md-nav__link--active {
+  border-left: 3px solid var(--chronicle-primary);
+  padding-left: 0.8rem;
+}
+
+/* Custom card grid styling */
+.grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.grid.cards > div {
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.grid.cards > div:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Status indicators */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.status-indicator.healthy {
+  background-color: var(--chronicle-success);
+}
+
+.status-indicator.warning {
+  background-color: var(--chronicle-warning);
+}
+
+.status-indicator.error {
+  background-color: var(--chronicle-error);
+}
+
+/* Installation command styling */
+.install-command {
+  background: linear-gradient(135deg, var(--chronicle-primary), var(--chronicle-secondary));
+  color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  font-family: var(--md-code-font);
+  margin: 1rem 0;
+}
+
+.install-command code {
+  color: white;
+  background: transparent;
+}
+
+/* Feature highlight boxes */
+.feature-highlight {
+  border-left: 4px solid var(--chronicle-accent);
+  background-color: var(--md-default-bg-color);
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 0 8px 8px 0;
+}
+
+/* API endpoint styling */
+.api-endpoint {
+  display: inline-block;
+  background-color: var(--chronicle-primary);
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: var(--md-code-font);
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 0.5rem;
+}
+
+.api-endpoint.get {
+  background-color: var(--chronicle-success);
+}
+
+.api-endpoint.post {
+  background-color: var(--chronicle-primary);
+}
+
+.api-endpoint.put {
+  background-color: var(--chronicle-warning);
+}
+
+.api-endpoint.delete {
+  background-color: var(--chronicle-error);
+}
+
+/* Quick reference boxes */
+.quick-ref {
+  background: var(--md-default-bg-color);
+  border: 2px solid var(--chronicle-accent);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.quick-ref h4 {
+  margin-top: 0;
+  color: var(--chronicle-primary);
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .grid.cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid.cards > div {
+    padding: 1rem;
+  }
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] {
+  --chronicle-primary: #3b82f6;
+  --chronicle-secondary: #0ea5e9;
+  --chronicle-accent: #06b6d4;
+}
+
+[data-md-color-scheme="slate"] .grid.cards > div {
+  border-color: var(--md-default-fg-color--lightest);
+}
+
+[data-md-color-scheme="slate"] .feature-highlight {
+  background-color: var(--md-default-bg-color);
+}
+
+/* Print styles */
+@media print {
+  .grid.cards {
+    display: block;
+  }
+  
+  .grid.cards > div {
+    break-inside: avoid;
+    margin-bottom: 1rem;
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
+
+/* Accessibility improvements */
+.md-typeset a:focus,
+.md-typeset button:focus {
+  outline: 2px solid var(--chronicle-primary);
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .grid.cards > div {
+    border-width: 2px;
+  }
+  
+  .feature-highlight {
+    border-left-width: 6px;
+  }
+}
+
+/* Animation preferences */
+@media (prefers-reduced-motion: reduce) {
+  .grid.cards > div,
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
