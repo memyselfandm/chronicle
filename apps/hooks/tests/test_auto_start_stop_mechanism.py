@@ -496,7 +496,8 @@ if __name__ == "__main__":
     if result.failures:
         print(f"\nFailures: {len(result.failures)}")
         for test, traceback in result.failures:
-            print(f"  - {test}: {traceback.split('AssertionError: ')[-1].split('\\n')[0] if 'AssertionError:' in traceback else 'See details above'}")
+            error_msg = traceback.split('AssertionError: ')[-1].split('\n')[0] if 'AssertionError:' in traceback else 'See details above'
+            print(f"  - {test}: {error_msg}")
     
     if result.errors:
         print(f"\nErrors: {len(result.errors)}")

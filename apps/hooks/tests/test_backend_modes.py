@@ -3,10 +3,7 @@ Comprehensive tests for Chronicle backend modes (local, supabase, auto).
 """
 
 import json
-import os
-import sqlite3
 import tempfile
-import uuid
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
