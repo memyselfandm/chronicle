@@ -11,42 +11,47 @@ import {
 } from '../../src/lib/security';
 
 // Mock dependencies
-const mockConfig = {
-  environment: 'test',
-  security: {
-    enableCSP: true,
-    enableSecurityHeaders: true,
-    rateLimiting: {
-      enabled: true,
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      maxRequests: 100,
+jest.mock('../../src/lib/config', () => {
+  const mockConfig = {
+    environment: 'test',
+    backend: {
+      mode: 'supabase',
+      supabase: {
+        url: 'https://test.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.key',
+      },
     },
-  },
-  supabase: {
-    url: 'https://test.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.key',
-  },
-  monitoring: {
-    sentry: {
-      dsn: 'https://test@sentry.io/project',
+    security: {
+      enableCSP: true,
+      enableSecurityHeaders: true,
+      rateLimiting: {
+        enabled: true,
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        maxRequests: 100,
+      },
     },
-  },
-  debug: {
-    enabled: false,
-    showDevTools: false,
-  },
-};
-
-const mockConfigUtils = {
-  isDevelopment: jest.fn(() => false),
-  isProduction: jest.fn(() => true),
-  log: jest.fn(),
-};
-
-jest.mock('../../src/lib/config', () => ({
-  config: mockConfig,
-  configUtils: mockConfigUtils,
-}));
+    monitoring: {
+      sentry: {
+        dsn: 'https://test@sentry.io/project',
+      },
+    },
+    debug: {
+      enabled: false,
+      showDevTools: false,
+    },
+  };
+  
+  const mockConfigUtils = {
+    isDevelopment: jest.fn(() => false),
+    isProduction: jest.fn(() => true),
+    log: jest.fn(),
+  };
+  
+  return {
+    config: mockConfig,
+    configUtils: mockConfigUtils,
+  };
+});
 
 jest.mock('../../src/lib/utils', () => ({
   logger: {
