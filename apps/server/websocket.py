@@ -67,7 +67,8 @@ WEBSOCKET_ENDPOINT = "/ws"
 SSE_ENDPOINT = "/api/events/stream"
 HEARTBEAT_INTERVAL = 30.0  # seconds
 MAX_MESSAGE_SIZE = 1024 * 1024  # 1MB
-EVENT_QUEUE_SIZE = 10000
+EVENT_QUEUE_SIZE = 1000  # MVP: Reduced from 10000 to prevent memory growth
+MEMORY_CLEANUP_THRESHOLD = 800  # Cleanup when 80% full
 LATENCY_TARGET_MS = 50.0
 
 
@@ -264,6 +265,20 @@ class ConnectionManager:
             return
             
         try:
+            # MVP Memory Management: Check if cleanup needed
+            queue_size = self._event_queue.qsize()
+            if queue_size >= MEMORY_CLEANUP_THRESHOLD:
+                logger.warning(f"Event queue at {queue_size}/{EVENT_QUEUE_SIZE}, triggering cleanup")
+                # Remove oldest events to make room (keep most recent 50%)
+                events_to_remove = queue_size - (EVENT_QUEUE_SIZE // 2)
+                for _ in range(events_to_remove):
+                    try:
+                        self._event_queue.get_nowait()
+                        self._event_queue.task_done()
+                    except asyncio.QueueEmpty:
+                        break
+                logger.info(f"Cleaned up {events_to_remove} old events from queue")
+            
             # Add to broadcast queue (non-blocking)
             self._event_queue.put_nowait(event)
             

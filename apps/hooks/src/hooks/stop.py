@@ -5,6 +5,8 @@
 #     "python-dotenv>=1.0.0",
 #     "supabase>=2.0.0",
 #     "ujson>=5.8.0",
+#     "psutil>=5.9.0",
+#     "requests>=2.25.0",
 # ]
 # ///
 """
@@ -36,6 +38,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from lib.database import DatabaseManager
 from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
 from lib.utils import load_chronicle_env, extract_session_id, format_error_message
+from lib.server_manager import stop_chronicle_server_session
 
 # Load environment variables
 try:
@@ -268,6 +271,15 @@ def main():
         logger.info("Processing session stop...")
         result = hook.process_hook(input_data)
         logger.info(f"Session stop processing result: {result}")
+        
+        # Auto-stop Chronicle server session management (non-blocking) - CHR-41 implementation  
+        if hasattr(hook, 'claude_session_id') and hook.claude_session_id:
+            try:
+                # This handles delayed server shutdown if this is the last session
+                stop_chronicle_server_session(hook.claude_session_id)
+            except Exception as e:
+                # Never let server management issues affect Claude Code
+                logger.debug(f"Server session stop failed gracefully: {e}")
         
         # Add execution time
         execution_time = (time.perf_counter() - start_time) * 1000

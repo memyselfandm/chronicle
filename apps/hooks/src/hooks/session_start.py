@@ -4,6 +4,8 @@
 # dependencies = [
 #     "python-dotenv>=1.0.0",
 #     "supabase>=2.0.0",
+#     "psutil>=5.9.0",
+#     "requests>=2.25.0",
 # ]
 # ///
 """
@@ -45,6 +47,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from lib.database import DatabaseManager
 from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
 from lib.utils import load_chronicle_env, sanitize_data, get_project_path, extract_session_id
+from lib.server_manager import start_chronicle_server_if_needed
 
 # UJSON for fast JSON processing
 try:
@@ -369,6 +372,15 @@ def main():
         success, session_data, event_data = hook.process_session_start(input_data)
         additional_context = hook.generate_session_context(session_data, event_data)
         response = hook.create_session_start_response(success, session_data, event_data, additional_context)
+        
+        # Auto-start Chronicle server (non-blocking) - CHR-41 implementation
+        if success and hook.claude_session_id:
+            try:
+                # This is non-blocking and will fail gracefully without impacting Claude Code
+                start_chronicle_server_if_needed(hook.claude_session_id)
+            except Exception as e:
+                # Never let server startup issues affect Claude Code
+                logger.debug(f"Server auto-start failed gracefully: {e}")
         
         # Add execution time
         execution_time = (time.perf_counter() - start_time) * 1000

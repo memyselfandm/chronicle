@@ -351,17 +351,46 @@ class ChronicleInstaller:
         """Copy Chronicle components to installation directory."""
         self.print_status("Copying Chronicle components...")
         
-        # Copy hooks
-        hooks_source = self.project_dir / "apps" / "hooks"
-        if hooks_source.exists():
-            # Copy all contents except __pycache__ and .git
-            def ignore_patterns(dir_path, names):
-                return [name for name in names if name in ['__pycache__', '.git', '.pytest_cache', '*.pyc']]
+        # Define ignore patterns function
+        def ignore_patterns(dir_path, names):
+            return [name for name in names if name in ['__pycache__', '.git', '.pytest_cache', '*.pyc', 'node_modules', '.next']]
+        
+        # Copy hooks with proper structure
+        hooks_src_dir = self.project_dir / "apps" / "hooks" / "src" / "hooks"
+        hooks_lib_dir = self.project_dir / "apps" / "hooks" / "src" / "lib"
+        hooks_dest_dir = self.install_dir / "hooks"
+        
+        if hooks_src_dir.exists() and hooks_lib_dir.exists():
+            # Copy hook scripts
+            for hook_file in hooks_src_dir.glob("*.py"):
+                dest_file = hooks_dest_dir / hook_file.name
+                dest_file.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(hook_file, dest_file)
             
-            shutil.copytree(hooks_source, self.install_dir / "hooks", dirs_exist_ok=True, ignore=ignore_patterns)
-            self.print_success("Copied hooks components")
+            # Copy lib directory inside hooks directory
+            lib_dest = hooks_dest_dir / "lib"
+            if lib_dest.exists():
+                shutil.rmtree(lib_dest)
+            shutil.copytree(hooks_lib_dir, lib_dest, ignore=ignore_patterns)
+            
+            # Copy requirements.txt if it exists
+            hooks_req = self.project_dir / "apps" / "hooks" / "requirements.txt"
+            if hooks_req.exists():
+                shutil.copy2(hooks_req, hooks_dest_dir / "requirements.txt")
+            
+            self.print_success("Copied hooks components with lib directory")
         else:
-            raise InstallationError(f"Hooks source not found in {hooks_source}")
+            raise InstallationError(f"Hooks source or lib not found in {hooks_src_dir} or {hooks_lib_dir}")
+        
+        # Copy server components if they exist
+        server_source = self.project_dir / "apps" / "server"
+        if server_source.exists():
+            shutil.copytree(server_source, self.install_dir / "server", dirs_exist_ok=True, ignore=ignore_patterns)
+            self.print_success("Copied server components")
+        else:
+            # If no server directory yet, create basic structure
+            self.print_warning("Server components not found, creating basic structure")
+            (self.install_dir / "server").mkdir(exist_ok=True)
         
         # Copy dashboard
         dashboard_source = self.project_dir / "apps" / "dashboard"
@@ -369,7 +398,7 @@ class ChronicleInstaller:
             shutil.copytree(dashboard_source, self.install_dir / "dashboard", dirs_exist_ok=True, ignore=ignore_patterns)
             self.print_success("Copied dashboard components")
         else:
-            raise InstallationError(f"Dashboard source not found in {dashboard_source}")
+            self.print_warning(f"Dashboard source not found in {dashboard_source}")
         
         # Create server configuration
         self.create_server_config()
@@ -520,8 +549,9 @@ except Exception as e:
                 finally:
                     os.unlink(temp_script)
             else:
-                # Run with regular python
-                result = self.run_command([self.python_cmd, "-c", init_script], cwd=hooks_dir, capture=True)
+                # Run with regular python - use sys.executable if python_cmd not set
+                python_cmd = self.python_cmd if self.python_cmd else sys.executable
+                result = self.run_command([python_cmd, "-c", init_script], cwd=hooks_dir, capture=True)
                 print(result.stdout)
                 
         except Exception as e:
@@ -540,28 +570,83 @@ except Exception as e:
         """Configure Claude Code hooks."""
         self.print_status("Configuring Claude Code hooks...")
         
-        hooks_dir = self.install_dir / "hooks"
-        install_script = hooks_dir / "scripts" / "install.py"
-        
-        if not install_script.exists():
-            raise InstallationError(f"Hooks install script not found: {install_script}")
-        
-        # Run the hooks installer
-        claude_dir = self.home_dir / ".claude"
-        
-        cmd_args = [
-            str(install_script),
-            "--claude-dir", str(claude_dir),
-            "--hooks-dir", str(hooks_dir),
-            "--no-backup"
-        ]
-        
-        if self.use_uv:
-            self.run_command(["uv", "run", "python"] + cmd_args, cwd=hooks_dir)
-        else:
-            self.run_command([self.python_cmd] + cmd_args, cwd=hooks_dir)
+        # Since we already have the hooks in the right place, just use simple registration
+        # The complex installer script expects a different structure than what we have
+        self.simple_hook_registration()
         
         self.print_success("Claude Code hooks configured")
+    
+    def simple_hook_registration(self) -> None:
+        """Update Claude settings.json to register Chronicle hooks."""
+        self.print_status("Registering hooks in Claude settings.json...")
+        
+        claude_dir = self.home_dir / ".claude"
+        settings_file = claude_dir / "settings.json"
+        chronicle_hooks_dir = self.install_dir / "hooks"
+        
+        # Load existing settings or create new
+        if settings_file.exists():
+            with open(settings_file, 'r') as f:
+                settings = json.load(f)
+        else:
+            settings = {}
+        
+        # Initialize hooks section if it doesn't exist
+        if 'hooks' not in settings:
+            settings['hooks'] = {}
+        
+        # Map of event names to hook files
+        hook_mappings = {
+            'SessionStart': ['session_start.py'],
+            'Stop': ['stop.py'],
+            'PreToolUse': ['pre_tool_use.py'],
+            'PostToolUse': ['post_tool_use.py'],
+            'UserPromptSubmit': ['user_prompt_submit.py'],
+            'PreCompact': ['pre_compact.py'],
+            'Notification': ['notification.py'],
+            'SubagentStop': ['subagent_stop.py']
+        }
+        
+        # Register each hook
+        for event_name, hook_files in hook_mappings.items():
+            # Initialize event array if it doesn't exist
+            if event_name not in settings['hooks']:
+                settings['hooks'][event_name] = []
+            
+            # Check if we already have Chronicle hooks registered
+            existing_configs = settings['hooks'][event_name]
+            chronicle_config_exists = False
+            
+            for config in existing_configs:
+                if 'hooks' in config:
+                    for hook in config['hooks']:
+                        if 'chronicle' in hook.get('command', '').lower():
+                            chronicle_config_exists = True
+                            break
+            
+            # Add Chronicle hooks if not already registered
+            if not chronicle_config_exists:
+                hook_configs = []
+                for hook_file in hook_files:
+                    hook_path = chronicle_hooks_dir / hook_file
+                    if hook_path.exists():
+                        hook_configs.append({
+                            'type': 'command',
+                            'command': str(hook_path),
+                            'description': f'Chronicle {event_name} hook'
+                        })
+                        self.print_success(f"  Registered {event_name}: {hook_file}")
+                
+                if hook_configs:
+                    settings['hooks'][event_name].append({
+                        'hooks': hook_configs
+                    })
+        
+        # Write updated settings
+        with open(settings_file, 'w') as f:
+            json.dump(settings, f, indent=2)
+        
+        self.print_success("Hooks registered in settings.json")
     
     def build_dashboard(self) -> None:
         """Build the dashboard for production."""
@@ -727,7 +812,16 @@ npm start
             # Initialize system
             self.initialize_database()
             self.configure_claude_hooks()
-            self.build_dashboard()
+            
+            # Build dashboard (skip if dependencies were skipped)
+            if not self.skip_deps:
+                try:
+                    self.build_dashboard()
+                except subprocess.CalledProcessError as e:
+                    self.print_warning("Dashboard build failed (dependencies may be missing)")
+                    self.print_warning("Run 'npm install' in dashboard directory to fix")
+            else:
+                self.print_status("Skipping dashboard build (dependencies skipped)")
             
             # Start services
             self.start_services()
@@ -737,13 +831,9 @@ npm start
             
         except InstallationError as e:
             self.print_error(str(e))
-            # Clean up on error
-            if self.install_dir.exists():
-                try:
-                    shutil.rmtree(self.install_dir)
-                    self.print_status("Cleaned up partial installation")
-                except:
-                    pass
+            # Don't clean up - leave for debugging
+            self.print_warning("Installation failed - files left in place for debugging")
+            self.print_warning(f"Check: {self.install_dir}")
             sys.exit(1)
         except KeyboardInterrupt:
             self.print_error("Installation cancelled by user")

@@ -16,26 +16,40 @@
 | 🔧 Core Libraries | 85%+ | 85% | ✅ Production Ready |
 | 🔐 Security Modules | 90%+ | 90% | ✅ Production Ready |
 
-## 🚀 Quick Start (< 30 minutes)
+## 🚀 Quick Start (< 5 minutes)
 
-**Automated Installation**:
+### Zero-Configuration Installation (Recommended)
 ```bash
-git clone <repository-url>
-cd chronicle
-./scripts/quick-start.sh
+# Clone and install with one command
+git clone <repository-url> && cd chronicle
+python install.py
+
+# That's it! Chronicle is now monitoring Claude Code
+# 📁 Installed to: ~/.claude/hooks/chronicle/
+# 🌐 Dashboard: http://localhost:3000
+# 🗄️ Database: Local SQLite (no external setup required)
 ```
 
-**Manual Installation**:
+### Installation Options
 ```bash
-# 1. Dashboard
+python install.py --help         # Show all options
+python install.py --skip-deps    # Skip dependency installation
+python install.py --no-start     # Don't start server after installation
+python install.py --force        # Overwrite existing installation
+```
+
+### Advanced Setup (Supabase Backend)
+For distributed teams or cloud deployments:
+```bash
+# 1. Dashboard with Supabase
 cd apps/dashboard && npm install && cp .env.example .env.local
 # Configure .env.local with Supabase credentials
 npm run dev  # Starts on http://localhost:3000
 
-# 2. Hooks System  
+# 2. Hooks with Supabase  
 cd apps/hooks && pip install -r requirements.txt && cp .env.template .env
 # Configure .env with Supabase credentials
-python install.py  # Installs Claude Code hooks
+python scripts/install.py  # Installs Claude Code hooks
 ```
 
 **Health Check**:
@@ -66,12 +80,15 @@ python install.py  # Installs Claude Code hooks
 ### Core Components
 - **Dashboard**: Next.js 15 with real-time Chronicle UI (`apps/dashboard/`)
 - **Hooks System**: Python-based event capture (`apps/hooks/`)
-- **Database**: Supabase PostgreSQL with SQLite fallback
+- **Database**: Local SQLite (default) or Supabase PostgreSQL (optional)
+- **Zero-Config Installation**: One-command setup with no external dependencies
 - **Documentation**: Comprehensive guides for deployment
 
 ### Features Built
-- **Real-time Event Streaming**: Live dashboard updates via Supabase
+- **Self-Contained Mode**: Fully functional with local SQLite, no cloud required
+- **Real-time Event Streaming**: Live dashboard updates (local or Supabase)
 - **Complete Hook Coverage**: All Claude Code hooks implemented
+- **Automatic Hook Registration**: Direct integration with Claude settings.json
 - **Data Security**: Sanitization, PII filtering, secure configuration
 - **Production Deployment**: Full deployment automation and monitoring
 - **Comprehensive Testing**: 42+ tests across all components
