@@ -18,19 +18,15 @@ Captures system notifications and alerts from Claude Code including:
 """
 
 import json
-import logging
 import os
 import sys
 import time
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Any
 
 # Add src directory to path for lib imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Import shared library modules
-from lib.database import DatabaseManager
 from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
 from lib.utils import load_chronicle_env
 
@@ -51,27 +47,29 @@ logger = setup_hook_logging("notification")
 
 class NotificationHook(BaseHook):
     """Hook for capturing Claude Code notifications."""
-    
+
     def __init__(self):
         super().__init__()
-    
+
     def process_hook(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process notification hook input."""
         try:
             logger.debug("Starting notification hook processing")
-            
+
             # Process input data using base hook functionality
             processed_data = self.process_hook_data(input_data, "Notification")
-            
+
             # Extract notification details
             notification_type = input_data.get("type", "unknown")
             message = input_data.get("message", "")
             severity = input_data.get("severity", "info")
             source = input_data.get("source", "system")
-            
-            logger.info(f"Notification details - Type: {notification_type}, Severity: {severity}, Source: {source}")
-            logger.debug(f"Notification message: {message[:500]}{'...' if len(message) > 500 else ''}")
-            
+
+            logger.info(
+                f"Notification details - Type: {notification_type}, Severity: {severity}, Source: {source}")
+            logger.debug(
+                f"Notification message: {message[:500]}{'...' if len(message) > 500 else ''}")
+
             # Create event data using helper function
             event_data = create_event_data(
                 event_type="notification",
@@ -84,16 +82,17 @@ class NotificationHook(BaseHook):
                     "raw_input": processed_data.get("raw_input")
                 }
             )
-            
+
             # Save event
             logger.info("Attempting to save notification event to database...")
             event_saved = self.save_event(event_data)
             logger.info(f"Database save result: {event_saved}")
-            
+
             # Create response with output suppression for low-level notifications
             suppress_output = severity in ["debug", "trace"]
-            logger.debug(f"Output suppression: {suppress_output} (severity: {severity})")
-            
+            logger.debug(
+                f"Output suppression: {suppress_output} (severity: {severity})")
+
             return self.create_response(
                 continue_execution=True,
                 suppress_output=suppress_output,
@@ -104,9 +103,10 @@ class NotificationHook(BaseHook):
                     event_saved=event_saved
                 )
             )
-            
+
         except Exception as e:
-            logger.error(f"Notification hook processing error: {e}", exc_info=True)
+            logger.error(
+                f"Notification hook processing error: {e}", exc_info=True)
             return self.create_response(continue_execution=True, suppress_output=False)
 
 # ===========================================
@@ -117,7 +117,7 @@ def main():
     """Main entry point for notification hook."""
     try:
         logger.debug("NOTIFICATION HOOK STARTED")
-        
+
         # Read input from stdin
         try:
             input_data = json_impl.load(sys.stdin)
@@ -125,31 +125,32 @@ def main():
         except json.JSONDecodeError as e:
             logger.warning(f"No input data received or invalid JSON: {e}")
             input_data = {}
-        
+
         # Process hook
         start_time = time.perf_counter()
         logger.info("Initializing NotificationHook...")
-        
+
         hook = NotificationHook()
         logger.info("Processing notification hook...")
         result = hook.process_hook(input_data)
         logger.info(f"Notification hook processing result: {result}")
-        
+
         # Add execution time
         execution_time = (time.perf_counter() - start_time) * 1000
         result["execution_time_ms"] = execution_time
-        
+
         # Log performance
         if execution_time > 100:
-            logger.warning(f"Hook exceeded 100ms requirement: {execution_time:.2f}ms")
+            logger.warning(
+                f"Hook exceeded 100ms requirement: {execution_time:.2f}ms")
         else:
             logger.info(f"Hook completed in {execution_time:.2f}ms")
-        
+
         # Output result
         print(json_impl.dumps(result, indent=2))
         logger.info("Notification hook completed successfully")
         sys.exit(0)
-        
+
     except json.JSONDecodeError as e:
         logger.error(f"JSON decode error: {e}")
         safe_response = {
@@ -158,9 +159,10 @@ def main():
         }
         print(json_impl.dumps(safe_response))
         sys.exit(0)
-        
+
     except Exception as e:
-        logger.error(f"Critical error in notification hook: {e}", exc_info=True)
+        logger.error(
+            f"Critical error in notification hook: {e}", exc_info=True)
         safe_response = {
             "continue": True,
             "suppressOutput": True

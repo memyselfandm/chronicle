@@ -1,18 +1,22 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase, REALTIME_CONFIG } from '../lib/supabase';
-import { MONITORING_INTERVALS } from '../lib/constants';
 import { Event } from '@/types/events';
 import { FilterState } from '@/types/filters';
-import { useSupabaseConnection } from './useSupabaseConnection';
-import type { ConnectionStatus } from '@/types/connection';
+import { getBackend } from '../lib/backend/factory';
+import { 
+  ChronicleBackend, 
+  BackendConnectionStatus, 
+  EventFilters,
+  SubscriptionHandle 
+} from '../lib/backend';
+import { logger } from '../lib/utils';
+import { config } from '../lib/config';
 
 interface UseEventsState {
   events: Event[];
   loading: boolean;
   error: Error | null;
   hasMore: boolean;
-  connectionStatus: ConnectionStatus;
+  connectionStatus: BackendConnectionStatus;
   connectionQuality: 'excellent' | 'good' | 'poor' | 'unknown';
   retry: () => void;
   loadMore: () => Promise<void>;
@@ -25,7 +29,8 @@ interface UseEventsOptions {
 }
 
 /**
- * Custom hook for managing events with real-time subscriptions
+ * Custom hook for managing events with backend abstraction
+ * Supports both Supabase and local Chronicle server backends
  * Provides state management, data fetching, and real-time updates
  */
 export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
@@ -60,73 +65,117 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [connectionStatus, setConnectionStatus] = useState<BackendConnectionStatus>('disconnected');
+  const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor' | 'unknown'>('unknown');
 
-  // Connection monitoring
-  const {
-    status: connectionStatus,
-    registerChannel,
-    unregisterChannel,
-    recordEventReceived,
-    retry: retryConnection,
-    getConnectionQuality,
-  } = useSupabaseConnection({
-    enableHealthCheck: true,
-    healthCheckInterval: MONITORING_INTERVALS.HEALTH_CHECK_INTERVAL,
-  });
-
-  // Refs for cleanup and deduplication
-  const eventsChannelRef = useRef<RealtimeChannel | null>(null);
-  const sessionsChannelRef = useRef<RealtimeChannel | null>(null);
+  // Backend and subscription refs
+  const backendRef = useRef<ChronicleBackend | null>(null);
+  const eventSubscriptionRef = useRef<SubscriptionHandle | null>(null);
+  const connectionSubscriptionRef = useRef<SubscriptionHandle | null>(null);
   const eventIdsRef = useRef<Set<string>>(new Set());
+  const lastEventReceived = useRef<Date | null>(null);
 
   /**
-   * Fetches events from Supabase with filters and pagination
+   * Initialize backend connection
+   */
+  const initializeBackend = useCallback(async () => {
+    try {
+      if (!backendRef.current) {
+        logger.info('Initializing backend for useEvents', {
+          component: 'useEvents',
+          action: 'initializeBackend'
+        });
+        
+        backendRef.current = await getBackend();
+        
+        // Subscribe to connection status changes
+        connectionSubscriptionRef.current = backendRef.current.onConnectionStatusChange((status) => {
+          setConnectionStatus(status);
+          updateConnectionQuality(status);
+        });
+
+        // Set initial connection status
+        setConnectionStatus(backendRef.current.getConnectionStatus());
+        updateConnectionQuality(backendRef.current.getConnectionStatus());
+      }
+    } catch (error) {
+      logger.error('Failed to initialize backend', {
+        component: 'useEvents',
+        action: 'initializeBackend'
+      }, error as Error);
+      
+      setError(error as Error);
+      setConnectionStatus('error');
+    }
+  }, []);
+
+  /**
+   * Update connection quality based on status and response times
+   */
+  const updateConnectionQuality = useCallback((status: BackendConnectionStatus) => {
+    if (status === 'connected') {
+      const now = new Date();
+      const lastReceived = lastEventReceived.current;
+      
+      if (!lastReceived) {
+        setConnectionQuality('good');
+      } else {
+        const timeSinceLastEvent = now.getTime() - lastReceived.getTime();
+        
+        if (timeSinceLastEvent < 30000) { // Less than 30 seconds
+          setConnectionQuality('excellent');
+        } else if (timeSinceLastEvent < 120000) { // Less than 2 minutes
+          setConnectionQuality('good');
+        } else {
+          setConnectionQuality('poor');
+        }
+      }
+    } else if (status === 'connecting' || status === 'retrying') {
+      setConnectionQuality('poor');
+    } else {
+      setConnectionQuality('unknown');
+    }
+  }, []);
+
+  /**
+   * Convert FilterState to EventFilters
+   */
+  const convertFilters = useCallback((filters: Partial<FilterState>): EventFilters => {
+    return {
+      sessionIds: filters.sessionIds,
+      eventTypes: filters.eventTypes,
+      dateRange: filters.dateRange,
+      searchQuery: filters.searchQuery,
+    };
+  }, []);
+
+  /**
+   * Fetches events from the current backend with filters and pagination
    */
   const fetchEvents = useCallback(async (
     loadOffset = 0,
     append = false
   ): Promise<Event[]> => {
     try {
+      if (!backendRef.current) {
+        await initializeBackend();
+        if (!backendRef.current) {
+          throw new Error('Failed to initialize backend');
+        }
+      }
+
       setLoading(true);
       setError(null);
 
       // Use the ref to access current filters without triggering re-renders
       const currentFilters = filtersRef.current;
+      const eventFilters: EventFilters = {
+        ...convertFilters(currentFilters),
+        limit,
+        offset: loadOffset,
+      };
 
-      let query = supabase
-        .from('chronicle_events')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .range(loadOffset, loadOffset + limit - 1);
-
-      // Apply filters
-      if (currentFilters.sessionIds && currentFilters.sessionIds.length > 0) {
-        query = query.in('session_id', currentFilters.sessionIds);
-      }
-
-      if (currentFilters.eventTypes && currentFilters.eventTypes.length > 0) {
-        query = query.in('type', currentFilters.eventTypes);
-      }
-
-      if (currentFilters.dateRange?.start) {
-        query = query.gte('timestamp', currentFilters.dateRange.start.toISOString());
-      }
-
-      if (currentFilters.dateRange?.end) {
-        query = query.lte('timestamp', currentFilters.dateRange.end.toISOString());
-      }
-
-      if (currentFilters.searchQuery) {
-        query = query.textSearch('data', currentFilters.searchQuery);
-      }
-
-      const { data, error: fetchError } = await query;
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      const fetchedEvents = data || [];
+      const fetchedEvents = await backendRef.current.getEvents(eventFilters);
       
       // Sort by timestamp (newest first) to ensure consistency
       const sortedEvents = fetchedEvents.sort(
@@ -144,6 +193,17 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       }
 
       setHasMore(sortedEvents.length === limit);
+      
+      logger.debug('Successfully fetched events', {
+        component: 'useEvents',
+        action: 'fetchEvents',
+        data: { 
+          count: sortedEvents.length, 
+          append,
+          backendMode: config.backend.mode 
+        }
+      });
+
       return sortedEvents;
 
     } catch (err) {
@@ -152,20 +212,25 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       if (!append) {
         setEvents([]);
       }
+      
+      logger.error('Failed to fetch events', {
+        component: 'useEvents',
+        action: 'fetchEvents'
+      }, errorObj);
+
       return [];
     } finally {
       setLoading(false);
     }
-  }, [limit]); // Remove filters from dependencies since we use ref
+  }, [limit, initializeBackend, convertFilters]);
 
   /**
    * Handles new events from real-time subscription
    */
-  const handleRealtimeEvent = useCallback((payload: { new: Event }) => {
-    const newEvent: Event = payload.new;
-    
+  const handleRealtimeEvent = useCallback((newEvent: Event) => {
     // Record that we received an event (for connection health monitoring)
-    recordEventReceived();
+    lastEventReceived.current = new Date();
+    updateConnectionQuality(connectionStatus);
     
     // Prevent duplicates
     if (eventIdsRef.current.has(newEvent.id)) {
@@ -180,90 +245,88 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
       const updatedEvents = [newEvent, ...prev];
       
       // Maintain memory limit
-      if (updatedEvents.length > REALTIME_CONFIG.MAX_CACHED_EVENTS) {
-        return updatedEvents.slice(0, REALTIME_CONFIG.MAX_CACHED_EVENTS);
+      const maxCachedEvents = config.performance.maxEventsDisplay;
+      if (updatedEvents.length > maxCachedEvents) {
+        return updatedEvents.slice(0, maxCachedEvents);
       }
       
       return updatedEvents;
     });
-  }, [recordEventReceived]);
+
+    logger.debug('Received real-time event', {
+      component: 'useEvents',
+      action: 'handleRealtimeEvent',
+      data: { eventId: newEvent.id, eventType: newEvent.event_type }
+    });
+  }, [connectionStatus, updateConnectionQuality]);
 
   /**
-   * Handles session updates from real-time subscription
+   * Sets up real-time subscription for events
    */
-  const handleSessionUpdate = useCallback((payload: { new: any, old: any }) => {
-    // Record that we received an event (for connection health monitoring)
-    recordEventReceived();
-    
-    // Session updates don't directly affect the events array,
-    // but we can use this for session status changes or metadata updates
-    // The parent component using useSessions will handle session state
-  }, [recordEventReceived]);
+  const setupRealtimeSubscription = useCallback(async () => {
+    if (!enableRealtime || !backendRef.current) {
+      return;
+    }
+
+    // Cleanup existing subscription
+    if (eventSubscriptionRef.current) {
+      eventSubscriptionRef.current.unsubscribe();
+      eventSubscriptionRef.current = null;
+    }
+
+    try {
+      // Subscribe to event updates
+      eventSubscriptionRef.current = backendRef.current.subscribeToEvents(handleRealtimeEvent);
+      
+      logger.info('Real-time event subscription established', {
+        component: 'useEvents',
+        action: 'setupRealtimeSubscription',
+        data: { backendMode: config.backend.mode }
+      });
+
+    } catch (error) {
+      logger.error('Failed to setup real-time subscription', {
+        component: 'useEvents',
+        action: 'setupRealtimeSubscription'
+      }, error as Error);
+    }
+  }, [enableRealtime, handleRealtimeEvent]);
 
   /**
-   * Sets up real-time subscriptions for both events and sessions
+   * Cleanup subscriptions
    */
-  const setupRealtimeSubscription = useCallback(() => {
-    if (!enableRealtime) return;
-
-    // Cleanup existing subscriptions
-    if (eventsChannelRef.current) {
-      unregisterChannel(eventsChannelRef.current);
-      eventsChannelRef.current.unsubscribe();
+  const cleanup = useCallback(() => {
+    if (eventSubscriptionRef.current) {
+      eventSubscriptionRef.current.unsubscribe();
+      eventSubscriptionRef.current = null;
     }
-    if (sessionsChannelRef.current) {
-      unregisterChannel(sessionsChannelRef.current);
-      sessionsChannelRef.current.unsubscribe();
+    if (connectionSubscriptionRef.current) {
+      connectionSubscriptionRef.current.unsubscribe();
+      connectionSubscriptionRef.current = null;
     }
-
-    // Create events channel for INSERT operations
-    eventsChannelRef.current = supabase
-      .channel('events-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chronicle_events',
-        },
-        handleRealtimeEvent
-      )
-      .subscribe();
-
-    // Create sessions channel for UPDATE operations
-    sessionsChannelRef.current = supabase
-      .channel('sessions-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chronicle_sessions',
-        },
-        handleSessionUpdate
-      )
-      .subscribe();
-
-    // Register channels with connection monitoring
-    if (eventsChannelRef.current) {
-      registerChannel(eventsChannelRef.current);
-    }
-    if (sessionsChannelRef.current) {
-      registerChannel(sessionsChannelRef.current);
-    }
-
-  }, [enableRealtime, handleRealtimeEvent, handleSessionUpdate, registerChannel, unregisterChannel]);
+  }, []);
 
   /**
    * Retry function for error recovery
    */
-  const retry = useCallback(() => {
+  const retry = useCallback(async () => {
     setError(null);
     eventIdsRef.current.clear();
-    fetchEvents(0, false);
-    // Also retry the connection
-    retryConnection();
-  }, [fetchEvents, retryConnection]);
+    
+    // Re-initialize backend if needed
+    await initializeBackend();
+    
+    // Fetch events again
+    await fetchEvents(0, false);
+    
+    // Re-setup real-time subscription
+    await setupRealtimeSubscription();
+    
+    logger.info('Retry completed', {
+      component: 'useEvents',
+      action: 'retry'
+    });
+  }, [initializeBackend, fetchEvents, setupRealtimeSubscription]);
 
   /**
    * Load more events (pagination)
@@ -275,29 +338,42 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     setOffset(prev => prev + limit);
   }, [fetchEvents, loading, hasMore, offset, limit]);
 
-  // Fetch data when component mounts or filters change
+  // Initialize backend and fetch initial data
   useEffect(() => {
-    fetchEvents(0, false);
-  }, [fetchEvents, stableFilters]);
+    let mounted = true;
 
-  // Setup real-time subscription
+    const init = async () => {
+      if (mounted) {
+        await initializeBackend();
+        if (mounted) {
+          await fetchEvents(0, false);
+          await setupRealtimeSubscription();
+        }
+      }
+    };
+
+    init();
+
+    return () => {
+      mounted = false;
+    };
+  }, [initializeBackend]); // Only depend on initializeBackend
+
+  // Re-fetch when filters change
   useEffect(() => {
-    if (enableRealtime) {
+    if (backendRef.current) {
+      fetchEvents(0, false);
+    }
+  }, [stableFilters]); // Depend on stable filters
+
+  // Setup/cleanup real-time subscription when enableRealtime changes
+  useEffect(() => {
+    if (backendRef.current) {
       setupRealtimeSubscription();
     }
 
-    // Cleanup on unmount
-    return () => {
-      if (eventsChannelRef.current) {
-        unregisterChannel(eventsChannelRef.current);
-        eventsChannelRef.current.unsubscribe();
-      }
-      if (sessionsChannelRef.current) {
-        unregisterChannel(sessionsChannelRef.current);
-        sessionsChannelRef.current.unsubscribe();
-      }
-    };
-  }, [enableRealtime, setupRealtimeSubscription, unregisterChannel]);
+    return cleanup;
+  }, [enableRealtime, setupRealtimeSubscription, cleanup]);
 
   return {
     events,
@@ -305,7 +381,7 @@ export const useEvents = (options: UseEventsOptions = {}): UseEventsState => {
     error,
     hasMore,
     connectionStatus,
-    connectionQuality: getConnectionQuality,
+    connectionQuality,
     retry,
     loadMore,
   };

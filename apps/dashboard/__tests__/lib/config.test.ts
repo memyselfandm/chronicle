@@ -1,4 +1,4 @@
-import type { AppConfig, Environment, LogLevel, Theme } from '../../src/lib/config';
+import type { AppConfig, Environment, LogLevel, Theme, BackendMode } from '../../src/lib/config';
 
 // Mock constants
 jest.mock('../../src/lib/constants', () => ({
@@ -40,7 +40,8 @@ describe('Config Module', () => {
     // Reset environment variables
     process.env = { ...originalEnv };
     
-    // Set minimum required environment variables
+    // Set minimum required environment variables for Supabase mode
+    process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
     process.env.NEXT_PUBLIC_ENVIRONMENT = 'development';
@@ -68,9 +69,10 @@ describe('Config Module', () => {
       expect(config).toBeDefined();
     });
 
-    it('should validate required environment variables on server-side', async () => {
+    it('should validate required environment variables for Supabase mode on server-side', async () => {
       // Simulate server-side
       delete (global as any).window;
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
@@ -78,30 +80,47 @@ describe('Config Module', () => {
 
       await expect(async () => {
         await import('../../src/lib/config');
-      }).rejects.toThrow('Missing required environment variables');
+      }).rejects.toThrow('Missing required environment variables for supabase mode');
+    });
+
+    it('should not require Supabase variables in local mode', async () => {
+      // Simulate server-side
+      delete (global as any).window;
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      process.env.NODE_ENV = 'production';
+
+      // Should not throw
+      const { config } = await import('../../src/lib/config');
+      expect(config.backend.mode).toBe('local');
     });
 
     it('should warn about missing variables in development', async () => {
       delete (global as any).window;
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       process.env.NODE_ENV = 'development';
 
       await import('../../src/lib/config');
 
       expect(mockConsole.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Missing environment variables')
+        expect.stringContaining('Missing required environment variables for supabase mode')
       );
     });
 
     it('should handle all required variables present', async () => {
       delete (global as any).window;
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
       process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-key';
 
       const { config } = await import('../../src/lib/config');
       
-      expect(config.supabase.url).toBe('https://test.supabase.co');
-      expect(config.supabase.anonKey).toBe('test-key');
+      expect(config.backend.supabase?.url).toBe('https://test.supabase.co');
+      expect(config.backend.supabase?.anonKey).toBe('test-key');
     });
   });
 
@@ -145,6 +164,82 @@ describe('Config Module', () => {
       expect(config.appTitle).toBe('Chronicle Observability');
       expect(config.features.enableRealtime).toBe(true);
       expect(config.performance.maxEventsDisplay).toBe(1000);
+    });
+  });
+
+  describe('Backend Mode Detection', () => {
+    it('should correctly identify local mode', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+      
+      const { config, configUtils } = await import('../../src/lib/config');
+      expect(config.backend.mode).toBe('local');
+      expect(configUtils.isLocalMode()).toBe(true);
+      expect(configUtils.isSupabaseMode()).toBe(false);
+    });
+
+    it('should correctly identify Supabase mode', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
+      
+      const { config, configUtils } = await import('../../src/lib/config');
+      expect(config.backend.mode).toBe('supabase');
+      expect(configUtils.isSupabaseMode()).toBe(true);
+      expect(configUtils.isLocalMode()).toBe(false);
+    });
+
+    it('should default to local mode when not specified', async () => {
+      delete process.env.NEXT_PUBLIC_CHRONICLE_MODE;
+      
+      const { config } = await import('../../src/lib/config');
+      expect(config.backend.mode).toBe('local');
+    });
+
+    it('should default to local mode for invalid backend mode', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'invalid-mode';
+      
+      const { config } = await import('../../src/lib/config');
+      expect(config.backend.mode).toBe('local');
+      expect(mockConsole.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid backend mode "invalid-mode"')
+      );
+    });
+
+    it('should configure local backend settings', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+      process.env.NEXT_PUBLIC_LOCAL_SERVER_URL = 'http://localhost:9000';
+      
+      const { config } = await import('../../src/lib/config');
+      
+      expect(config.backend.mode).toBe('local');
+      expect(config.backend.local).toEqual({
+        serverUrl: 'http://localhost:9000',
+      });
+      expect(config.backend.supabase).toBeUndefined();
+    });
+
+    it('should use default local server URL', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+      delete process.env.NEXT_PUBLIC_LOCAL_SERVER_URL;
+      
+      const { config } = await import('../../src/lib/config');
+      
+      expect(config.backend.local?.serverUrl).toBe('http://localhost:8510');
+    });
+
+    it('should configure Supabase backend settings', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
+      process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+      process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
+      
+      const { config } = await import('../../src/lib/config');
+      
+      expect(config.backend.mode).toBe('supabase');
+      expect(config.backend.supabase).toEqual({
+        url: 'https://test.supabase.co',
+        anonKey: 'test-anon-key',
+        serviceRoleKey: 'service-key',
+      });
+      expect(config.backend.local).toBeUndefined();
     });
   });
 
@@ -196,7 +291,7 @@ describe('Config Module', () => {
       expect(config).toHaveProperty('environment');
       expect(config).toHaveProperty('nodeEnv');
       expect(config).toHaveProperty('appTitle');
-      expect(config).toHaveProperty('supabase');
+      expect(config).toHaveProperty('backend');
       expect(config).toHaveProperty('monitoring');
       expect(config).toHaveProperty('features');
       expect(config).toHaveProperty('performance');
@@ -205,15 +300,34 @@ describe('Config Module', () => {
       expect(config).toHaveProperty('security');
     });
 
-    it('should have proper supabase configuration', async () => {
+    it('should have proper backend configuration structure', async () => {
+      const { config } = await import('../../src/lib/config');
+      
+      expect(config.backend).toHaveProperty('mode');
+      expect(['local', 'supabase']).toContain(config.backend.mode);
+    });
+
+    it('should have proper Supabase backend configuration when in Supabase mode', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
       process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
       
       const { config } = await import('../../src/lib/config');
       
-      expect(config.supabase).toEqual({
+      expect(config.backend.supabase).toEqual({
         url: 'https://test.supabase.co',
         anonKey: 'test-anon-key',
         serviceRoleKey: 'service-role-key',
+      });
+    });
+
+    it('should have proper local backend configuration when in local mode', async () => {
+      process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+      process.env.NEXT_PUBLIC_LOCAL_SERVER_URL = 'http://localhost:8510';
+      
+      const { config } = await import('../../src/lib/config');
+      
+      expect(config.backend.local).toEqual({
+        serverUrl: 'http://localhost:8510',
       });
     });
 
@@ -324,10 +438,26 @@ describe('Config Module', () => {
     });
 
     describe('Configuration getters', () => {
-      it('should return supabase configuration', async () => {
+      it('should return backend configuration', async () => {
         const { config, configUtils } = await import('../../src/lib/config');
         
-        expect(configUtils.getSupabaseConfig()).toEqual(config.supabase);
+        expect(configUtils.getBackendConfig()).toEqual(config.backend);
+      });
+
+      it('should return Supabase configuration', async () => {
+        process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
+        
+        const { config, configUtils } = await import('../../src/lib/config');
+        
+        expect(configUtils.getSupabaseConfig()).toEqual(config.backend.supabase);
+      });
+
+      it('should return local configuration', async () => {
+        process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+        
+        const { config, configUtils } = await import('../../src/lib/config');
+        
+        expect(configUtils.getLocalConfig()).toEqual(config.backend.local);
       });
 
       it('should return monitoring configuration', async () => {
@@ -534,6 +664,13 @@ describe('Config Module', () => {
       const theme: Theme = config.ui.defaultTheme;
       expect(['light', 'dark']).toContain(theme);
     });
+
+    it('should maintain type safety for backend mode', async () => {
+      const { config } = await import('../../src/lib/config');
+      
+      const mode: BackendMode = config.backend.mode;
+      expect(['local', 'supabase']).toContain(mode);
+    });
   });
 
   describe('Performance Considerations', () => {
@@ -551,6 +688,80 @@ describe('Config Module', () => {
       const { config: config2 } = await import('../../src/lib/config');
       
       expect(config1).toBe(config2); // Should be the same object reference
+    });
+  });
+
+  describe('Backend Factory Functions', () => {
+    describe('getBackendConfig function', () => {
+      it('should return unified local config', async () => {
+        process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+        process.env.NEXT_PUBLIC_LOCAL_SERVER_URL = 'http://localhost:9000';
+        
+        const { getBackendConfig } = await import('../../src/lib/config');
+        
+        expect(getBackendConfig()).toEqual({
+          mode: 'local',
+          serverUrl: 'http://localhost:9000',
+        });
+      });
+
+      it('should return unified Supabase config', async () => {
+        process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
+        process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+        process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
+        
+        const { getBackendConfig } = await import('../../src/lib/config');
+        
+        expect(getBackendConfig()).toEqual({
+          mode: 'supabase',
+          url: 'https://test.supabase.co',
+          anonKey: 'test-anon-key',
+          serviceRoleKey: 'service-key',
+        });
+      });
+
+      it('should use default local server URL when not specified', async () => {
+        process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+        delete process.env.NEXT_PUBLIC_LOCAL_SERVER_URL;
+        
+        const { getBackendConfig } = await import('../../src/lib/config');
+        
+        expect(getBackendConfig()).toEqual({
+          mode: 'local',
+          serverUrl: 'http://localhost:8510',
+        });
+      });
+    });
+
+    describe('createBackend function', () => {
+      it('should log local backend creation', async () => {
+        process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'local';
+        
+        const { createBackend } = await import('../../src/lib/config');
+        
+        const backend = createBackend();
+        
+        expect(mockConsole.info).toHaveBeenCalledWith(
+          '🏠 Chronicle: Using local backend at',
+          'http://localhost:8510'
+        );
+        expect(backend).toBeNull(); // Placeholder until Agent-6 implements it
+      });
+
+      it('should log Supabase backend creation', async () => {
+        process.env.NEXT_PUBLIC_CHRONICLE_MODE = 'supabase';
+        
+        const { createBackend } = await import('../../src/lib/config');
+        
+        const backend = createBackend();
+        
+        expect(mockConsole.info).toHaveBeenCalledWith(
+          '☁️ Chronicle: Using Supabase backend at',
+          'https://test.supabase.co'
+        );
+        expect(backend).toBeNull(); // Placeholder until Agent-6 implements it
+      });
     });
   });
 });

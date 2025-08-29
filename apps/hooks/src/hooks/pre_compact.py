@@ -18,21 +18,18 @@ Captures conversation compaction events before context compression including:
 """
 
 import json
-import logging
 import os
 import sys
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 # Add src directory to path for lib imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Import shared library modules
-from lib.database import DatabaseManager
-from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
-from lib.utils import load_chronicle_env, extract_session_id, format_error_message
+from lib.base_hook import BaseHook, setup_hook_logging
+from lib.utils import load_chronicle_env
 
 # Load environment variables
 try:

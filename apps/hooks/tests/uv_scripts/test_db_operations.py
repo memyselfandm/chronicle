@@ -35,11 +35,16 @@ except ImportError:
 
 # Load environment and database manager
 try:
-    from env_loader import load_chronicle_env, get_database_config
-    from database_manager import DatabaseManager
+    # Add src directory to path for imports
+    from pathlib import Path
+    src_dir = Path(__file__).parent.parent.parent / 'src'
+    sys.path.insert(0, str(src_dir))
+    
+    from lib.database import DatabaseManager, get_database_config
+    from scripts.env_loader import load_chronicle_env
     load_chronicle_env()
-except ImportError:
-    print(f"{Fore.RED}Error: Cannot import env_loader or database_manager")
+except ImportError as e:
+    print(f"{Fore.RED}Error: Cannot import required modules: {e}")
     print("Make sure you're running from the correct directory")
     sys.exit(1)
 

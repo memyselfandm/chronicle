@@ -1,0 +1,197 @@
+# Chronicle Documentation Site Configuration
+
+site_name: Chronicle Documentation
+site_description: Complete documentation for Chronicle - Real-time Claude Code observability and monitoring system
+site_author: Chronicle Development Team
+site_url: https://chronicle-docs.local
+
+# Repository
+repo_name: chronicle
+repo_url: https://github.com/your-org/chronicle
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: Copyright &copy; 2024 Chronicle Development Team
+
+# Configuration
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7 
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  
+  font:
+    text: Roboto
+    code: Roboto Mono
+  
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - toc.follow
+    - toc.integrate
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+# Extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      title: On this page
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      user: your-org
+      repo: chronicle
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Page tree navigation
+nav:
+  - Home: index.md
+  
+  - Getting Started:
+    - getting-started/installation.md
+    - getting-started/quick-start.md
+    - getting-started/first-session.md
+  
+  - User Guide:
+    - user-guide/dashboard-overview.md
+    - user-guide/session-management.md
+    - user-guide/filtering-events.md
+    - user-guide/configuration.md
+  
+  - Tutorials:
+    - tutorials/local-setup.md
+    - tutorials/advanced-configuration.md
+    - tutorials/team-deployment.md
+    - tutorials/migration-from-supabase.md
+  
+  - Admin Guide:
+    - admin-guide/server-management.md
+    - admin-guide/performance-tuning.md
+    - admin-guide/backup-restore.md
+    - admin-guide/troubleshooting.md
+  
+  - Developer Guide:
+    - developer-guide/architecture.md
+    - developer-guide/api-reference.md
+    - developer-guide/plugin-development.md
+    - developer-guide/contributing.md
+  
+  - Reference:
+    - reference/configuration.md
+    - reference/api.md
+    - reference/database.md
+    - reference/hooks.md
+    - reference/environment-variables.md
+    - reference/ci-cd.md
+    - reference/installation-structure.md
+  
+  - Guides:
+    - guides/deployment.md
+    - guides/security.md
+    - guides/performance.md
+    - guides/troubleshooting.md
+    - guides/coverage.md
+  
+  - Setup:
+    - setup/installation.md
+    - setup/environment.md
+    - setup/quick-start.md
+    - setup/supabase.md
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - minify:
+      minify_html: true
+
+# Additional configuration
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-org/chronicle
+      name: Chronicle on GitHub
+  
+  version:
+    provider: mike
+    default: stable
+
+  analytics:
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/emoticon-happy-outline
+          name: This page was helpful
+          data: 1
+          note: >-
+            Thanks for your feedback!
+        - icon: material/emoticon-sad-outline
+          name: This page could be improved
+          data: 0
+          note: >- 
+            Thanks for your feedback! Help us improve this page by
+            <a href="https://github.com/your-org/chronicle/issues/new/?title=[Feedback]+{title}+-+{url}" target="_blank" rel="noopener">telling us what you need</a>.
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

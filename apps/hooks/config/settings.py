@@ -5,6 +5,13 @@ from typing import Dict, Any
 
 # Database configuration
 DEFAULT_DATABASE_CONFIG = {
+    "backend_mode": "auto",  # Options: local, supabase, auto
+    "local_api": {
+        "url": "http://localhost:8510",  # Set via CHRONICLE_LOCAL_API_URL
+        "timeout": 10,
+        "retry_attempts": 3,
+        "retry_delay": 1.0,
+    },
     "supabase": {
         "url": None,  # Set via SUPABASE_URL environment variable
         "anon_key": None,  # Set via SUPABASE_ANON_KEY environment variable
@@ -63,6 +70,12 @@ def get_config() -> Dict[str, Any]:
     }
     
     # Override with environment variables
+    if os.getenv("CHRONICLE_BACKEND_MODE"):
+        config["database"]["backend_mode"] = os.getenv("CHRONICLE_BACKEND_MODE")
+    
+    if os.getenv("CHRONICLE_LOCAL_API_URL"):
+        config["database"]["local_api"]["url"] = os.getenv("CHRONICLE_LOCAL_API_URL")
+    
     config["database"]["supabase"]["url"] = os.getenv("SUPABASE_URL")
     config["database"]["supabase"]["anon_key"] = os.getenv("SUPABASE_ANON_KEY")
     
