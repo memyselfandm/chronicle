@@ -23,10 +23,9 @@ Claude's native permission system.
 
 import json
 import os
-import re
 import sys
 import time
-from datetime import datetime
+from typing import Dict, Any, List
 
 # Add src directory to path for lib imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -92,7 +91,7 @@ class PreToolUseHook(BaseHook):
         """Process pre-tool use hook - purely observational."""
         try:
             # Process input data using base hook functionality
-            processed_data = self.process_hook_data(input_data, "PreToolUse")
+            self.process_hook_data(input_data, "PreToolUse")
 
             # Extract tool information as per Claude Code spec
             tool_name = input_data.get('tool_name', 'unknown')

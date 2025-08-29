@@ -25,6 +25,7 @@ import json
 import os
 import sys
 import time
+from typing import Dict, Any
 
 # Add src directory to path for lib imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -32,7 +33,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 # Import shared library modules
 from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
 from lib.utils import (
-    load_chronicle_env, sanitize_data, is_mcp_tool, extract_mcp_server_name,
+    load_chronicle_env, is_mcp_tool, extract_mcp_server_name,
     parse_tool_response, calculate_duration_ms
 )
 

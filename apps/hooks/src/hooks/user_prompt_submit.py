@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import time
+from typing import Dict, Any, Optional, Tuple
 
 # Add src directory to path for lib imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -162,7 +163,7 @@ class UserPromptSubmitHook(BaseHook):
         """Process user prompt submission."""
         try:
             # Process input data using base hook functionality
-            processed_data = self.process_hook_data(input_data, "UserPromptSubmit")
+            self.process_hook_data(input_data, "UserPromptSubmit")
 
             # Validate input
             if not self._is_valid_prompt_input(input_data):

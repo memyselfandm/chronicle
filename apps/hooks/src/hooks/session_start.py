@@ -42,13 +42,8 @@ from typing import Any, Dict, Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Import shared library modules
-from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
-from lib.utils import (
-    load_chronicle_env,
-    sanitize_data,
-    get_project_path,
-    extract_session_id,
-)
+from lib.base_hook import BaseHook, setup_hook_logging
+from lib.utils import load_chronicle_env
 from lib.server_manager import start_chronicle_server_if_needed
 
 # UJSON for fast JSON processing
@@ -229,7 +224,7 @@ class SessionStartHook(BaseHook):
     def process_session_start(self, input_data):
         """Process session start hook data with performance optimization."""
         try:
-            with measure_performance("session_start.data_processing") as metrics:
+            with measure_performance("session_start.data_processing"):
                 processed_data = self.process_hook_data(input_data, "SessionStart")
 
                 if processed_data.get("error"):
@@ -237,7 +232,7 @@ class SessionStartHook(BaseHook):
                         "Processing failed")})
 
             # Get project context
-            with measure_performance("session_start.project_context") as metrics:
+            with measure_performance("session_start.project_context"):
                 cwd = processed_data.get("cwd")
                 project_context = get_project_context_with_env_support(cwd)
 

@@ -33,12 +33,8 @@ from typing import Dict, Any, Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Import shared library modules
-from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
-from lib.utils import (
-    load_chronicle_env,
-    extract_session_id,
-    format_error_message,
-)
+from lib.base_hook import BaseHook, setup_hook_logging
+from lib.utils import load_chronicle_env
 from lib.server_manager import stop_chronicle_server_session
 
 # Load environment variables

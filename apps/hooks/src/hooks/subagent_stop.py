@@ -21,18 +21,15 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 # Add src directory to path for lib imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Import shared library modules
-from lib.base_hook import BaseHook, create_event_data, setup_hook_logging
-from lib.utils import (
-    load_chronicle_env,
-    extract_session_id,
-    format_error_message,
-)
+from lib.base_hook import BaseHook, setup_hook_logging
+from lib.utils import load_chronicle_env
 
 # Load environment variables
 try:
@@ -118,7 +115,7 @@ class SubagentStopHook(BaseHook):
             }
 
             # Save event
-            self.log_info(f"Saving subagent termination event to database...")
+            self.log_info("Saving subagent termination event to database...")
             event_saved = self.save_event(event_data)
             self.log_info(f"Database save result: {event_saved}")
 
