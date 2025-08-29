@@ -4,8 +4,8 @@ import { config, configUtils } from './config';
 import { logger } from './utils';
 
 // Get Supabase URL and key, prioritizing env vars for client-side
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || config.supabase.url || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || config.supabase.anonKey || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || config.backend.supabase?.url || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || config.backend.supabase?.anonKey || '';
 
 // Debug: Log what we're using
 console.log('🔧 Supabase Client Initialization:', {
@@ -13,8 +13,8 @@ console.log('🔧 Supabase Client Initialization:', {
   keyPrefix: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'missing',
   hasEnvUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
   hasEnvKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  hasConfigUrl: !!config.supabase.url,
-  hasConfigKey: !!config.supabase.anonKey,
+  hasConfigUrl: !!config.backend.supabase?.url,
+  hasConfigKey: !!config.backend.supabase?.anonKey,
 });
 
 // Validate we have required config before creating client

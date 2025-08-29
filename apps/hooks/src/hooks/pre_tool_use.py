@@ -150,8 +150,7 @@ class PreToolUseHook(BaseHook):
     
     
     
- origin/dev
-    
+     
     def _sanitize_tool_input(self, tool_input: Dict[str, Any]) -> Dict[str, Any]:
         """Sanitize tool input for logging."""
         if not isinstance(tool_input, dict):
